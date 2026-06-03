@@ -1,0 +1,45 @@
+id: "@electrace/ldo-regulator"
+name: LDO Regulator
+version: 1.0.0
+category: power
+author: electrace
+license: CC-BY-4.0
+glyph: "⎏"
+topology: linear
+transform: { kind: regulator, efficiency: 0.28 }
+spec:
+  vin: { min: 4.5, max: 12, unit: V }
+  vout: { value: 3.3, unit: V }
+  iout_max: { value: 0.5, unit: A }
+  dropout: { value: 0.3, unit: V }
+terminals:
+  - { id: vin,  role: in,  type: power, polarity: "+", v: { min: 4.5, max: 12, unit: V } }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: vout, role: out, type: rail, v: { value: 3.3, unit: V }, i: { max: 0.5, unit: A } }
+limits:
+  - { field: vin.max, value: 15, unit: V, note: "Regulator abs-max is ~15 V in; beyond that the pass device overheats. Linear means it burns (Vin−Vout)·Iout as heat — mind the dissipation." }
+schematic:
+  parts:
+    - { ref: U1,   type: ic,  part: ldo-3v3, footprint: SOT-223, why: "linear pass element — drops the input to a clean, low-noise 3.3 V" }
+    - { ref: Cin,  type: cap, value: 1uF,  footprint: C0603, why: "input stability / local charge" }
+    - { ref: Cout, type: cap, value: 10uF, footprint: C0805, why: "output stability — most LDOs require a minimum output cap" }
+  nets:
+    - { name: VIN,  connect: [U1.IN, Cin.1, "@vin"] }
+    - { name: VOUT, connect: [U1.OUT, Cout.1, "@vout"] }
+    - { name: GND,  connect: [U1.GND, Cin.2, Cout.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin,  type: port,      ref: vin,  x: 40,  y: 110, rot: 180 }
+    - { id: Cin,    type: capacitor, ref: Cin,  value: 1µF,  x: 98,  y: 137, rot: 90 }
+    - { id: U1,     type: regulator, ref: U1,   value: 3V3,  x: 220, y: 95 }
+    - { id: Cout,   type: capacitor, ref: Cout, value: 10µF, x: 328, y: 137, rot: 90 }
+    - { id: P_vout, type: port,      ref: vout, x: 440, y: 110, rot: 0 }
+    - { id: P_gnd,  type: port,      ref: gnd,  x: 241, y: 220, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: Cin.1 }
+    - { from: Cin.1,   to: U1.IN }
+    - { from: U1.OUT,  to: Cout.1 }
+    - { from: Cout.1,  to: P_vout.1 }
+    - { from: Cin.2,   to: P_gnd.1 }
+    - { from: U1.GND,  to: P_gnd.1 }
+    - { from: Cout.2,  to: P_gnd.1 }

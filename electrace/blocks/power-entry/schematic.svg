@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 250" class="schem">
+  <text class="lbl" x="16" y="58">VIN</text>
+  <text class="railv" x="540" y="58">VBUS</text>
+
+  <!-- barrel jack -->
+  <g class="part" data-part="J1"><title>J1 — 2.1 mm DC barrel-jack input</title>
+    <circle class="sym" cx="40" cy="72" r="11"/><line class="sym" x1="35" y1="67" x2="45" y2="77"/>
+    <line class="wire" x1="51" y1="72" x2="120" y2="72"/>
+  </g>
+
+  <!-- Q1 reverse-polarity P-FET -->
+  <g class="part" data-part="Q1"><title>Q1 — P-channel MOSFET; blocks reverse polarity with almost no voltage drop</title>
+    <rect class="box" x="120" y="52" width="84" height="40" rx="5"/>
+    <text class="val" x="162" y="77" text-anchor="middle">Q1</text>
+  </g>
+  <line class="wire" x1="204" y1="72" x2="540" y2="72"/>
+  <circle class="pin" cx="540" cy="72" r="4"/>
+
+  <!-- D1 TVS clamp -->
+  <g class="part" data-part="D1"><title>D1 — TVS diode; clamps input voltage spikes before they reach downstream</title>
+    <line class="wire" x1="300" y1="72" x2="300" y2="108"/>
+    <polygon class="symfill" points="288,108 312,108 300,126"/>
+    <line class="sym" x1="284" y1="126" x2="316" y2="126"/>
+    <line class="wire" x1="300" y1="126" x2="300" y2="186"/>
+    <text class="lbl" x="320" y="118">D1</text>
+  </g>
+
+  <!-- C1 bulk -->
+  <g class="part" data-part="C1"><title>C1 — bulk input capacitance for hold-up</title>
+    <line class="wire" x1="440" y1="72" x2="440" y2="108"/>
+    <line class="sym" x1="424" y1="108" x2="456" y2="108"/>
+    <line class="sym" x1="424" y1="118" x2="456" y2="118"/>
+    <line class="wire" x1="440" y1="118" x2="440" y2="186"/>
+    <text class="lbl" x="466" y="108">C1</text><text class="val" x="466" y="124">100 µF</text>
+  </g>
+
+  <!-- ground -->
+  <line class="wire" x1="300" y1="186" x2="440" y2="186"/>
+  <g>
+    <line class="wire" x1="370" y1="186" x2="370" y2="204"/>
+    <line class="sym" x1="354" y1="204" x2="386" y2="204"/>
+    <line class="sym" x1="359" y1="210" x2="381" y2="210"/>
+    <line class="sym" x1="364" y1="216" x2="376" y2="216"/>
+  </g>
+</svg>

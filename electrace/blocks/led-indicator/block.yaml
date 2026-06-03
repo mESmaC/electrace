@@ -1,0 +1,32 @@
+id: "@electrace/led-indicator"
+name: LED Indicator
+version: 1.0.0
+category: signal
+author: electrace
+license: CC-BY-4.0
+glyph: "☀"
+spec:
+  vf: { value: 2.0, unit: V }
+  i_led: { value: 10, unit: mA }
+  r_series: { value: 330, unit: Ohm }
+terminals:
+  - { id: vin, role: in, type: signal, v: { min: 3.0, max: 5.5, unit: V }, i: { max: 0.015, unit: A } }
+  - { id: gnd, role: in, type: gnd }
+schematic:
+  parts:
+    - { ref: R1, type: res, value: 330, footprint: R0603, why: "sets the LED current: (Vin − Vf) / R ≈ 10 mA at 5 V" }
+    - { ref: D1, type: led, part: led-green, footprint: "0805", why: "lights when the input is driven high" }
+  nets:
+    - { name: VIN, connect: [R1.1, "@vin"] }
+    - { name: A,   connect: [R1.2, D1.1] }
+    - { name: GND, connect: [D1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin, type: port,     ref: vin,   x: 40,  y: 110, rot: 180 }
+    - { id: R1,    type: resistor, ref: R1, value: 330Ω, x: 120, y: 106 }
+    - { id: D1,    type: led,      ref: D1, value: green, x: 250, y: 98 }
+    - { id: P_gnd, type: port,     ref: gnd,   x: 400, y: 110, rot: 0 }
+  wires:
+    - { from: P_vin.1, to: R1.1 }
+    - { from: R1.2,    to: D1.1 }
+    - { from: D1.2,    to: P_gnd.1 }

@@ -1,0 +1,53 @@
+id: "@electrace/bridge-rectifier"
+name: Bridge Rectifier
+version: 1.0.0
+category: power
+author: electrace
+license: CC-BY-4.0
+glyph: "◇"
+spec:
+  vac_in: { min: 9, max: 24, unit: V }
+  vdrop: { value: 1.4, unit: V }
+  iout_max: { value: 1, unit: A }
+terminals:
+  - { id: ac1,  role: in,  type: power }
+  - { id: ac2,  role: in,  type: power }
+  - { id: vout, role: out, type: power, polarity: "+", v: { min: 11, max: 32, unit: V }, i: { max: 1, unit: A } }
+  - { id: gnd,  role: out, type: gnd }
+limits:
+  - { field: vac_in.max, value: 30, unit: V, note: "Diodes are 1 A / 100 V parts; sustained AC above ~30 V eats into their reverse rating." }
+schematic:
+  parts:
+    - { ref: D1, type: diode, part: 1N4007, footprint: DO-41, why: "conducts on one half-cycle, steering current into V+" }
+    - { ref: D2, type: diode, part: 1N4007, footprint: DO-41, why: "conducts the other phase into V+" }
+    - { ref: D3, type: diode, part: 1N4007, footprint: DO-41, why: "returns the negative half-cycle to ground" }
+    - { ref: D4, type: diode, part: 1N4007, footprint: DO-41, why: "returns the other phase to ground" }
+    - { ref: C1, type: cap, value: 470uF, footprint: radial-8mm, polarized: true, why: "smooths the rectified pulses into steady DC (sets ripple)" }
+  nets:
+    - { name: ACA,  connect: [D1.1, D3.2, "@ac1"] }
+    - { name: ACB,  connect: [D2.1, D4.2, "@ac2"] }
+    - { name: VOUT, connect: [D1.2, D2.2, C1.1, "@vout"] }
+    - { name: GND,  connect: [D3.1, D4.1, C1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_ac1,  type: port,    ref: ac1,  x: 90,  y: 170, rot: 180 }
+    - { id: D1, type: diode,   ref: D1, x: 195, y: 101, rot: 270 }
+    - { id: D2, type: diode,   ref: D2, x: 355, y: 101, rot: 270 }
+    - { id: D3, type: diode,   ref: D3, x: 195, y: 231, rot: 270 }
+    - { id: D4, type: diode,   ref: D4, x: 355, y: 231, rot: 270 }
+    - { id: P_ac2,  type: port, ref: ac2,  x: 430, y: 170, rot: 0 }
+    - { id: C1, type: cap-pol, ref: C1, value: 470µF, x: 438, y: 96, rot: 90 }
+    - { id: P_vout, type: port, ref: vout, x: 560, y: 70, rot: 0 }
+    - { id: P_gnd,  type: port, ref: gnd,  x: 470, y: 270, rot: 0 }
+  wires:
+    - { from: D1.2,    to: D2.2 }
+    - { from: D2.2,    to: C1.1 }
+    - { from: C1.1,    to: P_vout.1 }
+    - { from: D3.1,    to: D4.1 }
+    - { from: D4.1,    to: P_gnd.1 }
+    - { from: C1.2,    to: P_gnd.1 }
+    - { from: D1.1,    to: D3.2 }
+    - { from: P_ac1.1, to: D3.2 }
+    - { from: D2.1,    to: D4.2 }
+    - { from: P_ac2.1, to: D4.2 }
+

@@ -1,0 +1,35 @@
+id: "@electrace/rc-lowpass"
+name: RC Low-Pass Filter
+version: 1.0.0
+category: signal
+author: electrace
+license: CC-BY-4.0
+glyph: "∿"
+spec:
+  r: { value: 1, unit: kOhm }
+  c: { value: 100, unit: nF }
+  fc: { value: 1592, unit: Hz }
+terminals:
+  - { id: in,  role: in,  type: signal }
+  - { id: out, role: out, type: signal }
+  - { id: gnd, role: in,  type: gnd }
+schematic:
+  parts:
+    - { ref: R1, type: res, value: 1k,    footprint: R0603, why: "series resistance — with C1 it sets the cutoff frequency" }
+    - { ref: C1, type: cap, value: 100nF, footprint: C0603, why: "shunts high-frequency content to ground" }
+  nets:
+    - { name: IN,  connect: [R1.1, "@in"] }
+    - { name: OUT, connect: [R1.2, C1.1, "@out"] }
+    - { name: GND, connect: [C1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_in,  type: port,      ref: in,  x: 40,  y: 110, rot: 180 }
+    - { id: R1,    type: resistor,  ref: R1, value: 1k,    x: 120, y: 106 }
+    - { id: C1,    type: capacitor, ref: C1, value: 100nF, x: 208, y: 137, rot: 90 }
+    - { id: P_out, type: port,      ref: out, x: 320, y: 110, rot: 0 }
+    - { id: P_gnd, type: port,      ref: gnd, x: 225, y: 205, rot: 90 }
+  wires:
+    - { from: P_in.1, to: R1.1 }
+    - { from: R1.2,   to: C1.1 }
+    - { from: C1.1,   to: P_out.1 }
+    - { from: C1.2,   to: P_gnd.1 }

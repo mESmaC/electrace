@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Electrace — logo lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@600;700&display=swap');
+  :root{ --accent:#4c8dff; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:#23262d;color:#e9ebf0;padding:28px 32px 60px}
+  h1{font-size:18px;margin:0 0 4px} .lead{color:#9aa1ad;font-size:13px;margin:0 0 22px}
+  .bar{display:flex;align-items:center;gap:10px;margin-bottom:26px;flex-wrap:wrap}
+  .bar small{color:#7e8794;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+  .sw{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+  .sw.on{border-color:#fff}
+  .sec{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#7e8794;margin:30px 0 12px}
+  .grid{display:flex;gap:18px;flex-wrap:wrap}
+  .card{border-radius:16px;padding:34px 30px;display:grid;place-items:center;min-width:300px;flex:1;
+    border:1px solid rgba(255,255,255,.08)}
+  .tile{border-radius:20px;display:grid;place-items:center}
+
+  /* ---- mark (SVG) ---- */
+  .ering {fill:none;stroke:var(--ink);stroke-width:16;stroke-linecap:round}
+  .etrace{fill:none;stroke:var(--accent);stroke-width:7;stroke-linejoin:round;stroke-linecap:round}
+  .eterm {fill:var(--paper);stroke:var(--accent);stroke-width:6}
+  .mk{display:block}
+
+  /* ---- lockups ---- */
+  .lockup{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .lockup .mk{width:150px;height:113px}
+  .word{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:700;letter-spacing:1px;
+    color:var(--ink);display:flex;align-items:center;line-height:1}
+  .lockup .word{font-size:52px}
+  .word .caret{display:inline-block;width:9px;height:.62em;background:var(--accent);
+    margin-left:9px;border-radius:2px;animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .tag{font-family:Inter,sans-serif;font-weight:700;letter-spacing:4px;text-transform:uppercase;
+    color:var(--muted);font-size:11px;display:flex;align-items:center;gap:12px}
+  .tag::before,.tag::after{content:"";width:24px;height:2px;background:var(--accent);border-radius:2px}
+
+  /* horizontal lockup */
+  .hlock{display:flex;align-items:center;gap:16px}
+  .hlock .mk{width:64px;height:48px}
+  .hlock .word{font-size:34px}
+  .hlock .word .caret{height:.6em;width:7px;margin-left:7px}
+</style>
+</head>
+<body>
+  <h1>Electrace — logo lab</h1>
+  <p class="lead">The C = circuit + the C-language IDE heritage · resistor trace with net terminals · monospace wordmark + code caret.
+  Flip the accent to compare blue vs. the original orange.</p>
+
+  <div class="bar">
+    <small>Accent</small>
+    <button class="sw on" style="background:#4c8dff" onclick="acc('#4c8dff',this)" title="blue (app accent)"></button>
+    <button class="sw" style="background:#ff5a1f" onclick="acc('#ff5a1f',this)" title="orange (original)"></button>
+    <button class="sw" style="background:#2dd4bf" onclick="acc('#2dd4bf',this)" title="teal"></button>
+    <button class="sw" style="background:#a855f7" onclick="acc('#a855f7',this)" title="violet"></button>
+  </div>
+
+  <!-- hidden symbol def -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="mk" viewBox="0 0 240 180">
+      <path class="ering"  d="M169.7 39.9 A78 78 0 1 0 169.7 140.1"/>
+      <path class="etrace" d="M65 90 H100 L106 76 L118 104 L130 76 L142 104 L154 76 L160 90 H200"/>
+      <circle class="eterm" cx="55" cy="90" r="10"/>
+      <circle class="eterm" cx="210" cy="90" r="10"/>
+    </symbol>
+  </defs></svg>
+
+  <div class="sec">Full lockup — on each theme background</div>
+  <div class="grid">
+    <div class="card" style="background:#ffffff;--ink:#1e2a3a;--muted:#5b6b80;--paper:#ffffff">
+      <div class="lockup">
+        <svg class="mk" viewBox="0 0 240 180"><use href="#mk"/></svg>
+        <div class="word">Electrace<span class="caret"></span></div>
+        <div class="tag">The electrical engineer's IDE</div>
+      </div>
+    </div>
+    <div class="card" style="background:#3c4658;--ink:#ffffff;--muted:#cfd6e1;--paper:#3c4658">
+      <div class="lockup">
+        <svg class="mk" viewBox="0 0 240 180"><use href="#mk"/></svg>
+        <div class="word">Electrace<span class="caret"></span></div>
+        <div class="tag">The electrical engineer's IDE</div>
+      </div>
+    </div>
+    <div class="card" style="background:#13151a;--ink:#eef2f8;--muted:#93a0b3;--paper:#13151a">
+      <div class="lockup">
+        <svg class="mk" viewBox="0 0 240 180"><use href="#mk"/></svg>
+        <div class="word">Electrace<span class="caret"></span></div>
+        <div class="tag">The electrical engineer's IDE</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">Horizontal lockup — app header</div>
+  <div class="grid">
+    <div class="card" style="background:#13151a;--ink:#eef2f8;--muted:#93a0b3;--paper:#13151a">
+      <div class="hlock"><svg class="mk" viewBox="0 0 240 180"><use href="#mk"/></svg>
+        <div class="word">Electrace<span class="caret"></span></div></div>
+    </div>
+    <div class="card" style="background:#ffffff;--ink:#1e2a3a;--muted:#5b6b80;--paper:#ffffff">
+      <div class="hlock"><svg class="mk" viewBox="0 0 240 180"><use href="#mk"/></svg>
+        <div class="word">Electrace<span class="caret"></span></div></div>
+    </div>
+  </div>
+
+  <div class="sec">Mark only — app icon / favicon</div>
+  <div class="grid" style="align-items:center">
+    <div class="tile" style="background:#13151a;width:96px;height:96px;--ink:#eef2f8;--paper:#13151a">
+      <svg class="mk" viewBox="0 0 240 180" style="width:64px;height:48px"><use href="#mk"/></svg></div>
+    <div class="tile" style="background:var(--accent);width:96px;height:96px;--ink:#ffffff;--paper:var(--accent)">
+      <svg class="mk" viewBox="0 0 240 180" style="width:64px;height:48px"><use href="#mk"/></svg></div>
+    <div class="tile" style="background:#ffffff;width:56px;height:56px;--ink:#1e2a3a;--paper:#ffffff">
+      <svg class="mk" viewBox="0 0 240 180" style="width:40px;height:30px"><use href="#mk"/></svg></div>
+    <div class="tile" style="background:#ffffff;width:34px;height:34px;--ink:#1e2a3a;--paper:#ffffff">
+      <svg class="mk" viewBox="0 0 240 180" style="width:26px;height:20px"><use href="#mk"/></svg></div>
+  </div>
+
+  <div class="sec">The saved .svg asset (electrace-logo.svg, as-is)</div>
+  <div class="grid">
+    <div class="card" style="background:#ffffff">
+      <img src="electrace-logo.svg" alt="Electrace logo" style="width:340px"/>
+    </div>
+  </div>
+
+<script>
+  function acc(c,btn){
+    document.documentElement.style.setProperty('--accent',c);
+    document.querySelectorAll('.sw').forEach(s=>s.classList.remove('on')); btn.classList.add('on');
+  }
+</script>
+</body>
+</html>

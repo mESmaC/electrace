@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Buck Converter (5 V · 3 A) — Electrace block library</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+  :root{
+    --bg:#0e1015; --bg2:#12151c; --surface:#181b22; --surface-2:#20242e; --surface-3:#2b303b;
+    --border:#262b35; --border-strong:#363c48;
+    --text:#f4f6fa; --dim:#aeb6c4; --faint:#727a88;
+    --accent:#4c8dff; --accent-hi:#6ea3ff; --accent-soft:rgba(76,141,255,.14);
+    --amber:#f7b13c; --green:#46dca6; --gray:#9aa6b6; --warn:#fbbf24;
+    --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth} body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none} .accent{color:var(--accent)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:11px 18px;border-radius:11px;border:1px solid transparent;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff} .btn-primary:hover{background:var(--accent-hi)}
+  .btn-ghost{background:transparent;border-color:var(--border-strong);color:var(--text)} .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+  nav{position:sticky;top:0;z-index:50;background:rgba(14,16,21,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .nav{display:flex;align-items:center;gap:24px;height:60px}
+  .logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-weight:700;font-size:17px}
+  .logo .cm{width:26px;height:20px}
+  .car{display:inline-block;width:5px;height:15px;background:var(--accent);border-radius:1px;animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .nav .links{display:flex;gap:20px;color:var(--dim);font-size:14px;font-weight:500} .nav .links a:hover{color:var(--text)}
+  .nav .right{margin-left:auto;display:flex;gap:13px;align-items:center}
+
+  .crumb{font-size:13px;color:var(--faint);padding:22px 0 6px} .crumb a:hover{color:var(--dim)} .crumb .sep{margin:0 7px}
+
+  .layout{display:grid;grid-template-columns:1fr 232px;gap:48px;padding-bottom:70px}
+  main{min-width:0}
+
+  /* header */
+  .bhead{display:flex;gap:16px;align-items:flex-start;padding:8px 0 22px;border-bottom:1px solid var(--border);margin-bottom:30px}
+  .bglyph{width:58px;height:58px;border-radius:14px;background:rgba(34,211,238,.16);border:1px solid rgba(34,211,238,.4);color:#3fd0e6;display:grid;place-items:center;font-size:28px;flex:none}
+  .bhead h1{font-size:34px;letter-spacing:-.8px;font-weight:800;line-height:1.1}
+  .bhead .tagline{color:var(--dim);font-size:16px;margin-top:4px}
+  .bhead .hactions{margin-left:auto;display:flex;gap:10px;flex:none}
+  .specchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .sc{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--dim)}
+  .sc b{color:var(--text)}
+
+  h2{font-size:23px;font-weight:700;letter-spacing:-.3px;margin:38px 0 12px;scroll-margin-top:80px}
+  h2:first-of-type{margin-top:8px}
+  p{color:var(--dim)} p+p{margin-top:12px}
+  .lead{font-size:17px;color:var(--text)}
+
+  /* schematic panel */
+  .panel{background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;padding:18px;position:relative;box-shadow:0 14px 40px rgba(0,0,0,.4)}
+  .panel .hint{font-size:12px;color:var(--faint);margin-top:8px;text-align:center}
+  .schem{width:100%;height:auto}
+  .wire{stroke:var(--accent);stroke-width:2;fill:none} .sym{stroke:var(--text);stroke-width:2;fill:none}
+  .pin{fill:var(--accent)} .lbl{fill:var(--dim);font-family:var(--mono);font-size:12px} .val{fill:var(--text);font-family:var(--mono);font-size:12px} .why{fill:var(--faint);font-size:11px;font-style:italic} .railv{fill:var(--green);font-family:var(--mono);font-size:12px}
+  .part{cursor:pointer} .part:hover .sym{stroke:var(--accent)} .part:hover .val{fill:var(--accent)}
+  .ptip{position:fixed;z-index:80;max-width:250px;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.5;box-shadow:0 14px 34px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .12s}
+  .ptip .pt{font-weight:700;font-size:13px;margin-bottom:4px} .ptip .pw{color:var(--dim)} .ptip .py{color:var(--accent);margin-top:6px;font-size:11.5px}
+
+  /* part-by-part list */
+  .parts{display:flex;flex-direction:column;gap:0;margin-top:8px;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .prow{display:flex;gap:14px;padding:16px 18px;border-bottom:1px solid var(--border)} .prow:last-child{border:none}
+  .prow:hover{background:var(--surface)}
+  .pref{font-family:var(--mono);font-weight:700;color:var(--text);width:64px;flex:none} .pref small{display:block;color:var(--faint);font-weight:400;font-size:11px}
+  .prow .pd{font-size:14px;color:var(--dim)} .prow .pd b{color:var(--text);font-weight:600}
+
+  /* spec table */
+  .spectable{width:100%;border:1px solid var(--border);border-radius:14px;overflow:hidden;border-collapse:separate;border-spacing:0}
+  .spectable tr{border-bottom:1px solid var(--border)} .spectable td{padding:13px 18px;font-size:14px}
+  .spectable td:first-child{color:var(--dim);width:42%} .spectable td:last-child{font-family:var(--mono);text-align:right}
+  .spectable tr:nth-child(even){background:var(--surface)}
+
+  /* nets */
+  .netrow{display:flex;align-items:center;gap:11px;font-family:var(--mono);font-size:14px;padding:11px 16px;border:1px solid var(--border);border-radius:11px;margin-bottom:9px;background:var(--surface)}
+  .nub{width:11px;height:11px;border-radius:50%;border:2px solid;flex:none}
+  .nub.power{border-color:var(--amber);background:rgba(247,177,60,.25)} .nub.rail{border-color:var(--green);background:rgba(70,220,166,.25)} .nub.gnd{border-color:var(--gray);background:rgba(154,166,182,.22)}
+  .netrow .nt{margin-left:auto;font-family:var(--sans);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);background:var(--surface-2);border:1px solid var(--border);padding:2px 8px;border-radius:6px}
+
+  /* callouts */
+  .callout{border-radius:14px;padding:16px 18px;font-size:14px;margin-top:6px;border:1px solid}
+  .c-math{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+  .c-math .eq{font-family:var(--mono);font-size:15px;color:var(--text);margin:8px 0;display:block}
+  .c-warn{background:rgba(251,191,36,.1);border-color:color-mix(in srgb,var(--warn) 30%,transparent);display:flex;gap:11px}
+  .c-warn .i{color:var(--warn);flex:none}
+
+  .meta-note{display:flex;gap:11px;align-items:center;background:var(--surface);border:1px dashed var(--border-strong);border-radius:13px;padding:14px 16px;margin-top:30px;font-size:13px;color:var(--dim)}
+  .meta-note .i{color:var(--accent);font-size:18px}
+
+  .related{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+  .rcard{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px;cursor:pointer;transition:.13s} .rcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .rcard .rg{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:16px;border:1px solid;margin-bottom:10px}
+  .rcard .rn{font-weight:600;font-size:14px} .rcard .rd{font-size:12px;color:var(--faint);margin-top:2px}
+
+  /* TOC */
+  aside{position:sticky;top:84px;align-self:start;height:max-content}
+  .toc-t{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+  .toc a{display:block;color:var(--dim);font-size:13.5px;padding:6px 0 6px 13px;border-left:2px solid var(--border)} .toc a:hover{color:var(--text);border-color:var(--border-strong)}
+  .toc a.on{color:var(--accent);border-color:var(--accent)}
+  .openbox{margin-top:22px;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px}
+  .openbox .ot{font-weight:600;font-size:14px;margin-bottom:4px} .openbox .od{font-size:12.5px;color:var(--faint);margin-bottom:11px}
+
+  footer{border-top:1px solid var(--border);padding:40px 0;color:var(--faint);font-size:13px}
+  .foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
+  @media(max-width:900px){.layout{grid-template-columns:1fr} aside{display:none} .related{grid-template-columns:1fr 1fr} .nav .links{display:none}}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap nav">
+  <a class="logo"><svg class="cm" viewBox="0 0 240 180"><path d="M169.7 39.9 A78 78 0 1 0 169.7 140.1" fill="none" stroke="var(--text)" stroke-width="16" stroke-linecap="round"/><path d="M65 90 H100 L106 76 L118 104 L130 76 L142 104 L154 76 L160 90 H200" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/><circle cx="55" cy="90" r="10" fill="var(--bg)" stroke="var(--accent)" stroke-width="6"/><circle cx="210" cy="90" r="10" fill="var(--bg)" stroke="var(--accent)" stroke-width="6"/></svg>Electrace<span class="car"></span></a>
+  <div class="links"><a href="#">Blocks</a><a href="#">Docs</a><a href="#">Learn</a></div>
+  <div class="right"><a href="#">Log in</a><a class="btn btn-primary">Get early access</a></div>
+</div></nav>
+
+<div class="wrap">
+  <div class="crumb"><a href="#">Blocks</a><span class="sep">›</span><a href="#">Power</a><span class="sep">›</span>Buck Converter</div>
+
+  <div class="layout">
+    <main>
+      <!-- header -->
+      <div class="bhead">
+        <div class="bglyph">⇄</div>
+        <div>
+          <h1>Buck Converter</h1>
+          <div class="tagline">Steps a higher DC voltage down to a steady 5 V, efficiently.</div>
+          <div class="specchips"><span class="sc">V<sub>in</sub> <b>9–18 V</b></span><span class="sc">V<sub>out</sub> <b>5.0 V</b></span><span class="sc">I<sub>out</sub> <b>3 A</b></span><span class="sc">η <b>~85%</b></span><span class="sc">switching</span></div>
+        </div>
+        <div class="hactions"><button class="btn btn-ghost">Copy block</button><button class="btn btn-primary">Open in Electrace →</button></div>
+      </div>
+
+      <!-- schematic -->
+      <h2 id="schematic">The schematic</h2>
+      <p>Hover any part to see what it does — the same explanations you get inside the editor.</p>
+      <div class="panel" style="margin-top:14px">
+        <svg class="schem" viewBox="0 0 760 300">
+          <text class="lbl" x="20" y="56">VIN</text><text class="railv" x="650" y="56">+5 V</text>
+          <line class="wire" x1="44" y1="70" x2="120" y2="70"/><circle class="pin" cx="44" cy="70" r="4"/>
+          <g class="part" data-part="cin">
+            <line class="wire" x1="120" y1="70" x2="120" y2="116"/><line class="sym" x1="104" y1="116" x2="136" y2="116"/><line class="sym" x1="104" y1="126" x2="136" y2="126"/><line class="wire" x1="120" y1="126" x2="120" y2="170"/>
+            <text class="lbl" x="146" y="116">Cin</text><text class="val" x="146" y="132">22 µF</text>
+          </g>
+          <line class="wire" x1="120" y1="70" x2="250" y2="70"/>
+          <g class="part" data-part="ic">
+            <rect class="sym" x="250" y="44" width="150" height="120" rx="6" fill="var(--surface-2)"/>
+            <text class="val" x="325" y="98" text-anchor="middle">U1</text><text class="lbl" x="325" y="116" text-anchor="middle" font-size="10">buck controller</text>
+            <text class="lbl" x="260" y="66" font-size="10">VIN</text><text class="lbl" x="366" y="66" font-size="10">SW</text><text class="lbl" x="260" y="156" font-size="10">GND</text><text class="lbl" x="362" y="156" font-size="10">FB</text>
+          </g>
+          <g class="part" data-part="l">
+            <line class="wire" x1="400" y1="58" x2="440" y2="58"/><path class="sym" d="M440 58 q8 -12 16 0 q8 -12 16 0 q8 -12 16 0 q8 -12 16 0"/><line class="wire" x1="504" y1="58" x2="570" y2="58"/>
+            <text class="lbl" x="456" y="38">L1</text><text class="val" x="456" y="86" text-anchor="middle">10 µH</text>
+          </g>
+          <line class="wire" x1="570" y1="58" x2="570" y2="70"/><line class="wire" x1="570" y1="70" x2="670" y2="70"/><circle class="pin" cx="670" cy="70" r="4"/>
+          <g class="part" data-part="cout">
+            <line class="wire" x1="570" y1="70" x2="570" y2="116"/><line class="sym" x1="554" y1="116" x2="586" y2="116"/><line class="sym" x1="554" y1="126" x2="586" y2="126"/><line class="wire" x1="570" y1="126" x2="570" y2="170"/>
+            <text class="lbl" x="596" y="116">Cout</text><text class="val" x="596" y="132">47 µF</text>
+          </g>
+          <line class="wire" x1="620" y1="70" x2="620" y2="116"/><circle class="pin" cx="620" cy="70" r="3"/>
+          <g class="part" data-part="r1">
+            <polyline class="sym" points="620,116 612,122 628,130 612,138 628,146 612,154 620,160"/><text class="lbl" x="636" y="132">R1</text><text class="val" x="636" y="148">39 k</text>
+          </g>
+          <line class="wire" x1="620" y1="160" x2="620" y2="176"/><line class="wire" x1="400" y1="130" x2="620" y2="130" opacity=".5"/><circle class="pin" cx="620" cy="130" r="3"/><text class="why" x="450" y="124">feedback → FB</text>
+          <g class="part" data-part="r2">
+            <polyline class="sym" points="620,176 612,182 628,190 612,198 628,206 612,214 620,220"/><text class="lbl" x="636" y="200">R2</text><text class="val" x="636" y="216">10 k</text>
+          </g>
+          <line class="wire" x1="620" y1="220" x2="620" y2="248"/>
+          <line class="wire" x1="120" y1="170" x2="620" y2="170"/><line class="wire" x1="325" y1="164" x2="325" y2="248"/><line class="wire" x1="120" y1="170" x2="120" y2="248"/><line class="wire" x1="570" y1="170" x2="570" y2="248"/><line class="wire" x1="120" y1="248" x2="620" y2="248"/>
+          <g><line class="wire" x1="370" y1="248" x2="370" y2="266"/><line class="sym" x1="354" y1="266" x2="386" y2="266"/><line class="sym" x1="359" y1="272" x2="381" y2="272"/><line class="sym" x1="364" y1="278" x2="376" y2="278"/></g>
+        </svg>
+        <div class="hint">▸ ANSI symbols shown — toggle to IEC anywhere in Electrace</div>
+      </div>
+
+      <!-- overview -->
+      <h2 id="overview">What it does</h2>
+      <p class="lead">A buck converter takes a higher DC input and chops it into a lower, steady output — here, anything from 9–18 V down to a clean 5 V at up to 3 A.</p>
+      <p>Unlike a linear regulator (which burns the extra voltage as heat), a buck switches the input on and off rapidly through an inductor, so very little energy is wasted — about 85% of the input power reaches the load. That efficiency is why it's the default choice when the input is well above the output, or when current is high enough that heat would be a problem.</p>
+
+      <!-- how it works -->
+      <h2 id="how">How it works, part by part</h2>
+      <div class="parts">
+        <div class="prow"><div class="pref">U1<small>IC</small></div><div class="pd"><b>The controller.</b> Compares the feedback voltage against an internal reference and rapidly switches its SW pin to hold the output at 5 V. This one chip is the whole "magic" — and you can still see exactly what surrounds it.</div></div>
+        <div class="prow"><div class="pref">L1<small>10 µH</small></div><div class="pd"><b>The inductor.</b> Stores energy when the switch is on and releases it when off — the core mechanism that lets a buck move power efficiently instead of burning it.</div></div>
+        <div class="prow"><div class="pref">Cin<small>22 µF</small></div><div class="pd"><b>Input cap.</b> Supplies the fast current pulses the switcher demands so the input rail doesn't sag.</div></div>
+        <div class="prow"><div class="pref">Cout<small>47 µF</small></div><div class="pd"><b>Output cap.</b> Smooths the switched output into clean DC and keeps the control loop stable.</div></div>
+        <div class="prow"><div class="pref">R1 / R2<small>divider</small></div><div class="pd"><b>The feedback divider.</b> Divides the output down to the chip's reference — the ratio is literally what sets your output voltage.</div></div>
+      </div>
+
+      <!-- sizing -->
+      <h2 id="sizing">Setting the output voltage</h2>
+      <p>The divider R1/R2 sets V<sub>out</sub>. With a 0.8 V reference:</p>
+      <div class="callout c-math">
+        <span class="eq">V<sub>out</sub> = V<sub>ref</sub> × (1 + R1 / R2)</span>
+        <span class="eq accent">5.0 V = 0.8 V × (1 + 39k / 10k)</span>
+        Change R1 and the output voltage changes with it. Electrace recomputes this for you and updates the declared spec automatically.
+      </div>
+
+      <!-- specs -->
+      <h2 id="specs">Declared specs</h2>
+      <table class="spectable">
+        <tr><td>Input voltage</td><td>9 – 18 V</td></tr>
+        <tr><td>Output voltage</td><td>5.0 V</td></tr>
+        <tr><td>Max output current</td><td>3 A</td></tr>
+        <tr><td>Efficiency (typ.)</td><td>~85 %</td></tr>
+        <tr><td>Switching topology</td><td>synchronous buck</td></tr>
+      </table>
+
+      <!-- nets -->
+      <h2 id="nets">Exposed nets</h2>
+      <p>What this block offers the rest of your design:</p>
+      <div class="netrow"><i class="nub power"></i>VIN<span class="nt">in · 9–18 V</span></div>
+      <div class="netrow"><i class="nub gnd"></i>GND<span class="nt">in · ground</span></div>
+      <div class="netrow"><i class="nub rail"></i>+5 V<span class="nt">out · rail</span></div>
+      <div class="netrow"><i class="nub gnd"></i>GND<span class="nt">out · ground</span></div>
+
+      <!-- limits -->
+      <h2 id="limits">Limits &amp; gotchas</h2>
+      <div class="callout c-warn"><span class="i">⚠</span><span><b>Mind the input cap rating.</b> Cin is rated 25 V — push the input past ~20 V and it's the first thing to let go. Electrace flags this the moment a connected net's declared voltage crosses the limit.</span></div>
+
+      <!-- meta flywheel note -->
+      <div class="meta-note"><span class="i">✦</span><span>This page is generated from the block's source. The same description, specs, and limits power the hover explanations and the live checks inside the Electrace editor — author once, used everywhere.</span></div>
+
+      <!-- related -->
+      <h2 id="related">Related blocks</h2>
+      <div class="related">
+        <div class="rcard"><div class="rg" style="background:rgba(247,177,60,.16);color:var(--amber);border-color:rgba(247,177,60,.4)">⎓</div><div class="rn">Power Entry</div><div class="rd">Protected DC input</div></div>
+        <div class="rcard"><div class="rg" style="background:rgba(76,141,255,.16);color:var(--accent);border-color:rgba(76,141,255,.4)">▭</div><div class="rn">LDO Regulator</div><div class="rd">Low-noise linear 5 V</div></div>
+        <div class="rcard"><div class="rg" style="background:rgba(168,85,247,.2);color:#c08cf7;border-color:rgba(168,85,247,.42)">⊞</div><div class="rn">Boost Converter</div><div class="rd">Step a voltage up</div></div>
+      </div>
+    </main>
+
+    <!-- TOC -->
+    <aside>
+      <div class="toc-t">On this page</div>
+      <nav class="toc">
+        <a href="#schematic" class="on">The schematic</a>
+        <a href="#overview">What it does</a>
+        <a href="#how">How it works</a>
+        <a href="#sizing">Setting V<sub>out</sub></a>
+        <a href="#specs">Declared specs</a>
+        <a href="#nets">Exposed nets</a>
+        <a href="#limits">Limits &amp; gotchas</a>
+        <a href="#related">Related blocks</a>
+      </nav>
+      <div class="openbox">
+        <div class="ot">Use this block</div>
+        <div class="od">Drop it into a design and wire it up in seconds.</div>
+        <button class="btn btn-primary" style="width:100%">Open in Electrace →</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<footer><div class="wrap foot">
+  <div class="logo" style="font-size:15px"><svg class="cm" viewBox="0 0 240 180" style="width:24px;height:18px"><path d="M169.7 39.9 A78 78 0 1 0 169.7 140.1" fill="none" stroke="var(--text)" stroke-width="16" stroke-linecap="round"/><path d="M65 90 H100 L106 76 L118 104 L130 76 L142 104 L154 76 L160 90 H200" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/><circle cx="55" cy="90" r="10" fill="var(--bg)" stroke="var(--accent)" stroke-width="6"/><circle cx="210" cy="90" r="10" fill="var(--bg)" stroke="var(--accent)" stroke-width="6"/></svg>Electrace</div>
+  <div>© 2026 US Nylon · The electrical engineer's IDE</div>
+</div></footer>
+
+<script>
+  const PARTS={
+    cin:{t:"Cin — input capacitor",w:"Supplies the fast current pulses the switcher demands so the input rail doesn't sag.",y:"Rated 25 V — the reason this block warns above 20 V in."},
+    ic:{t:"U1 — buck controller",w:"Switches its SW pin to hold the output at 5 V, comparing feedback to an internal reference.",y:"The one IC — and you still see everything around it."},
+    l:{t:"L1 — inductor (10 µH)",w:"Stores and releases energy each cycle — how a buck moves power efficiently.",y:"Value balances ripple current vs. size."},
+    cout:{t:"Cout — output capacitor",w:"Smooths the switched output into clean 5 V DC and keeps the loop stable.",y:"47 µF sits in the stable range."},
+    r1:{t:"R1 — feedback divider (top)",w:"With R2, divides the output to the chip's reference.",y:"Vout = Vref × (1 + R1/R2)."},
+    r2:{t:"R2 — feedback divider (bottom)",w:"Lower leg of the divider; sets the output with R1.",y:"39k/10k → ≈ 5 V."},
+  };
+  const tip=document.createElement('div'); tip.className='ptip'; document.body.appendChild(tip);
+  document.querySelectorAll('.part').forEach(p=>{
+    const d=PARTS[p.dataset.part];
+    p.addEventListener('mouseenter',()=>{tip.innerHTML=`<div class="pt">${d.t}</div><div class="pw">${d.w}</div><div class="py">↳ ${d.y}</div>`;tip.style.opacity=1;});
+    p.addEventListener('mousemove',e=>{let x=e.clientX+16,y=e.clientY+16; if(x>innerWidth-270)x=e.clientX-266; tip.style.left=x+'px';tip.style.top=y+'px';});
+    p.addEventListener('mouseleave',()=>tip.style.opacity=0);
+  });
+  // TOC scroll-spy
+  const links=[...document.querySelectorAll('.toc a')];
+  const spy=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('on'));const a=links.find(l=>l.getAttribute('href')==='#'+e.target.id);if(a)a.classList.add('on');}}),{rootMargin:'-80px 0px -70% 0px'});
+  document.querySelectorAll('h2[id]').forEach(h=>spy.observe(h));
+</script>
+</body>
+</html>

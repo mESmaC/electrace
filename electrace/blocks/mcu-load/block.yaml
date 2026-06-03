@@ -1,0 +1,39 @@
+id: "@electrace/mcu-load"
+name: MCU + Load
+version: 1.0.0
+category: digital
+author: electrace
+license: CC-BY-4.0
+glyph: "⊞"
+spec:
+  vdd: { value: 5.0, unit: V }
+  i_typ: { value: 1.8, unit: A }
+terminals:
+  - { id: vdd,    role: in,  type: rail, v: { value: 5.0, unit: V }, i: { max: 1.8, unit: A } }
+  - { id: gnd,    role: in,  type: gnd }
+  - { id: status, role: out, type: signal }
+schematic:
+  parts:
+    - { ref: U1, type: ic, part: mcu, footprint: QFN-32, why: "the microcontroller and its peripherals" }
+    - { ref: C1, type: cap, value: 100nF, footprint: C0402, why: "VDD decoupling" }
+    - { ref: C2, type: cap, value: 10uF,  footprint: C0805, why: "bulk decoupling" }
+  nets:
+    - { name: "+5V", connect: [U1.VDD, C1.1, C2.1, "@vdd"] }
+    - { name: GND,   connect: [U1.GND, C1.2, C2.2, "@gnd"] }
+    - { name: STATUS, connect: [U1.IO1, "@status"] }
+layout:
+  symbols:
+    - { id: P_vdd,    type: port,      ref: vdd,    x: 40,  y: 110, rot: 180 }
+    - { id: C1,       type: capacitor, ref: C1, value: 100nF, x: 98,  y: 137, rot: 90 }
+    - { id: C2,       type: capacitor, ref: C2, value: 10µF,  x: 178, y: 137, rot: 90 }
+    - { id: U1,       type: chip,      ref: U1, value: MCU,   x: 300, y: 96, chip: { profile: qfp, pins: 8, names: { "1": VDD, "2": GND, "3": IO1 } } }
+    - { id: P_status, type: port,      ref: status, x: 460, y: 110, rot: 0 }
+    - { id: P_gnd,    type: port,      ref: gnd,    x: 285, y: 215, rot: 90 }
+  wires:
+    - { from: P_vdd.1, to: C1.1 }
+    - { from: C1.1,    to: C2.1 }
+    - { from: C2.1,    to: U1.1 }
+    - { from: U1.3,    to: P_status.1 }
+    - { from: U1.2,    to: P_gnd.1 }
+    - { from: C1.2,    to: P_gnd.1 }
+    - { from: C2.2,    to: P_gnd.1 }

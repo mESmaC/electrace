@@ -1,0 +1,42 @@
+id: "@electrace/power-entry"
+name: Power Entry
+version: 1.0.0
+category: power
+author: electrace
+license: CC-BY-4.0
+glyph: "⎓"
+spec:
+  vin: { min: 9, max: 18, unit: V }
+  iout_max: { value: 2, unit: A }
+terminals:
+  - { id: vout, role: out, type: power, polarity: "+", v: { min: 9, max: 18, unit: V }, i: { max: 2, unit: A } }
+  - { id: gnd,  role: out, type: gnd }
+limits:
+  - { field: vin.max, value: 30, unit: V, note: "Input TVS clamps ~33 V; sustained input above 30 V will cook it." }
+schematic:
+  parts:
+    - { ref: J1, type: connector, part: barrel-2.1mm, footprint: DCJACK, why: "DC input jack" }
+    - { ref: Q1, type: mosfet, part: p-fet, footprint: SOT-23, why: "blocks reverse polarity without a diode drop" }
+    - { ref: D1, type: tvs, footprint: SMA, why: "clamps input voltage spikes" }
+    - { ref: C1, type: cap, value: 100uF, footprint: radial-6.3mm, polarized: true, why: "bulk input hold-up" }
+  nets:
+    - { name: VIN_RAW, connect: [J1.1, Q1.in] }
+    - { name: VBUS,    connect: [Q1.out, D1.1, C1.1, "@vout"] }
+    - { name: GND,     connect: [J1.2, D1.2, C1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: J1, type: header2, ref: J1, value: DC jack, x: 40,  y: 88 }
+    - { id: Q1, type: pmos,    ref: Q1, value: P-FET,  x: 180, y: 98 }
+    - { id: D1, type: diode,   ref: D1, value: TVS,    x: 285, y: 181, rot: 90 }
+    - { id: C1, type: cap-pol, ref: C1, value: 100µF,  x: 368, y: 176, rot: 90 }
+    - { id: P_vout, type: port, ref: vout, x: 480, y: 150, rot: 0 }
+    - { id: P_gnd,  type: port, ref: gnd,  x: 305, y: 275, rot: 90 }
+  wires:
+    - { from: J1.1,  to: Q1.S }
+    - { from: Q1.D,  to: D1.1 }
+    - { from: D1.1,  to: C1.1 }
+    - { from: C1.1,  to: P_vout.1 }
+    - { from: J1.2,  to: P_gnd.1 }
+    - { from: Q1.G,  to: P_gnd.1 }
+    - { from: D1.2,  to: P_gnd.1 }
+    - { from: C1.2,  to: P_gnd.1 }

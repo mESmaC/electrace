@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://electrace.usnylon.com/schema/design.json",
+  "title": "Electrace Design",
+  "type": "object",
+  "required": ["id", "name", "blocks", "connections"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "visibility": { "enum": ["public", "private"] },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ref", "block"],
+        "properties": {
+          "ref": { "type": "string" },
+          "block": { "type": "string", "pattern": "^@[a-z0-9-]+/[a-z0-9-]+@\\d+\\.\\d+\\.\\d+$" },
+          "pos": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+        }
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "net": { "type": "string" }
+        }
+      }
+    }
+  }
+}

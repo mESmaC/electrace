@@ -1,0 +1,16 @@
+{
+  "name": "electrace-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server exposing the Electrace project (blocks, catalog, validation, analysis) to agents.",
+  "bin": { "electrace-mcp": "server.mjs" },
+  "scripts": {
+    "start": "node server.mjs",
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "yaml": "^2.9.0"
+  }
+}

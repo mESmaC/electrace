@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* MID theme — the primary palette (slate-blue dusk + blue accent) */
+  --color-bg: #3c4658;
+  --color-bg2: #36404f;
+  --color-surface: #454e62;
+  --color-surface-2: #4e586f;
+  --color-surface-3: #59647d;
+  --color-border: #54607a;
+  --color-border-strong: #677494;
+  --color-text: #ffffff;
+  --color-dim: #d4dae6;
+  --color-faint: #9aa3b5;
+  --color-accent: #4c8dff;
+  --color-accent-hi: #6ea3ff;
+  --color-amber: #f7b13c;
+  --color-green: #46dca6;
+  --color-gray: #9aa6b6;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+html { color-scheme: dark; }
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* minimal prose styling for rendered explain.md */
+.prose-block { color: var(--color-dim); line-height: 1.7; }
+.prose-block h1 { color: var(--color-text); font-size: 1.55rem; font-weight: 800; letter-spacing: -.02em; margin: 0 0 .6rem; }
+.prose-block h2 { color: var(--color-text); font-size: 1.15rem; font-weight: 700; margin: 1.4rem 0 .5rem; }
+.prose-block p { margin: .7rem 0; }
+.prose-block strong { color: var(--color-text); font-weight: 600; }
+.prose-block ul { margin: .7rem 0; padding-left: 1.2rem; list-style: disc; }
+.prose-block li { margin: .35rem 0; }
+.prose-block code { font-family: var(--font-mono); background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 5px; padding: .05rem .35rem; font-size: .85em; color: var(--color-text); }
+.prose-block blockquote { border-left: 3px solid var(--color-amber); background: color-mix(in srgb, var(--color-amber) 8%, transparent); padding: .6rem .9rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+
+/* visible wire selection in the editor (overrides each edge's inline net color) */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #4c8dff !important;
+  stroke-width: 3.5 !important;
+  filter: drop-shadow(0 0 3px rgba(76, 141, 255, .6));
+}
+.react-flow__edge:hover .react-flow__edge-path { stroke-width: 3 !important; cursor: pointer; }
+
+/* authored internal-block schematics (drill-in) */
+.schematic-svg svg { max-width: 100%; max-height: 100%; }
+.schematic-svg .wire { stroke: var(--color-accent); stroke-width: 2; fill: none; }
+.schematic-svg .sym  { stroke: var(--color-text); stroke-width: 2; fill: none; }
+.schematic-svg .box  { stroke: var(--color-text); stroke-width: 2; fill: var(--color-surface-2); }
+.schematic-svg .pin  { fill: var(--color-accent); }
+.schematic-svg .lbl  { fill: var(--color-dim); font-family: var(--font-mono); font-size: 12px; }
+.schematic-svg .val  { fill: var(--color-text); font-family: var(--font-mono); font-size: 12px; }
+.schematic-svg .railv{ fill: var(--color-green); font-family: var(--font-mono); font-size: 12px; }
+.schematic-svg .symfill { fill: var(--color-text); }
+.schematic-svg .why  { fill: var(--color-faint); font-size: 11px; font-style: italic; }
+.schematic-svg .part { cursor: help; }
+.schematic-svg .part:hover .sym, .schematic-svg .part:hover .box { stroke: var(--color-accent); }

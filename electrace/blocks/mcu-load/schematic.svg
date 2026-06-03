@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 250" class="schem">
+  <text class="railv" x="16" y="50">+5 V</text>
+  <line class="wire" x1="40" y1="64" x2="360" y2="64"/>
+  <circle class="pin" cx="40" cy="64" r="4"/>
+
+  <!-- C1 decoupling -->
+  <g class="part" data-part="C1"><title>C1 — 100 nF decoupling, close to the VDD pin</title>
+    <line class="wire" x1="120" y1="64" x2="120" y2="98"/>
+    <line class="sym" x1="106" y1="98" x2="134" y2="98"/><line class="sym" x1="106" y1="108" x2="134" y2="108"/>
+    <line class="wire" x1="120" y1="108" x2="120" y2="196"/>
+    <text class="lbl" x="100" y="96" text-anchor="end">C1</text>
+  </g>
+
+  <!-- C2 bulk -->
+  <g class="part" data-part="C2"><title>C2 — 10 µF bulk decoupling</title>
+    <line class="wire" x1="210" y1="64" x2="210" y2="98"/>
+    <line class="sym" x1="196" y1="98" x2="224" y2="98"/><line class="sym" x1="196" y1="108" x2="224" y2="108"/>
+    <line class="wire" x1="210" y1="108" x2="210" y2="196"/>
+    <text class="lbl" x="190" y="96" text-anchor="end">C2</text>
+  </g>
+
+  <!-- MCU -->
+  <g class="part" data-part="U1"><title>U1 — the microcontroller and its peripherals</title>
+    <rect class="box" x="300" y="44" width="120" height="120" rx="6"/>
+    <text class="val" x="360" y="100" text-anchor="middle">MCU</text>
+    <text class="lbl" x="310" y="62" font-size="10">VDD</text>
+    <text class="lbl" x="310" y="158" font-size="10">GND</text>
+    <text class="lbl" x="412" y="96" font-size="10" text-anchor="end">IO</text>
+  </g>
+  <line class="wire" x1="360" y1="44" x2="360" y2="64"/>
+
+  <!-- STATUS output -->
+  <line class="wire" x1="420" y1="92" x2="472" y2="92"/><circle class="pin" cx="472" cy="92" r="4"/>
+  <text class="lbl" x="478" y="96">STATUS</text>
+
+  <!-- ground -->
+  <line class="wire" x1="120" y1="196" x2="360" y2="196"/>
+  <line class="wire" x1="360" y1="164" x2="360" y2="196"/>
+  <g>
+    <line class="wire" x1="244" y1="196" x2="244" y2="214"/>
+    <line class="sym" x1="228" y1="214" x2="260" y2="214"/>
+    <line class="sym" x1="233" y1="220" x2="255" y2="220"/>
+    <line class="sym" x1="238" y1="226" x2="250" y2="226"/>
+  </g>
+</svg>

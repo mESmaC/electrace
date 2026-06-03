@@ -1,0 +1,16 @@
+{
+  "id": "buck-supply",
+  "name": "Buck Supply",
+  "visibility": "public",
+  "blocks": [
+    { "ref": "PWR1",  "block": "@electrace/power-entry@1.0.0",    "pos": [40, 120] },
+    { "ref": "REG1",  "block": "@electrace/buck-converter@1.2.0", "pos": [320, 128] },
+    { "ref": "LOAD1", "block": "@electrace/mcu-load@1.0.0",       "pos": [600, 156] }
+  ],
+  "connections": [
+    { "from": "PWR1.vout",    "to": "REG1.vin",    "net": "VBUS" },
+    { "from": "PWR1.gnd",     "to": "REG1.gnd_in", "net": "GND" },
+    { "from": "REG1.vout",    "to": "LOAD1.vdd",   "net": "+5V" },
+    { "from": "REG1.gnd_out", "to": "LOAD1.gnd",   "net": "GND" }
+  ]
+}

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" class="schem">
+  <text class="lbl" x="20" y="60">VIN</text>
+  <text class="railv" x="636" y="60">+5 V</text>
+
+  <!-- input rail -->
+  <line class="wire" x1="44" y1="74" x2="130" y2="74"/>
+  <circle class="pin" cx="44" cy="74" r="4"/>
+
+  <!-- Cin -->
+  <g class="part" data-part="Cin"><title>Cin — supplies the switcher's fast current pulses so the input rail doesn't sag</title>
+    <line class="wire" x1="130" y1="74" x2="130" y2="120"/>
+    <line class="sym" x1="114" y1="120" x2="146" y2="120"/>
+    <line class="sym" x1="114" y1="130" x2="146" y2="130"/>
+    <line class="wire" x1="130" y1="130" x2="130" y2="240"/>
+    <text class="lbl" x="156" y="120">Cin</text><text class="val" x="156" y="136">22 µF</text>
+  </g>
+  <line class="wire" x1="130" y1="74" x2="250" y2="74"/>
+
+  <!-- U1 -->
+  <g class="part" data-part="U1"><title>U1 — switches to hold the output at 5 V, comparing feedback to an internal reference</title>
+    <rect class="box" x="250" y="46" width="150" height="120" rx="6"/>
+    <text class="val" x="325" y="100" text-anchor="middle">U1</text>
+    <text class="lbl" x="325" y="118" text-anchor="middle" font-size="10">buck controller</text>
+    <text class="lbl" x="260" y="68" font-size="10">VIN</text>
+    <text class="lbl" x="366" y="68" font-size="10">SW</text>
+    <text class="lbl" x="260" y="158" font-size="10">GND</text>
+    <text class="lbl" x="362" y="158" font-size="10">FB</text>
+  </g>
+
+  <!-- L1 -->
+  <g class="part" data-part="L1"><title>L1 — stores and releases energy each switching cycle; the core of how a buck moves power efficiently</title>
+    <line class="wire" x1="400" y1="60" x2="440" y2="60"/>
+    <path class="sym" d="M440 60 q8 -12 16 0 q8 -12 16 0 q8 -12 16 0 q8 -12 16 0"/>
+    <line class="wire" x1="504" y1="60" x2="580" y2="60"/>
+    <text class="lbl" x="456" y="40">L1</text><text class="val" x="456" y="88" text-anchor="middle">10 µH</text>
+  </g>
+
+  <!-- Vout node -->
+  <line class="wire" x1="580" y1="60" x2="580" y2="74"/>
+  <line class="wire" x1="580" y1="74" x2="660" y2="74"/>
+  <circle class="pin" cx="660" cy="74" r="4"/>
+
+  <!-- Cout -->
+  <g class="part" data-part="Cout"><title>Cout — smooths the switched output into clean 5 V DC and keeps the control loop stable</title>
+    <line class="wire" x1="580" y1="74" x2="580" y2="120"/>
+    <line class="sym" x1="564" y1="120" x2="596" y2="120"/>
+    <line class="sym" x1="564" y1="130" x2="596" y2="130"/>
+    <line class="wire" x1="580" y1="130" x2="580" y2="240"/>
+    <text class="lbl" x="606" y="120">Cout</text><text class="val" x="606" y="136">47 µF</text>
+  </g>
+
+  <!-- feedback divider -->
+  <line class="wire" x1="630" y1="74" x2="630" y2="100"/><circle class="pin" cx="630" cy="74" r="3"/>
+  <g class="part" data-part="R1"><title>R1 — top of the feedback divider; with R2 it sets the output: Vout = Vref·(1 + R1/R2)</title>
+    <polyline class="sym" points="630,100 622,106 638,114 622,122 638,130 622,138 630,144"/>
+    <text class="lbl" x="646" y="116">R1</text><text class="val" x="646" y="132">39 k</text>
+  </g>
+  <line class="wire" x1="630" y1="144" x2="630" y2="160"/>
+  <line class="wire" x1="400" y1="130" x2="630" y2="130" opacity=".55"/><circle class="pin" cx="630" cy="130" r="3"/>
+  <text class="why" x="450" y="124">feedback → FB</text>
+  <g class="part" data-part="R2"><title>R2 — bottom of the feedback divider</title>
+    <polyline class="sym" points="630,160 622,166 638,174 622,182 638,190 622,198 630,204"/>
+    <text class="lbl" x="646" y="180">R2</text><text class="val" x="646" y="196">10 k</text>
+  </g>
+  <line class="wire" x1="630" y1="204" x2="630" y2="240"/>
+
+  <!-- ground rail -->
+  <line class="wire" x1="130" y1="240" x2="630" y2="240"/>
+  <line class="wire" x1="325" y1="166" x2="325" y2="240"/>
+  <g>
+    <line class="wire" x1="380" y1="240" x2="380" y2="258"/>
+    <line class="sym" x1="364" y1="258" x2="396" y2="258"/>
+    <line class="sym" x1="369" y1="264" x2="391" y2="264"/>
+    <line class="sym" x1="374" y1="270" x2="386" y2="270"/>
+  </g>
+</svg>

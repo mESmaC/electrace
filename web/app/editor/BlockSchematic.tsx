@@ -1,0 +1,948 @@
+"use client";
+import {
+  useCallback, useEffect, useMemo, useRef, useState,
+  type PointerEvent as RPE, type MouseEvent as RME, type DragEvent as RDE,
+} from "react";
+import { SYMBOLS, SYMBOL_GROUPS, renderChip, useSymbolStyle } from "./symbols";
+import SymbolStyleToggle from "./SymbolStyleToggle";
+import AssistantBubble from "./AssistantBubble";
+import { track } from "@/lib/telemetry";
+import { deriveSchematicNets, type SchematicLayout, type Terminal, type Block } from "@electrace/core";
+import {
+  WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
+  isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot,
+  PROFILES, type ChipSpec,
+} from "./schematic-model";
+
+const GRID = 10;
+const snap = (n: number) => Math.round(n / GRID) * GRID;
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+const NET_COLOR: Record<string, string> = { power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff" };
+
+type Problem = { sev: "error" | "warn" | "info"; msg: string; target?: { kind: "sym" | "wire"; id: string } };
+
+/** Format a declared spec value (number | string | Range) for a chip. */
+function fmtSpecVal(v: unknown): string {
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string") return v;
+  if (v && typeof v === "object") {
+    const r = v as { value?: number; min?: number; max?: number; unit?: string };
+    const u = r.unit ? ` ${r.unit}` : "";
+    if (r.value != null) return `${r.value}${u}`;
+    if (r.min != null || r.max != null) return `${r.min ?? "?"}–${r.max ?? "?"}${u}`;
+  }
+  return "";
+}
+
+/** Ensure the schematic carries a port symbol for every declared terminal (inputs on the
+ *  left, outputs on the right). The port's `ref` holds the terminal id, mapping net → terminal. */
+function seedPorts(model: Model, terminals: Terminal[]): Model {
+  const have = new Set(model.syms.filter((s) => s.type === "port").map((s) => s.ref));
+  const missing = terminals.filter((t) => !have.has(t.id));
+  if (!missing.length) return model;
+  const b = modelBounds(model);
+  let li = 0, ri = 0;
+  const ports: Sym[] = missing.map((t) => {
+    const left = t.role === "in";
+    return {
+      id: `port-${t.id}`, type: "port", ref: t.id,
+      x: snap(left ? b.x - 80 : b.x + b.w + 50),
+      y: snap(b.y + (left ? li++ : ri++) * 48),
+    };
+  });
+  return { ...model, syms: [...model.syms, ...ports] };
+}
+
+/** Pan/zoom that fits the model's content (with padding) centred in a `sz` viewport. */
+function computeFit(m: Model, sz: { w: number; h: number }) {
+  const b = modelBounds(m);
+  const pad = 48;
+  const z = clamp(Math.min(sz.w / (b.w + pad * 2), sz.h / (b.h + pad * 2)), 0.35, 2);
+  return { zoom: z, pan: { x: b.x - (sz.w / z - b.w) / 2, y: b.y - (sz.h / z - b.h) / 2 } };
+}
+
+export default function BlockSchematic({ blockId, initial, terminals = [], block }: { blockId: string; initial?: SchematicLayout; terminals?: Terminal[]; block?: Block }) {
+  const LS = `electrace:blocksch:${blockId}`;
+  const [model, setModel] = useState<Model>({ syms: [], wires: [] });
+  // selection is a set of namespaced keys: "sym:<id>" / "wire:<id>"
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [draw, setDraw] = useState<{ a: PinRef; pts: Pt[] } | null>(null);
+  const [cursor, setCursor] = useState<Pt>({ x: 0, y: 0 });
+  const [hoverNet, setHoverNet] = useState<number | null>(null);
+  const [bandRect, setBandRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [bottomOpen, setBottomOpen] = useState(true);
+  const [flash, setFlash] = useState<{ kind: "sym" | "wire"; id: string; n: number } | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const symStyle = useSymbolStyle();
+
+  const symKey = (id: string) => `sym:${id}`;
+  const wireKey = (id: string) => `wire:${id}`;
+  const isSelSym = (id: string) => sel.has(symKey(id));
+  const isSelWire = (id: string) => sel.has(wireKey(id));
+  const idsOfKind = (s: Set<string>, kind: "sym" | "wire") => [...s].filter((k) => k.startsWith(`${kind}:`)).map((k) => k.slice(kind.length + 1));
+  const selSymIds = () => idsOfKind(sel, "sym");
+  const toggle = (set: Set<string>, key: string) => { const n = new Set(set); if (n.has(key)) n.delete(key); else n.add(key); return n; };
+
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const loaded = useRef(false);
+  const fitted = useRef(false);
+
+  // pan / zoom (viewBox-based: captures trackpad pinch as ctrl+wheel, two-finger as pan)
+  const [size, setSize] = useState({ w: 900, h: 640 });
+  const [pan, setPan] = useState<Pt>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const panRef = useRef(pan); panRef.current = pan;
+  const zoomRef = useRef(zoom); zoomRef.current = zoom;
+  const cursorRef = useRef(cursor); // updated imperatively in onMove; only mirrored to state while wiring
+  const selRef = useRef(sel); selRef.current = sel;
+  const modelRef = useRef(model); modelRef.current = model;
+
+  // undo/redo
+  const hist = useRef<Model[]>([{ syms: [], wires: [] }]);
+  const hidx = useRef(0);
+  const restoring = useRef(false);
+  const [, bump] = useState(0);
+
+  // load: prefer a non-empty draft, else seed from the block's authored layout
+  useEffect(() => {
+    if (loaded.current) return;
+    loaded.current = true;
+    let m = layoutToModel(initial);
+    try {
+      const raw = localStorage.getItem(LS);
+      if (raw) { const d = JSON.parse(raw); if (Array.isArray(d.syms) && d.syms.length) m = d; }
+    } catch { /* ignore */ }
+    m = seedPorts(m, terminals); // always expose the block's declared terminals
+    restoring.current = true;
+    setModel(m);
+    hist.current = [m];
+    hidx.current = 0;
+  }, [LS, initial, terminals]);
+
+  // track container size for the viewBox aspect
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    setSize({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
+  // fit the schematic to the canvas once, after the model loads and the size is known
+  useEffect(() => {
+    if (fitted.current || !size.w || !model.syms.length) return;
+    const f = computeFit(model, size);
+    setZoom(f.zoom);
+    setPan(f.pan);
+    fitted.current = true;
+  }, [size, model]);
+
+  // native wheel listener (non-passive so we can preventDefault the browser page-zoom)
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const z = zoomRef.current;
+      // Decide pan vs zoom by input device:
+      //  · pinch / ctrl-wheel  → zoom (trackpad pinch sets ctrlKey)
+      //  · a mouse wheel       → zoom (line-mode, or big quantized vertical-only steps)
+      //  · two-finger trackpad → pan  (everything else: small/fractional, or horizontal)
+      const mouseWheel = e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 100 && Number.isInteger(e.deltaY));
+      if (e.ctrlKey || mouseWheel) {
+        // pinch sends tiny deltas (needs a steeper curve); a wheel notch sends big ones
+        const pinch = e.ctrlKey && Math.abs(e.deltaY) < 50;
+        const k = pinch ? 0.01 : 0.0035;
+        const step = Math.max(-120, Math.min(120, e.deltaY));
+        const nz = clamp(z * Math.exp(-step * k), 0.35, 3.5);
+        const ox = e.clientX - r.left, oy = e.clientY - r.top;
+        const cx = panRef.current.x + ox / z, cy = panRef.current.y + oy / z;
+        setZoom(nz);
+        setPan({ x: cx - ox / nz, y: cy - oy / nz });
+      } else {
+        setPan((p) => ({ x: p.x + e.deltaX / z, y: p.y + e.deltaY / z }));
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // autosave + history
+  useEffect(() => {
+    if (restoring.current) { restoring.current = false; return; }
+    const id = setTimeout(() => {
+      try {
+        localStorage.setItem(LS, JSON.stringify(model));
+        window.dispatchEvent(new CustomEvent("electrace:blocksch", { detail: blockId }));
+      } catch { /* ignore */ }
+      const s: Model = JSON.parse(JSON.stringify(model));
+      if (JSON.stringify(s) === JSON.stringify(hist.current[hidx.current])) return;
+      hist.current = hist.current.slice(0, hidx.current + 1);
+      hist.current.push(s);
+      hidx.current = hist.current.length - 1;
+      bump((v) => v + 1);
+    }, 400);
+    return () => clearTimeout(id);
+  }, [LS, model]);
+
+  // discard this block's saved draft and reload the authored schematic
+  const resetBlock = useCallback(() => {
+    if (typeof window === "undefined" || !window.confirm("Discard your edits to this block and revert to the authored schematic?")) return;
+    try { localStorage.removeItem(LS); } catch { /* ignore */ }
+    const m = seedPorts(layoutToModel(initial), terminals);
+    restoring.current = true; setModel(m); hist.current = [m]; hidx.current = 0; fitted.current = false;
+    setSel(new Set()); setDraw(null);
+    window.dispatchEvent(new CustomEvent("electrace:blocksch", { detail: blockId }));
+  }, [LS, initial, terminals, blockId]);
+
+  const restore = useCallback((m: Model) => { restoring.current = true; setModel(m); bump((v) => v + 1); }, []);
+  const undo = useCallback(() => { if (hidx.current > 0) { hidx.current--; restore(hist.current[hidx.current]); } }, [restore]);
+  const redo = useCallback(() => { if (hidx.current < hist.current.length - 1) { hidx.current++; restore(hist.current[hidx.current]); } }, [restore]);
+
+  const del = useCallback(() => {
+    const cur = selRef.current;
+    if (!cur.size) return;
+    const wireIds = new Set(idsOfKind(cur, "wire"));
+    const symIds = idsOfKind(cur, "sym");
+    const onSym = (e: Endpoint, id: string) => isPin(e) && e.sym === id;
+    setModel((m) => {
+      const remove = new Set(symIds.filter((id) => m.syms.find((s) => s.id === id)?.type !== "port")); // keep ports
+      return {
+        syms: m.syms.filter((s) => !remove.has(s.id)),
+        wires: m.wires.filter((w) => !wireIds.has(w.id) && ![...remove].some((id) => onSym(w.a, id) || onSym(w.b, id))),
+      };
+    });
+    setSel(new Set());
+  }, []);
+
+  const rotateSel = useCallback((d: number) => {
+    const ids = new Set(idsOfKind(selRef.current, "sym"));
+    if (!ids.size) return;
+    setModel((m) => ({ ...m, syms: m.syms.map((s) => (ids.has(s.id) ? { ...s, rot: normRot((s.rot ?? 0) + d) } : s)) }));
+    track({ kind: "sym.rotate", block: blockId });
+  }, [blockId]);
+
+  const nudgeSel = useCallback((dx: number, dy: number) => {
+    const ids = new Set(idsOfKind(selRef.current, "sym"));
+    if (!ids.size) return;
+    setModel((m) => ({ ...m, syms: m.syms.map((s) => (ids.has(s.id) ? { ...s, x: snap(s.x + dx), y: snap(s.y + dy) } : s)) }));
+  }, []);
+
+  const duplicateSel = useCallback(() => {
+    const ids = idsOfKind(selRef.current, "sym");
+    if (!ids.length) return;
+    const m = modelRef.current;
+    const counts: Record<string, number> = {};
+    const clones: Sym[] = [];
+    const keys: string[] = [];
+    for (const id of ids) {
+      const s = m.syms.find((x) => x.id === id);
+      if (!s || s.type === "port") continue; // ports are unique to terminals — don't clone
+      const def = SYMBOLS[s.type];
+      counts[s.type] = (counts[s.type] ?? 0) + 1;
+      const ref = def?.defaultRef === "GND" ? "GND" : `${def?.defaultRef}${m.syms.filter((x) => x.type === s.type).length + counts[s.type]}`;
+      const nid = `${s.type}-${Math.floor(performance.now())}-${clones.length}`;
+      clones.push({ ...s, id: nid, ref, x: snap(s.x + 20), y: snap(s.y + 20) });
+      keys.push(symKey(nid));
+    }
+    if (!clones.length) return;
+    setModel((mm) => ({ ...mm, syms: [...mm.syms, ...clones] }));
+    setSel(new Set(keys));
+  }, []);
+
+  // select a problem's target (symbol or wire) and pan it to the centre of the view
+  const locate = useCallback((target?: { kind: "sym" | "wire"; id: string }) => {
+    if (!target) return;
+    const m = modelRef.current; let cx: number, cy: number;
+    if (target.kind === "sym") {
+      const s = m.syms.find((x) => x.id === target.id); const d = s && symDims(s); if (!s || !d) return;
+      const bb = symBounds(s, d.w, d.h); cx = (bb.minX + bb.maxX) / 2; cy = (bb.minY + bb.maxY) / 2;
+      setSel(new Set([symKey(target.id)]));
+    } else {
+      const w = m.wires.find((x) => x.id === target.id); const a = w && endAbs(m.syms, w.a), b = w && endAbs(m.syms, w.b);
+      if (!a || !b) return; cx = (a.x + b.x) / 2; cy = (a.y + b.y) / 2;
+      setSel(new Set([wireKey(target.id)]));
+    }
+    const z = zoomRef.current;
+    setPan({ x: cx - size.w / z / 2, y: cy - size.h / z / 2 });
+    setFlash({ kind: target.kind, id: target.id, n: Date.now() }); // pulse the located thing
+    clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 1500);
+  }, [size]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+      else if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); redo(); }
+      else if (k === "escape") setDraw(null);
+      else if (k === "enter") {
+        // finish the wire in free space (a floating end)
+        setDraw((d) => {
+          if (!d) return d;
+          const p = { x: snap(cursorRef.current.x), y: snap(cursorRef.current.y) };
+          setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: d.a, b: p, mid: d.pts }] }));
+          return null;
+        });
+      }
+      else if (k === "delete" || k === "backspace") { e.preventDefault(); del(); }
+      else if (k === "r" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); rotateSel(e.shiftKey ? -90 : 90); }
+      else if ((e.ctrlKey || e.metaKey) && k === "d") { e.preventDefault(); duplicateSel(); }
+      else if (k === "arrowleft") { e.preventDefault(); nudgeSel(-GRID, 0); }
+      else if (k === "arrowright") { e.preventDefault(); nudgeSel(GRID, 0); }
+      else if (k === "arrowup") { e.preventDefault(); nudgeSel(0, -GRID); }
+      else if (k === "arrowdown") { e.preventDefault(); nudgeSel(0, GRID); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo, del, rotateSel, duplicateSel, nudgeSel]);
+
+  // client → content coordinates (accounts for pan + zoom)
+  const localPt = (e: { clientX: number; clientY: number }): Pt => {
+    const r = svgRef.current!.getBoundingClientRect();
+    const z = zoomRef.current;
+    return { x: panRef.current.x + (e.clientX - r.left) / z, y: panRef.current.y + (e.clientY - r.top) / z };
+  };
+
+  // place a symbol centred at content point (cx, cy)
+  const addSymAt = (type: string, cx: number, cy: number) => {
+    const def = SYMBOLS[type];
+    if (!def) return;
+    track({ kind: "sym.add", block: blockId, symbol: type });
+    setModel((m) => {
+      const n = m.syms.filter((s) => s.type === type).length + 1;
+      const ref = def.defaultRef === "GND" ? "GND" : `${def.defaultRef}${n}`;
+      const chip = type === "chip" ? { chip: { profile: "soic", pins: 8, names: {}, mpn: "" } as ChipSpec } : {};
+      return { ...m, syms: [...m.syms, { id: `${type}-${Math.floor(performance.now())}`, type, ref, x: snap(cx - def.w / 2), y: snap(cy - def.h / 2), ...chip }] };
+    });
+  };
+  // click-to-add drops near the centre of the current view (with a slight cascade)
+  const addSym = (type: string) => {
+    const off = (model.syms.length % 6) * 24;
+    addSymAt(type, panRef.current.x + size.w / zoomRef.current / 2 + off, panRef.current.y + size.h / zoomRef.current / 2 + off);
+  };
+
+  const onCanvasDragOver = (e: RDE) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; };
+  const onCanvasDrop = (e: RDE) => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData("text/symbol");
+    if (type && SYMBOLS[type]) { const p = localPt(e); addSymAt(type, p.x, p.y); }
+  };
+
+  // --- dragging: symbols (groups) + wires, plus the marquee ---
+  const drag = useRef<{ ids: string[]; startMouse: Pt; starts: Map<string, Pt> } | null>(null);
+  type Pend = { id: string; mode: "whole" | "insert" | "point"; idx: number; start: Pt; startMid: Pt[]; active: boolean };
+  const pend = useRef<Pend | null>(null);
+  const band = useRef<{ start: Pt; active: boolean; shift: boolean } | null>(null);
+  const panDrag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null); // middle-button pan
+
+  const onSymDown = (e: RPE<SVGGElement>, s: Sym) => {
+    if (draw || e.button !== 0) return; // let non-primary buttons (middle = pan) bubble to the canvas
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    if (e.shiftKey) { setSel((prev) => toggle(prev, symKey(s.id))); return; } // shift-click toggles, no drag
+    let ids = selSymIds();
+    if (!isSelSym(s.id)) { ids = [s.id]; setSel(new Set([symKey(s.id)])); } // grabbing an unselected part selects just it
+    const p = localPt(e);
+    const m = modelRef.current;
+    const starts = new Map(ids.map((id) => { const sym = m.syms.find((x) => x.id === id)!; return [id, { x: sym.x, y: sym.y }] as const; }));
+    drag.current = { ids, startMouse: p, starts };
+  };
+
+  const onWireDown = (e: RPE<SVGPathElement>, w: Wire) => {
+    if (draw || e.button !== 0) return;
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    pend.current = { id: w.id, mode: w.mid.length ? "whole" : "insert", idx: 0, start: localPt(e), startMid: w.mid.map((p) => ({ ...p })), active: false };
+  };
+  const onWaypointDown = (e: RPE<SVGRectElement>, w: Wire, idx: number) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    setSel(new Set([wireKey(w.id)]));
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    pend.current = { id: w.id, mode: "point", idx, start: localPt(e), startMid: w.mid.map((p) => ({ ...p })), active: false };
+  };
+
+  // middle-button (or space-less) drag pans the canvas
+  const onSvgDown = (e: RPE<SVGSVGElement>) => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    svgRef.current?.setPointerCapture?.(e.pointerId);
+    panDrag.current = { sx: e.clientX, sy: e.clientY, px: panRef.current.x, py: panRef.current.y };
+  };
+
+  const onMove = (e: RPE<SVGSVGElement>) => {
+    const pd0 = panDrag.current;
+    if (pd0) {
+      const z = zoomRef.current;
+      setPan({ x: pd0.px - (e.clientX - pd0.sx) / z, y: pd0.py - (e.clientY - pd0.sy) / z });
+      return;
+    }
+    const p = localPt(e);
+    cursorRef.current = p;
+    if (draw) setCursor(p); // only the wiring preview needs cursor in the render tree
+    const bd = band.current;
+    if (bd) {
+      if (!bd.active && Math.hypot(p.x - bd.start.x, p.y - bd.start.y) > 4 / zoomRef.current) bd.active = true;
+      if (bd.active) setBandRect({ x: Math.min(bd.start.x, p.x), y: Math.min(bd.start.y, p.y), w: Math.abs(p.x - bd.start.x), h: Math.abs(p.y - bd.start.y) });
+      return;
+    }
+    const d = drag.current;
+    if (d) {
+      const dx = p.x - d.startMouse.x, dy = p.y - d.startMouse.y;
+      setModel((m) => ({ ...m, syms: m.syms.map((s) => { const st = d.starts.get(s.id); return st ? { ...s, x: snap(st.x + dx), y: snap(st.y + dy) } : s; }) }));
+      return;
+    }
+    const pd = pend.current;
+    if (!pd) return;
+    if (!pd.active) {
+      if (Math.hypot(p.x - pd.start.x, p.y - pd.start.y) < 7 / zoomRef.current) return;
+      pd.active = true;
+      if (pd.mode === "insert") {
+        const np = { x: snap(pd.start.x), y: snap(pd.start.y) };
+        pd.startMid = [np]; pd.idx = 0;
+        setModel((m) => ({ ...m, wires: m.wires.map((w) => (w.id === pd.id ? { ...w, mid: [np] } : w)) }));
+      }
+    }
+    const dx = p.x - pd.start.x, dy = p.y - pd.start.y;
+    setModel((m) => ({
+      ...m,
+      wires: m.wires.map((w) => {
+        if (w.id !== pd.id) return w;
+        if (pd.mode === "whole") return { ...w, mid: pd.startMid.map((q) => ({ x: snap(q.x + dx), y: snap(q.y + dy) })) };
+        const mid = w.mid.map((q) => ({ ...q }));
+        const base = pd.startMid[pd.idx] ?? pd.startMid[0] ?? pd.start;
+        mid[pd.idx] = { x: snap(base.x + dx), y: snap(base.y + dy) };
+        return { ...w, mid };
+      }),
+    }));
+  };
+  const onUp = () => {
+    if (panDrag.current) { panDrag.current = null; return; }
+    const bd = band.current; band.current = null;
+    if (bd) {
+      if (bd.active) {
+        const c = cursorRef.current;
+        const r = { x: Math.min(bd.start.x, c.x), y: Math.min(bd.start.y, c.y), w: Math.abs(c.x - bd.start.x), h: Math.abs(c.y - bd.start.y) };
+        selectInBox(r, bd.shift);
+      } else if (!draw) {
+        setSel(new Set()); // a plain empty click clears the selection
+      }
+      setBandRect(null);
+    }
+    drag.current = null; pend.current = null;
+  };
+
+  // marquee select: symbols whose box overlaps, wires with any vertex inside
+  const selectInBox = (r: { x: number; y: number; w: number; h: number }, additive: boolean) => {
+    const inRect = (p: Pt) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+    const hits = new Set<string>();
+    for (const s of model.syms) {
+      const d = symDims(s);
+      if (!d) continue;
+      const b = symBounds(s, d.w, d.h);
+      if (r.x < b.maxX && r.x + r.w > b.minX && r.y < b.maxY && r.y + r.h > b.minY) hits.add(symKey(s.id));
+    }
+    for (const w of model.wires) {
+      const a = endAbs(model.syms, w.a), b2 = endAbs(model.syms, w.b);
+      const pts = [a, ...w.mid, b2].filter(Boolean) as Pt[];
+      if (pts.some(inRect)) hits.add(wireKey(w.id));
+    }
+    setSel((prev) => (additive ? new Set([...prev, ...hits]) : hits));
+  };
+
+  const onPin = (e: RME, sym: string, pin: string) => {
+    e.stopPropagation();
+    const ref = { sym, pin };
+    if (!draw) setDraw({ a: ref, pts: [] });
+    else {
+      if (!(draw.a.sym === sym && draw.a.pin === pin)) {
+        setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: ref, mid: draw.pts }] }));
+        track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${sym}.${pin}` });
+      }
+      setDraw(null);
+    }
+  };
+  const onBgDown = (e: RPE<SVGRectElement>) => {
+    if (draw || e.button !== 0) return; // primary button only; middle-button bubbles up to pan
+    band.current = { start: localPt(e), active: false, shift: e.shiftKey };
+  };
+  const onBg = (e: RME) => {
+    if (draw) { const p = localPt(e); setDraw((d) => (d ? { ...d, pts: [...d.pts, { x: snap(p.x), y: snap(p.y) }] } : d)); }
+  };
+
+  const canUndo = hidx.current > 0;
+  const canRedo = hidx.current < hist.current.length - 1;
+  const selSymIdsArr = selSymIds();
+  const selSym = sel.size === 1 && selSymIdsArr.length === 1 ? model.syms.find((s) => s.id === selSymIdsArr[0]) : undefined;
+  const updateSel = (patch: Partial<Sym>) => setModel((m) => ({ ...m, syms: m.syms.map((s) => (s.id === selSym?.id ? { ...s, ...patch } : s)) }));
+  const updateChip = (patch: Partial<ChipSpec>) => {
+    if (patch.mpn != null && selSym) track({ kind: "mpn.enter", block: blockId, sym: selSym.id, mpn: patch.mpn });
+    setModel((m) => ({ ...m, syms: m.syms.map((s) => (s.id === selSym?.id && s.chip ? { ...s, chip: { ...s.chip, ...patch } } : s)) }));
+  };
+  const setPinName = (pinId: string, name: string) => {
+    if (selSym) track({ kind: "pin.name", block: blockId, sym: selSym.id, pin: pinId, name });
+    setModel((m) => ({ ...m, syms: m.syms.map((s) => (s.id === selSym?.id && s.chip ? { ...s, chip: { ...s.chip, names: { ...s.chip.names, [pinId]: name } } } : s)) }));
+  };
+
+  const vw = size.w / zoom, vh = size.h / zoom;
+  const hs = 5 / zoom; // half-size of waypoint handles (constant screen size)
+
+  // All net/geometry derivation is memoized on [model, terminals] — it runs deriveSchematicNets and
+  // O(n²) crossing detection, so keeping it out of cursor/hover/pan re-renders is the big win here.
+  const derived = useMemo(() => {
+    // junction dots: coordinates where 2+ wire ends meet (a shared pin) → electrically joined
+    const endCount = new Map<string, Pt & { n: number }>();
+    for (const w of model.wires) {
+      for (const e of [w.a, w.b]) {
+        const p = endAbs(model.syms, e);
+        if (!p) continue;
+        const k = `${p.x},${p.y}`;
+        const c = endCount.get(k) ?? { x: p.x, y: p.y, n: 0 };
+        c.n++; endCount.set(k, c);
+      }
+    }
+    const junctions = [...endCount.values()].filter((c) => c.n >= 2);
+
+    // crossings: where two different wires' segments cross at an interior point (not a junction)
+    const segs = model.wires.flatMap((w) => {
+      const a = endAbs(model.syms, w.a), b = endAbs(model.syms, w.b);
+      return a && b ? segmentsOf([a, ...w.mid, b]).map((s) => ({ ...s, wid: w.id })) : [];
+    });
+    const cross = new Map<string, Pt & { over: string }>();
+    for (const s1 of segs) for (const s2 of segs) {
+      if (s1.wid === s2.wid || s1.h === s2.h) continue;
+      const Hs = s1.h ? s1 : s2, Vs = s1.h ? s2 : s1; // horizontal wire jumps over the vertical
+      const x = Vs.x1, y = Hs.y1;
+      if (x > Math.min(Hs.x1, Hs.x2) && x < Math.max(Hs.x1, Hs.x2) && y > Math.min(Vs.y1, Vs.y2) && y < Math.max(Vs.y1, Vs.y2))
+        cross.set(`${x},${y}`, { x, y, over: Hs.wid });
+    }
+    const crossings = [...cross.values()].filter((c) => !endCount.has(`${c.x},${c.y}`));
+
+    // electrical nets derived from the wires (see core/schematic-nets.ts)
+    const conns = model.wires.map((w) => ({
+      id: w.id,
+      a: toSchEndpoint(model.syms, w.a, `${w.id}:a`),
+      b: toSchEndpoint(model.syms, w.b, `${w.id}:b`),
+    }));
+    const twoPin = model.syms.filter((s) => symDims(s)?.pins.length === 2).map((s) => s.id);
+    const nets = deriveSchematicNets(conns, twoPin);
+    const wireState = (w: Wire): WireState => {
+      const ea = toSchEndpoint(model.syms, w.a, `${w.id}:a`), eb = toSchEndpoint(model.syms, w.b, `${w.id}:b`);
+      if (ea.kind === "broken" || eb.kind === "broken") return "error";
+      if (ea.kind === "free" || eb.kind === "free") return "floating";
+      const nid = nets.netOfConn.get(w.id);
+      if (nid != null && nets.nets[nid].shorts.length) return "error";
+      return "ok";
+    };
+    const wireColor = (id: string) => WIRE_COLOR[wireState(model.wires.find((w) => w.id === id)!)];
+
+    // live design checks
+    const openPinList = model.syms.filter((s) => s.type !== "port")
+      .flatMap((s) => (symDims(s)?.pins ?? []).map((p) => ({ sym: s.id, pin: p.id, ref: s.ref })))
+      .filter((k) => !nets.connectedPins.has(`${k.sym}.${k.pin}`));
+    const shortCount = nets.nets.reduce((n, net) => n + net.shorts.length, 0);
+    const realNets = nets.nets.filter((n) => n.pins.length >= 2).length;
+
+    // terminal mapping: a port symbol's ref names a declared terminal; its net exposes it.
+    const ports = model.syms.filter((s) => s.type === "port");
+    const portPinKeys = new Set(ports.map((p) => `${p.id}.1`));
+    const pinNet = new Map<string, number>();
+    nets.nets.forEach((n) => n.pins.forEach((p) => pinNet.set(p, n.id)));
+    const termStatus = terminals.map((t) => {
+      const port = ports.find((p) => p.ref === t.id);
+      const nid = port ? pinNet.get(`${port.id}.1`) : undefined;
+      const connected = nid != null && nets.nets[nid].pins.some((p) => !portPinKeys.has(p));
+      return { t, portId: port?.id, connected };
+    });
+    const unwiredTerms = termStatus.filter((s) => !s.connected).length;
+    const termOf = (symId: string) => terminals.find((t) => t.id === ports.find((p) => p.id === symId)?.ref);
+    const portConnected = (symId: string) => termStatus.find((s) => s.portId === symId)?.connected ?? false;
+
+    // a net's display name: the terminal it reaches (a port's ref), if any
+    const netLabel = new Map<number, string>();
+    nets.nets.forEach((n) => {
+      const pp = n.pins.find((p) => portPinKeys.has(p));
+      if (pp) { const ref = ports.find((q) => q.id === pp.slice(0, pp.lastIndexOf(".")))?.ref; if (ref) netLabel.set(n.id, ref); }
+    });
+
+    // problems — each carries a locate target (click to select + pan)
+    const problems: Problem[] = [];
+    nets.nets.forEach((n) => n.shorts.forEach((symId) => {
+      const ref = model.syms.find((s) => s.id === symId)?.ref ?? symId;
+      problems.push({ sev: "error", msg: `${ref}: both pins are on the same net (short across the part)`, target: { kind: "sym", id: symId } });
+    }));
+    conns.forEach((c) => {
+      if (c.a.kind === "broken" || c.b.kind === "broken") problems.push({ sev: "error", msg: "Wire references a deleted pin", target: { kind: "wire", id: c.id } });
+      else if (c.a.kind === "free" || c.b.kind === "free") problems.push({ sev: "warn", msg: "Wire has a floating end", target: { kind: "wire", id: c.id } });
+    });
+    termStatus.forEach(({ t, connected, portId }) => { if (!connected) problems.push({ sev: "warn", msg: `Terminal "${t.id}" isn't wired into the circuit`, target: portId ? { kind: "sym", id: portId } : undefined }); });
+    openPinList.forEach((k) => problems.push({ sev: "info", msg: `${k.ref ?? k.sym}.${k.pin} is unconnected`, target: { kind: "sym", id: k.sym } }));
+    const probCount = {
+      error: problems.filter((p) => p.sev === "error").length,
+      warn: problems.filter((p) => p.sev === "warn").length,
+      info: problems.filter((p) => p.sev === "info").length,
+    };
+
+    return { junctions, crossings, nets, pinNet, wireState, wireColor, openPinList, shortCount, realNets, termStatus, unwiredTerms, termOf, portConnected, netLabel, problems, probCount };
+  }, [model, terminals]);
+  const { junctions, crossings, nets, pinNet, wireState, wireColor, shortCount, realNets, termStatus, unwiredTerms, termOf, portConnected, netLabel, problems, probCount } = derived;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-[#54607a] bg-[#454e62] p-3">
+        <div className="flex items-center justify-between px-1 pb-2">
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Symbols</h3>
+          <SymbolStyleToggle />
+        </div>
+        {SYMBOL_GROUPS.map((grp) => (
+          <div key={grp.name} className="mb-3">
+            <h4 className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider text-[#677494]">{grp.name}</h4>
+            <div className="grid grid-cols-4 gap-1.5">
+              {grp.types.map((type) => {
+                const s = SYMBOLS[type];
+                if (!s) return null;
+                return (
+                  <button key={type} title={`${s.label} — drag onto the canvas or click to add`} draggable
+                    onDragStart={(e) => { e.dataTransfer.setData("text/symbol", type); e.dataTransfer.effectAllowed = "copy"; }}
+                    onClick={() => addSym(type)}
+                    className="group flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[#54607a] bg-[#4e586f] p-1 hover:border-[#4c8dff] active:cursor-grabbing">
+                    <svg viewBox={`-6 -6 ${s.w + 12} ${s.h + 12}`} preserveAspectRatio="xMidYMid meet" width="100%" height="30" style={{ display: "block", pointerEvents: "none" }}>{s.draw(symStyle)}</svg>
+                    <span className="w-full truncate text-center text-[8px] leading-tight text-[#9aa3b5] group-hover:text-white">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <p className="mt-3 px-1 text-[10px] leading-relaxed text-[#9aa3b5]">Drag a symbol onto the canvas (or click to drop it center) · click a pin then another to wire (Enter ends in free space, Esc cancels) · drag a wire to bend it, corner handles reshape · drag empty space to box-select, Shift-click to add/remove · R rotates, Ctrl+D duplicates, arrows nudge · pinch to zoom, two-finger to pan · Delete removes.</p>
+      </aside>
+
+      <div ref={wrapRef} className="relative flex-1 overflow-hidden bg-[#3c4658]" onDragOver={onCanvasDragOver} onDrop={onCanvasDrop}>
+        <div className="absolute right-3 top-3 z-10 flex gap-1.5">
+          <button onClick={() => rotateSel(90)} disabled={selSymIdsArr.length === 0} title="Rotate (R · Shift+R reverses)"
+            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[14px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">⟳</button>
+          <button onClick={() => { if (size.w) { const f = computeFit(model, size); setZoom(f.zoom); setPan(f.pan); } }} title="Fit to view"
+            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[13px] text-white hover:border-[#4c8dff]">⤢</button>
+          <button onClick={resetBlock} title="Revert to the authored schematic (discard your edits)"
+            className="grid h-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] px-2 text-[11px] text-white hover:border-[#4c8dff]">Reset</button>
+          <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"
+            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[15px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">↶</button>
+          <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)"
+            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[15px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
+        </div>
+        {draw && <div className="absolute left-3 top-3 z-10 rounded-md border border-[#4c8dff80] bg-[#4c8dff26] px-3 py-1.5 text-[11px] text-[#6ea3ff]">Wiring — click a pin to finish · click empty to bend · Esc to cancel</div>}
+        {!draw && hoverNet != null && nets.nets[hoverNet] && (
+          <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-md border border-[#54607a] bg-[#454e62ee] px-3 py-1.5 text-[11px] backdrop-blur">
+            <span className="font-mono font-semibold text-[#6ea3ff]">{netLabel.get(hoverNet) ?? `net ${hoverNet + 1}`}</span>
+            <span className="text-[#9aa3b5]">{nets.nets[hoverNet].pins.length} pins</span>
+            {nets.nets[hoverNet].shorts.length > 0 && <span className="text-[#ef5d6b]">short</span>}
+          </div>
+        )}
+
+        <svg ref={svgRef} width="100%" height="100%" viewBox={`${pan.x} ${pan.y} ${vw} ${vh}`}
+          onPointerDown={onSvgDown} onPointerMove={onMove} onPointerUp={onUp}
+          onAuxClick={(e) => e.preventDefault()} onContextMenu={(e) => e.preventDefault()}
+          style={{ display: "block", touchAction: "none", cursor: draw ? "crosshair" : "default" }}>
+          <defs>
+            <pattern id="bsgrid" width={GRID * 2} height={GRID * 2} patternUnits="userSpaceOnUse">
+              <circle cx="1" cy="1" r="0.9" fill="#56617d" />
+            </pattern>
+          </defs>
+          <rect x={pan.x} y={pan.y} width={vw} height={vh} fill="url(#bsgrid)" onPointerDown={onBgDown} onClick={onBg} />
+
+          {model.wires.map((w) => {
+            const a = endAbs(model.syms, w.a), b = endAbs(model.syms, w.b);
+            if (!a || !b) return null;
+            const selected = isSelWire(w.id);
+            const color = WIRE_COLOR[wireState(w)];
+            const onNet = hoverNet != null && nets.netOfConn.get(w.id) === hoverNet;
+            const d = ortho([a, ...w.mid, b]);
+            return (
+              <g key={w.id}>
+                {onNet && <path d={d} fill="none" stroke={color} strokeOpacity={0.3} strokeWidth={9 / zoom} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+                <path d={d} fill="none" stroke={color} strokeWidth={selected ? 3.5 : 2} pointerEvents="none" />
+                <path d={d} fill="none" stroke="transparent" strokeWidth={18 / zoom} strokeLinecap="round" strokeLinejoin="round"
+                  onPointerDown={(e) => onWireDown(e, w)}
+                  onClick={(e) => { e.stopPropagation(); if (e.shiftKey) setSel((prev) => toggle(prev, wireKey(w.id))); else setSel(new Set([wireKey(w.id)])); }}
+                  onPointerEnter={() => { const n = nets.netOfConn.get(w.id); if (n != null) setHoverNet(n); }}
+                  onPointerLeave={() => setHoverNet(null)}
+                  style={{ cursor: draw ? "crosshair" : "move" }} />
+                {selected && w.mid.map((pt, i) => (
+                  <rect key={i} x={pt.x - hs} y={pt.y - hs} width={hs * 2} height={hs * 2} fill="#fff" stroke="#4c8dff" strokeWidth={1.5 / zoom}
+                    onPointerDown={(e) => onWaypointDown(e, w, i)}
+                    onDoubleClick={(e) => { e.stopPropagation(); setModel((m) => ({ ...m, wires: m.wires.map((x) => (x.id === w.id ? { ...x, mid: x.mid.filter((_, j) => j !== i) } : x)) })); }}
+                    style={{ cursor: "move" }} />
+                ))}
+              </g>
+            );
+          })}
+
+          {/* crossing hops: erase both wires locally, then redraw the over-wire so it reads as passing over */}
+          {crossings.map((c, i) => (
+            <g key={`x${i}`} pointerEvents="none">
+              <circle cx={c.x} cy={c.y} r={6} fill="#3c4658" />
+              <line x1={c.x - 6} y1={c.y} x2={c.x + 6} y2={c.y} stroke={wireColor(c.over)} strokeWidth={2} />
+            </g>
+          ))}
+
+          {draw && (() => {
+            const a = pinAbs(model.syms, draw.a);
+            return a ? <path d={ortho([a, ...draw.pts, cursor])} fill="none" stroke="#f7b13c" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" /> : null;
+          })()}
+
+          {model.syms.map((s) => {
+            const d = symDims(s);
+            if (!d) return null;
+            const selected = isSelSym(s.id);
+            const isPort = s.type === "port";
+            const labelFill = isPort ? (NET_COLOR[termOf(s.id)?.type ?? ""] ?? "#4c8dff") : "#ffffff";
+            const rot = normRot(s.rot ?? 0);
+            const bb = symBounds(s, d.w, d.h); // for upright label placement
+            const glyph = s.chip ? renderChip(d, s.chip) : SYMBOLS[s.type]?.draw(symStyle);
+            return (
+              <g key={s.id}>
+                {/* glyph, selection box and pins rotate together about the symbol centre */}
+                <g transform={`translate(${s.x},${s.y}) rotate(${rot} ${d.w / 2} ${d.h / 2})`}>
+                  <g onPointerDown={(e) => onSymDown(e, s)} style={{ cursor: "move" }}>
+                    <rect x={-4} y={-4} width={d.w + 8} height={d.h + 8} fill="transparent" />
+                    {glyph}
+                  </g>
+                  {selected && <rect x={-5} y={-5} width={d.w + 10} height={d.h + 10} fill="none" stroke="#4c8dff" strokeDasharray="4 3" rx="4" />}
+                  {d.pins.map((p) => {
+                    const open = !nets.connectedPins.has(`${s.id}.${p.id}`);
+                    return (
+                      <g key={p.id}>
+                        {open && <circle cx={p.x} cy={p.y} r={7} fill="none" stroke="#f7b13c" strokeWidth="1.5" pointerEvents="none" />}
+                        <circle cx={p.x} cy={p.y} r={4.5} fill={open ? "#f7b13c" : "#4c8dff"} stroke="#3c4658" strokeWidth="1"
+                          onClick={(e) => onPin(e, s.id, p.id)}
+                          onPointerEnter={() => { const n = pinNet.get(`${s.id}.${p.id}`); if (n != null) setHoverNet(n); }}
+                          onPointerLeave={() => setHoverNet(null)}
+                          style={{ cursor: "crosshair" }} />
+                      </g>
+                    );
+                  })}
+                </g>
+                {/* label stays upright, above the rotated bounding box */}
+                {(s.ref || s.value) && (
+                  <text x={(bb.minX + bb.maxX) / 2} y={bb.minY - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={isPort ? 11 : 10} fontWeight={isPort ? 700 : 400} fill={labelFill}>
+                    {s.ref}{s.value ? ` ${s.value}` : ""}
+                  </text>
+                )}
+                {/* every pin gets an upright indicator (its function name, else its number),
+                    nudged INWARD off the pin's edge so rows of chip pins stay aligned */}
+                {!isPort && d.pins.map((p) => {
+                  const inset = 11;
+                  let lx = p.x, ly = p.y;
+                  if (p.x <= 1) lx += inset;                 // left edge  → push right
+                  else if (p.x >= d.w - 1) lx -= inset;      // right edge → push left
+                  else if (p.y <= 1) ly += inset;            // top edge   → push down
+                  else if (p.y >= d.h - 1) ly -= inset;      // bottom edge→ push up
+                  else { const len = Math.hypot(d.w / 2 - p.x, d.h / 2 - p.y) || 1; lx += ((d.w / 2 - p.x) / len) * inset; ly += ((d.h / 2 - p.y) / len) * inset; }
+                  const a = symPoint(s, lx, ly, d.w, d.h);
+                  return <text key={p.id} x={a.x} y={a.y + 3} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8.5" fontWeight={600} fill="#dbe4f4" stroke="#2b3344" strokeWidth={0.6} paintOrder="stroke" style={{ paintOrder: "stroke" }} pointerEvents="none">{p.label ?? p.id}</text>;
+                })}
+              </g>
+            );
+          })}
+
+          {/* junction dots: solid node wherever 2+ wires share a point (electrically joined) */}
+          {junctions.map((j, i) => (
+            <circle key={`j${i}`} cx={j.x} cy={j.y} r={4.5} fill="#4c8dff" pointerEvents="none" />
+          ))}
+
+          {bandRect && (
+            <rect x={bandRect.x} y={bandRect.y} width={bandRect.w} height={bandRect.h}
+              fill="#4c8dff22" stroke="#4c8dff" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} pointerEvents="none" />
+          )}
+
+          {/* locate flash — a bright pulsing highlight on the thing a Problem points to */}
+          {flash?.kind === "sym" && (() => {
+            const s = model.syms.find((x) => x.id === flash.id), d = s && symDims(s); if (!s || !d) return null;
+            const bb = symBounds(s, d.w, d.h);
+            return (
+              <rect key={flash.n} x={bb.minX - 8} y={bb.minY - 8} width={bb.maxX - bb.minX + 16} height={bb.maxY - bb.minY + 16} rx="6"
+                fill="#4c8dff" stroke="#9ec5ff" strokeWidth={3} pointerEvents="none">
+                <animate attributeName="fill-opacity" values="0.45;0.12;0" dur="1.5s" fill="freeze" />
+                <animate attributeName="stroke-opacity" values="1;1;0" dur="1.5s" fill="freeze" />
+                <animate attributeName="stroke-width" values="3;9;3;9;3" dur="1.5s" fill="freeze" />
+              </rect>
+            );
+          })()}
+          {flash?.kind === "wire" && (() => {
+            const w = model.wires.find((x) => x.id === flash.id), a = w && endAbs(model.syms, w.a), b = w && endAbs(model.syms, w.b);
+            if (!a || !b) return null;
+            return (
+              <path key={flash.n} d={ortho([a, ...w!.mid, b])} fill="none" stroke="#9ec5ff" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
+                <animate attributeName="stroke-opacity" values="0.95;0.95;0" dur="1.5s" fill="freeze" />
+                <animate attributeName="stroke-width" values="8;16;8;16;8" dur="1.5s" fill="freeze" />
+              </path>
+            );
+          })()}
+        </svg>
+        <AssistantBubble />
+      </div>
+
+        {/* RIGHT — inspector */}
+        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto border-l border-[#54607a] bg-[#454e62]">
+          <div className="shrink-0 border-b border-[#54607a] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Inspector</div>
+          <div className="flex-1 overflow-y-auto p-3">
+            {block && (
+              <div className="mb-3 rounded-lg border border-[#54607a] bg-[#4e586f] p-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-[#4c8dff]">{block.glyph ?? "▦"}</span>
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-semibold text-white">{block.name}</div>
+                    <div className="font-mono text-[9px] text-[#9aa3b5]">{block.topology ?? block.category ?? "block"}</div>
+                  </div>
+                </div>
+                {block.spec && Object.keys(block.spec).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {Object.entries(block.spec).map(([k, v]) => (
+                      <span key={k} className="rounded border border-[#54607a] bg-[#454e62] px-1.5 py-0.5 font-mono text-[9px] text-white">{k} {fmtSpecVal(v)}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {!(sel.size > 1 || selSym) && <p className="text-[11px] text-[#677494]">Select a symbol or wire to inspect it.</p>}
+            {sel.size > 1 && (
+              <div>
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">{sel.size} selected</h3>
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                  <button onClick={() => rotateSel(90)} disabled={!selSymIdsArr.length}
+                    className="rounded border border-[#54607a] bg-[#4e586f] py-1 text-[11px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">Rotate</button>
+                  <button onClick={duplicateSel} disabled={!selSymIdsArr.length}
+                    className="rounded border border-[#54607a] bg-[#4e586f] py-1 text-[11px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">Dup</button>
+                  <button onClick={del}
+                    className="rounded border border-[#54607a] bg-[#4e586f] py-1 text-[11px] text-[#ef5d6b] hover:border-[#ef5d6b]">Delete</button>
+                </div>
+              </div>
+            )}
+            {selSym && selSym.type === "port" && (() => {
+              const t = termOf(selSym.id);
+              return (
+                <div>
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Terminal</h3>
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[12px]">
+                    <span style={{ color: NET_COLOR[t?.type ?? ""] ?? "#4c8dff" }}>●</span>
+                    <span className="font-mono text-white">{selSym.ref}</span>
+                    <span className="ml-auto text-[9px] uppercase text-[#9aa3b5]">{t?.role} · {t?.type}</span>
+                  </div>
+                  <p className={`mt-2 text-[11px] ${portConnected(selSym.id) ? "text-[#46dca6]" : "text-[#f7b13c]"}`}>
+                    {portConnected(selSym.id) ? "✓ wired into the circuit" : "⚠ not wired — connect it to a pin"}
+                  </p>
+                </div>
+              );
+            })()}
+            {selSym && selSym.chip && (
+              <div>
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Chip</h3>
+                <label className="mt-2 block text-[11px] text-white">Ref
+                  <input value={selSym.ref ?? ""} onChange={(e) => updateSel({ ref: e.target.value })}
+                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
+                <label className="mt-2 block text-[11px] text-white">Part number
+                  <input value={selSym.chip.mpn ?? ""} placeholder="e.g. MAX232" onChange={(e) => updateChip({ mpn: e.target.value })}
+                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none placeholder:text-[#677494] focus:border-[#4c8dff]" /></label>
+                <div className="mt-2 flex gap-2">
+                  <label className="block flex-1 text-[11px] text-white">Package
+                    <select value={selSym.chip.profile} onChange={(e) => updateChip({ profile: e.target.value })}
+                      className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 text-[12px] text-white outline-none focus:border-[#4c8dff]">
+                      {PROFILES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select></label>
+                  <label className="block w-16 text-[11px] text-white">Pins
+                    <input type="number" min={1} max={256} value={selSym.chip.pins}
+                      onChange={(e) => updateChip({ pins: Math.max(1, Math.min(256, Math.floor(Number(e.target.value) || 1))) })}
+                      className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
+                </div>
+                <div className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-[#677494]">Pin names</div>
+                <div className="mt-1 max-h-44 space-y-1 overflow-y-auto pr-0.5">
+                  {(symDims(selSym)?.pins ?? []).map((p) => (
+                    <div key={p.id} className="flex items-center gap-1.5">
+                      <span className="w-7 shrink-0 text-right font-mono text-[10px] text-[#9aa3b5]">{p.id}</span>
+                      <input value={selSym!.chip!.names?.[p.id] ?? ""} placeholder="—" onChange={(e) => setPinName(p.id, e.target.value)}
+                        className="w-full rounded border border-[#54607a] bg-[#454e62] px-1.5 py-0.5 font-mono text-[11px] text-white outline-none placeholder:text-[#566177] focus:border-[#4c8dff]" />
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] leading-relaxed text-[#677494]">Name pins to wire by function. AI auto-fill from the part number is coming.</p>
+              </div>
+            )}
+            {selSym && selSym.type !== "port" && !selSym.chip && (
+              <div>
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">{SYMBOLS[selSym.type]?.label}</h3>
+                <label className="mt-2 block text-[11px] text-white">Ref
+                  <input value={selSym.ref ?? ""} onChange={(e) => updateSel({ ref: e.target.value })}
+                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
+                <label className="mt-2 block text-[11px] text-white">Value
+                  <input value={selSym.value ?? ""} onChange={(e) => updateSel({ value: e.target.value })}
+                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
+              </div>
+            )}
+            {terminals.length > 0 && (
+              <div className="mt-4 border-t border-[#54607a] pt-3">
+                <h3 className="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">
+                  Terminals{unwiredTerms > 0 && <span className="ml-1 text-[#f7b13c]">· {unwiredTerms} unwired</span>}
+                </h3>
+                <div className="space-y-1 px-1">
+                  {termStatus.map(({ t, portId, connected }) => (
+                    <button key={t.id} onClick={() => portId && setSel(new Set([symKey(portId)]))}
+                      className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-[#4e586f]">
+                      <span style={{ color: NET_COLOR[t.type] ?? "#4c8dff" }}>●</span>
+                      <span className="font-mono text-white">{t.id}</span>
+                      <span className="ml-auto text-[9px] uppercase text-[#9aa3b5]">{t.role}</span>
+                      <span className={connected ? "text-[#46dca6]" : "text-[#f7b13c]"}>{connected ? "✓" : "⚠"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
+
+      {/* BOTTOM — problems panel */}
+      <div className="shrink-0 border-t border-[#54607a] bg-[#3f4860]">
+        <div className="flex items-center gap-1 px-2">
+          <button onClick={() => setBottomOpen((o) => !o)}
+            className="flex items-center gap-1.5 border-b-2 border-[#4c8dff] px-3 py-1.5 text-[11px] text-white">
+            Problems
+            {(probCount.error + probCount.warn) > 0 && <span className="rounded-full bg-[#54607a] px-1.5 text-[9px] text-white">{probCount.error + probCount.warn}</span>}
+          </button>
+          <div className="ml-auto flex items-center gap-3 px-2 text-[10px] text-[#9aa3b5]">
+            <span>{realNets} nets</span>
+            {shortCount > 0 && <span className="text-[#ef5d6b]">{shortCount} short{shortCount > 1 ? "s" : ""}</span>}
+            <button onClick={() => setBottomOpen((o) => !o)} className="text-[#9aa3b5] hover:text-white" title={bottomOpen ? "Collapse" : "Expand"}>{bottomOpen ? "▾" : "▴"}</button>
+          </div>
+        </div>
+        {bottomOpen && (
+          <div className="h-44 overflow-y-auto border-t border-[#54607a] bg-[#373f54] px-3 py-2 text-[12px]">
+            {problems.length === 0 ? (
+              <div className="flex items-center gap-2 text-[#46dca6]">✓ No problems — everything checks out.</div>
+            ) : (
+              <ul className="space-y-0.5">
+                {problems.map((p, i) => (
+                  <li key={i}>
+                    <button onClick={() => locate(p.target)} disabled={!p.target}
+                      className="flex w-full items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[#454e62] disabled:cursor-default">
+                      <span style={{ color: p.sev === "error" ? "#ef5d6b" : p.sev === "warn" ? "#f7b13c" : "#9aa3b5" }}>{p.sev === "error" ? "✕" : p.sev === "warn" ? "▲" : "ℹ"}</span>
+                      <span className="text-white">{p.msg}</span>
+                      {p.target && <span className="ml-auto shrink-0 text-[10px] text-[#677494]">locate ↗</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

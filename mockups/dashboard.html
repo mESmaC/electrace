@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Electrace — home</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+  :root{
+    --bg:#363f4f; --surface:#414a5c; --surface-2:#4a5468; --surface-3:#566177;
+    --border:#515b6e; --border-strong:#67728a;
+    --text:#ffffff; --dim:#d4dae6; --faint:#9aa3b5;
+    --accent:#4c8dff; --accent-hi:#6ea3ff; --accent-soft:rgba(76,141,255,.18);
+    --amber:#f7b13c; --green:#46dca6; --gray:#9aa6b6; --warn:#fbc54a; --violet:#c08cf7; --pink:#f178b6; --cyan:#3fd0e6;
+    --grid:rgba(255,255,255,.05);
+    --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;height:100vh;overflow:hidden}
+  button{font-family:inherit;cursor:pointer;color:inherit}
+  .mono{font-family:var(--mono)}
+  .app{display:grid;grid-template-columns:248px 1fr;height:100vh}
+
+  /* ---------- sidebar ---------- */
+  .side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 12px;overflow:auto}
+  .ws{display:flex;align-items:center;gap:10px;padding:8px;border-radius:11px;border:1px solid var(--border);margin-bottom:14px}
+  .ws:hover{background:var(--surface-2)}
+  .ws .wa{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#4c8dff,#7c6cff);display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+  .ws .wn{font-weight:700;font-size:14px;line-height:1.1} .ws .wp{font-size:11px;color:var(--faint)}
+  .ws .cv{margin-left:auto;color:var(--faint)}
+  .newbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;border-radius:11px;border:none;background:var(--accent);color:#fff;font-weight:600;font-size:14px;box-shadow:0 6px 18px rgba(76,141,255,.3);margin-bottom:16px}
+  .newbtn:hover{background:var(--accent-hi)}
+  .nav{display:flex;flex-direction:column;gap:2px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;color:var(--dim);font-weight:500;font-size:13.5px}
+  .nav a:hover{background:var(--surface-2);color:var(--text)} .nav a.on{background:var(--accent-soft);color:#fff}
+  .nav a .i{width:17px;text-align:center;opacity:.9} .nav a .ct{margin-left:auto;font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .nav a .ext{margin-left:auto;font-size:11px;color:var(--faint)}
+  .navlabel{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);padding:16px 11px 6px;display:flex;justify-content:space-between;align-items:center}
+  .navlabel .add{color:var(--faint);cursor:pointer} .navlabel .add:hover{color:var(--text)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .grow{flex:1;min-height:14px}
+  .usage{border:1px solid var(--border);border-radius:12px;padding:12px 13px;margin-bottom:10px;background:var(--surface-2)}
+  .usage .ut{font-size:12px;font-weight:600;display:flex;justify-content:space-between}
+  .usage .ub{height:6px;border-radius:4px;background:var(--bg);margin:9px 0 9px;overflow:hidden}
+  .usage .uf{height:100%;width:50%;background:var(--accent);border-radius:4px}
+  .usage .up{width:100%;padding:7px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:600;font-size:12px}
+  .usage .up:hover{background:var(--accent);color:#fff}
+  .acct{display:flex;align-items:center;gap:10px;padding:9px;border-radius:11px;border:1px solid var(--border)}
+  .acct:hover{background:var(--surface-2)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7c6cff);display:grid;place-items:center;font-weight:700;color:#fff;font-size:12px;flex:none}
+  .acct .nm{font-size:13px;font-weight:600;line-height:1.15}.acct .em{font-size:11px;color:var(--faint)} .acct .gear{margin-left:auto;color:var(--faint)}
+
+  /* ---------- main ---------- */
+  .main{overflow:auto}
+  .top{position:sticky;top:0;z-index:6;display:flex;align-items:center;gap:14px;padding:15px 30px;background:rgba(54,63,79,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .crumb{font-size:15px;font-weight:700}
+  .search{margin-left:8px;flex:1;max-width:420px;display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 13px;color:var(--faint)}
+  .search input{border:none;background:none;color:var(--text);font-size:13.5px;width:100%;outline:none;font-family:inherit}
+  .search kbd{font-family:var(--mono);font-size:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:2px 5px;color:var(--faint)}
+  .ibtn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;font-size:15px;color:var(--dim);position:relative}
+  .ibtn:hover{color:#fff;border-color:var(--border-strong)} .ibtn .bell-dot{position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
+
+  .content{padding:24px 30px 56px}
+  .hello{font-size:24px;font-weight:800;letter-spacing:-.5px}
+  .stats{display:flex;gap:9px;margin:14px 0 6px;flex-wrap:wrap}
+  .stat{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:13px}
+  .stat b{font-family:var(--mono);font-weight:600} .stat .k{color:var(--faint)}
+
+  .promo{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,var(--accent-soft),transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:13px;padding:14px 16px;margin:20px 0 6px}
+  .promo .pi{width:38px;height:38px;border-radius:10px;background:var(--accent);display:grid;place-items:center;font-size:18px;flex:none}
+  .promo .pt{font-weight:600;font-size:14px}.promo .ps{font-size:12.5px;color:var(--dim)}
+  .promo .pcta{margin-left:auto;font-weight:600;font-size:13px;color:var(--accent);white-space:nowrap}
+  .promo .px{color:var(--faint);cursor:pointer;font-size:16px;margin-left:6px}
+
+  .sech{display:flex;align-items:center;margin:34px 0 14px}
+  .sech .t{font-size:15px;font-weight:700} .sech .c{color:var(--faint);font-size:12.5px;margin-left:9px}
+  .sech .sort{margin-left:auto;display:flex;align-items:center;gap:9px}
+  .sortbtn{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:7px 11px;font-size:12.5px;color:var(--dim)}
+  .sortbtn:hover{color:#fff} .seg{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{padding:7px 11px;border:none;background:none;color:var(--dim);font-size:13px} .seg button.on{background:var(--accent-soft);color:#fff}
+
+  /* jump back in (horizontal) */
+  .jrow{display:flex;gap:16px;overflow:auto;padding-bottom:6px}
+  .jcard{flex:none;width:260px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:.14s}
+  .jcard:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 14px 32px rgba(0,0,0,.3)}
+  .jthumb{height:120px;border-bottom:1px solid var(--border);background-color:var(--bg);background-image:radial-gradient(var(--grid) 1.3px,transparent 1.3px);background-size:15px 15px}
+  .jthumb svg{width:100%;height:100%}
+  .jb{padding:11px 13px;display:flex;align-items:center;gap:9px}
+  .jb .jn{font-weight:600;font-size:13.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .jb .jm{font-size:11px;color:var(--faint)}
+
+  /* templates */
+  .tpl{display:flex;gap:12px;overflow:auto;padding-bottom:6px}
+  .tplcard{flex:none;width:188px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:.14s}
+  .tplcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .tg{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:16px;border:1px solid;margin-bottom:10px}
+  .tplcard .tn{font-weight:600;font-size:13.5px} .tplcard .td{font-size:11.5px;color:var(--faint);margin-top:2px}
+  .g-amber{background:rgba(247,177,60,.16);color:var(--amber);border-color:rgba(247,177,60,.4)}
+  .g-cyan{background:rgba(34,211,238,.16);color:var(--cyan);border-color:rgba(34,211,238,.4)}
+  .g-violet{background:rgba(168,85,247,.2);color:var(--violet);border-color:rgba(168,85,247,.42)}
+  .g-green{background:rgba(52,211,153,.18);color:var(--green);border-color:rgba(52,211,153,.4)}
+  .g-mut{background:var(--surface-2);color:var(--dim);border-color:var(--border)}
+
+  /* grid + cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:18px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:.14s;cursor:pointer;position:relative}
+  .card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 16px 36px rgba(0,0,0,.3)}
+  .thumb{height:140px;border-bottom:1px solid var(--border);background-color:var(--bg);background-image:radial-gradient(var(--grid) 1.3px,transparent 1.3px);background-size:16px 16px;position:relative}
+  .thumb svg{width:100%;height:100%}
+  .star{position:absolute;top:9px;right:10px;font-size:15px;color:var(--faint);opacity:0;transition:.12s}
+  .card:hover .star,.star.on{opacity:1} .star.on{color:var(--amber)}
+  .shared{position:absolute;top:9px;left:10px;font-size:10px;font-weight:700;background:rgba(0,0,0,.35);padding:3px 7px;border-radius:6px;color:var(--dim)}
+  .cbody{padding:12px 14px 13px}
+  .cname{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:8px}
+  .cmeta{color:var(--faint);font-size:11.5px;margin-top:2px}
+  .crow{display:flex;align-items:center;margin-top:11px;gap:8px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:3px 7px;border-radius:6px;background:var(--surface-2);color:var(--dim);font-family:var(--mono)}
+  .chip.ok{color:var(--green)} .chip.warn{color:var(--warn)}
+  .stack{display:flex;margin-left:auto}
+  .av{width:23px;height:23px;border-radius:50%;border:2px solid var(--surface);display:grid;place-items:center;font-size:9.5px;font-weight:700;margin-left:-7px;color:#fff}
+  .menu{color:var(--faint);font-size:17px;line-height:1}
+
+  @media(max-width:900px){.app{grid-template-columns:1fr}.side{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="side">
+    <button class="ws"><span class="wa">UN</span><span><span class="wn">US Nylon</span><br><span class="wp">Free plan</span></span><span class="cv">▾</span></button>
+    <button class="newbtn">＋ New design</button>
+
+    <nav class="nav">
+      <a class="on"><span class="i">⌂</span> Recents</a>
+      <a><span class="i">▤</span> Drafts <span class="ct">3</span></a>
+      <a><span class="i">⇄</span> Shared with me <span class="ct">2</span></a>
+      <a><span class="i">★</span> Starred</a>
+      <a><span class="i">🗑</span> Trash</a>
+    </nav>
+
+    <div class="navlabel">Library</div>
+    <nav class="nav">
+      <a><span class="i">◳</span> Blocks <span class="ct">128</span></a>
+      <a><span class="i">◎</span> Learn</a>
+      <a><span class="i">✦</span> Community <span class="ext">↗</span></a>
+    </nav>
+
+    <div class="navlabel">Projects <span class="add">＋</span></div>
+    <nav class="nav">
+      <a><span class="dot" style="background:var(--amber)"></span> Power Projects</a>
+      <a><span class="dot" style="background:var(--cyan)"></span> Client Boards</a>
+      <a><span class="dot" style="background:var(--green)"></span> Personal</a>
+    </nav>
+
+    <div class="grow"></div>
+    <div class="usage">
+      <div class="ut"><span>Free plan</span><span class="mono" style="color:var(--faint)">5 / 10</span></div>
+      <div class="ub"><div class="uf"></div></div>
+      <button class="up">Upgrade for unlimited</button>
+    </div>
+    <button class="acct"><span class="avatar">CE</span><span><span class="nm">Cameron</span><br><span class="em">cemery@usnylon.com</span></span><span class="gear">⚙</span></button>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+    <div class="top">
+      <span class="crumb">Home</span>
+      <div class="search">⌕<input placeholder="Search designs, blocks…"/><kbd>⌘K</kbd></div>
+      <button class="ibtn" title="Help">?</button>
+      <button class="ibtn" title="Notifications">🔔<span class="bell-dot"></span></button>
+    </div>
+
+    <div class="content">
+      <div class="hello">Good evening, Cameron 👋</div>
+      <div class="stats">
+        <div class="stat"><span class="k">Designs</span><b>5</b></div>
+        <div class="stat"><span class="k">Open issues</span><b style="color:var(--warn)">3</b></div>
+        <div class="stat"><span class="k">Shared with you</span><b>2</b></div>
+        <div class="stat"><span class="k">Blocks used</span><b>23</b></div>
+      </div>
+
+      <div class="promo">
+        <span class="pi">✦</span>
+        <span><div class="pt">42 new community blocks this week</div><div class="ps">Vetted power, sensing, and comms blocks — drop them straight into a design.</div></span>
+        <span class="pcta">Explore community →</span><span class="px">✕</span>
+      </div>
+
+      <!-- JUMP BACK IN -->
+      <div class="sech"><span class="t">Jump back in</span></div>
+      <div class="jrow">
+        <div class="jcard"><div class="jthumb"><svg viewBox="0 0 260 120">
+          <line x1="84" y1="52" x2="112" y2="52" stroke="var(--amber)" stroke-width="2.5"/><line x1="84" y1="66" x2="112" y2="66" stroke="var(--gray)" stroke-width="2.5"/><line x1="190" y1="59" x2="216" y2="59" stroke="var(--green)" stroke-width="2.5"/>
+          <g><rect x="26" y="40" width="58" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="26" y="40" width="4" height="40" fill="var(--amber)"/></g>
+          <g><rect x="112" y="40" width="78" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="112" y="40" width="4" height="40" fill="var(--cyan)"/></g>
+          <g><rect x="216" y="40" width="40" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="216" y="40" width="4" height="40" fill="var(--green)"/></g>
+        </svg></div><div class="jb"><span class="jn">Buck Supply</span><span class="jm">2h ago</span></div></div>
+
+        <div class="jcard"><div class="jthumb"><svg viewBox="0 0 260 120">
+          <line x1="78" y1="38" x2="104" y2="38" stroke="var(--amber)" stroke-width="2.5"/><line x1="78" y1="84" x2="104" y2="84" stroke="var(--green)" stroke-width="2.5"/><line x1="168" y1="60" x2="196" y2="60" stroke="var(--green)" stroke-width="2.5"/>
+          <g><rect x="24" y="24" width="54" height="30" rx="7" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="24" y="24" width="4" height="30" fill="var(--amber)"/></g>
+          <g><rect x="24" y="70" width="54" height="30" rx="7" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="24" y="70" width="4" height="30" fill="var(--violet)"/></g>
+          <g><rect x="104" y="46" width="64" height="30" rx="7" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="104" y="46" width="4" height="30" fill="var(--cyan)"/></g>
+          <g><rect x="196" y="46" width="50" height="30" rx="7" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="196" y="46" width="4" height="30" fill="var(--green)"/></g>
+        </svg></div><div class="jb"><span class="jn">Sensor Node v2</span><span class="jm">1d ago</span></div></div>
+
+        <div class="jcard"><div class="jthumb"><svg viewBox="0 0 260 120">
+          <line x1="98" y1="60" x2="138" y2="60" stroke="var(--amber)" stroke-width="2.5"/>
+          <g><rect x="38" y="40" width="60" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="38" y="40" width="4" height="40" fill="var(--amber)"/></g>
+          <g><rect x="138" y="40" width="84" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="138" y="40" width="4" height="40" fill="var(--amber)"/></g>
+        </svg></div><div class="jb"><span class="jn">LED Driver</span><span class="jm">3d ago</span></div></div>
+
+        <div class="jcard"><div class="jthumb"><svg viewBox="0 0 260 120">
+          <line x1="92" y1="60" x2="120" y2="60" stroke="var(--pink)" stroke-width="2.5"/><line x1="196" y1="60" x2="222" y2="60" stroke="var(--pink)" stroke-width="2.5"/>
+          <g><rect x="34" y="40" width="58" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="34" y="40" width="4" height="40" fill="var(--green)"/></g>
+          <g><rect x="120" y="40" width="76" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="120" y="40" width="4" height="40" fill="var(--pink)"/></g>
+          <g><rect x="222" y="40" width="34" height="40" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="222" y="40" width="4" height="40" fill="var(--cyan)"/></g>
+        </svg></div><div class="jb"><span class="jn">Audio Preamp</span><span class="jm">2w ago</span></div></div>
+      </div>
+
+      <!-- TEMPLATES -->
+      <div class="sech"><span class="t">Start something new</span></div>
+      <div class="tpl">
+        <div class="tplcard"><div class="tg g-amber">⎓</div><div class="tn">Power supply</div><div class="td">Entry → regulate → rails</div></div>
+        <div class="tplcard"><div class="tg g-cyan">⇄</div><div class="tn">Buck converter</div><div class="td">Step a voltage down</div></div>
+        <div class="tplcard"><div class="tg g-violet">⊞</div><div class="tn">MCU board</div><div class="td">Micro + power + IO</div></div>
+        <div class="tplcard"><div class="tg g-green">⊳</div><div class="tn">Sensor front-end</div><div class="td">Amplify → filter → ADC</div></div>
+        <div class="tplcard"><div class="tg g-mut">＋</div><div class="tn">Blank canvas</div><div class="td">Start from nothing</div></div>
+      </div>
+
+      <!-- ALL DESIGNS -->
+      <div class="sech"><span class="t">All designs</span><span class="c">5 designs</span>
+        <div class="sort"><button class="sortbtn">Last edited ▾</button><div class="seg"><button class="on">▦</button><button>≣</button></div></div>
+      </div>
+      <div class="grid">
+
+        <div class="card"><div class="thumb"><span class="star">★</span><svg viewBox="0 0 300 140">
+          <line x1="96" y1="60" x2="128" y2="60" stroke="var(--amber)" stroke-width="2.5"/><line x1="96" y1="76" x2="128" y2="76" stroke="var(--gray)" stroke-width="2.5"/><line x1="214" y1="68" x2="246" y2="68" stroke="var(--green)" stroke-width="2.5"/>
+          <g><rect x="30" y="48" width="66" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="30" y="48" width="5" height="42" rx="2" fill="var(--amber)"/></g>
+          <g><rect x="128" y="48" width="86" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="128" y="48" width="5" height="42" rx="2" fill="var(--cyan)"/></g>
+          <g><rect x="246" y="48" width="48" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="246" y="48" width="5" height="42" rx="2" fill="var(--green)"/></g>
+        </svg></div><div class="cbody"><div class="cname">Buck Supply<span class="menu" style="margin-left:auto">⋯</span></div><div class="cmeta">Edited 2 hours ago · by you</div>
+          <div class="crow"><div class="chips"><span class="chip">3</span><span class="chip ok">● ready</span></div><div class="stack"><span class="av" style="background:#4c8dff">CE</span></div></div></div></div>
+
+        <div class="card"><div class="thumb"><span class="star on">★</span><svg viewBox="0 0 300 140">
+          <line x1="88" y1="42" x2="116" y2="42" stroke="var(--amber)" stroke-width="2.5"/><line x1="88" y1="98" x2="116" y2="98" stroke="var(--green)" stroke-width="2.5"/><line x1="184" y1="42" x2="212" y2="70" stroke="var(--green)" stroke-width="2.5"/><line x1="184" y1="98" x2="212" y2="70" stroke="var(--gray)" stroke-width="2.5"/>
+          <g><rect x="28" y="28" width="60" height="32" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="28" y="28" width="5" height="32" rx="2" fill="var(--amber)"/></g>
+          <g><rect x="28" y="84" width="60" height="32" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="28" y="84" width="5" height="32" rx="2" fill="var(--violet)"/></g>
+          <g><rect x="116" y="28" width="68" height="32" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="116" y="28" width="5" height="32" rx="2" fill="var(--cyan)"/></g>
+          <g><rect x="116" y="84" width="68" height="32" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="116" y="84" width="5" height="32" rx="2" fill="var(--pink)"/></g>
+          <g><rect x="212" y="54" width="60" height="34" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="212" y="54" width="5" height="34" rx="2" fill="var(--green)"/></g>
+        </svg></div><div class="cbody"><div class="cname">Sensor Node v2<span class="menu" style="margin-left:auto">⋯</span></div><div class="cmeta">Edited yesterday · by Priya</div>
+          <div class="crow"><div class="chips"><span class="chip">6</span><span class="chip warn">▲ 1 open</span></div><div class="stack"><span class="av" style="background:#4c8dff">CE</span><span class="av" style="background:#f178b6">PR</span><span class="av" style="background:#46dca6">JT</span></div></div></div></div>
+
+        <div class="card"><div class="thumb"><span class="star">★</span><svg viewBox="0 0 300 140">
+          <line x1="112" y1="68" x2="156" y2="68" stroke="var(--amber)" stroke-width="2.5"/>
+          <g><rect x="44" y="48" width="68" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="44" y="48" width="5" height="42" rx="2" fill="var(--amber)"/></g>
+          <g><rect x="156" y="48" width="86" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="156" y="48" width="5" height="42" rx="2" fill="var(--amber)"/></g>
+        </svg></div><div class="cbody"><div class="cname">LED Driver<span class="menu" style="margin-left:auto">⋯</span></div><div class="cmeta">Edited 3 days ago · by you</div>
+          <div class="crow"><div class="chips"><span class="chip">2</span><span class="chip ok">● ready</span></div><div class="stack"><span class="av" style="background:#4c8dff">CE</span></div></div></div></div>
+
+        <div class="card"><div class="thumb"><span class="shared">⇄ Client Boards</span><span class="star">★</span><svg viewBox="0 0 300 140">
+          <line x1="84" y1="48" x2="110" y2="48" stroke="var(--amber)" stroke-width="2.5"/><line x1="84" y1="96" x2="110" y2="96" stroke="var(--gray)" stroke-width="2.5"/><line x1="178" y1="48" x2="204" y2="72" stroke="var(--green)" stroke-width="2.5"/><line x1="178" y1="96" x2="204" y2="72" stroke="var(--violet)" stroke-width="2.5"/>
+          <g><rect x="26" y="34" width="58" height="30" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="26" y="34" width="5" height="30" rx="2" fill="var(--amber)"/></g>
+          <g><rect x="26" y="82" width="58" height="30" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="26" y="82" width="5" height="30" rx="2" fill="var(--cyan)"/></g>
+          <g><rect x="110" y="34" width="68" height="30" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="110" y="34" width="5" height="30" rx="2" fill="var(--violet)"/></g>
+          <g><rect x="110" y="82" width="68" height="30" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="110" y="82" width="5" height="30" rx="2" fill="var(--green)"/></g>
+          <g><rect x="204" y="56" width="64" height="34" rx="8" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="204" y="56" width="5" height="34" rx="2" fill="var(--pink)"/></g>
+        </svg></div><div class="cbody"><div class="cname">USB-C PD Board<span class="menu" style="margin-left:auto">⋯</span></div><div class="cmeta">Edited last week · by Marco</div>
+          <div class="crow"><div class="chips"><span class="chip">8</span><span class="chip warn">▲ 2 issues</span></div><div class="stack"><span class="av" style="background:#f7b13c">MA</span><span class="av" style="background:#4c8dff">CE</span></div></div></div></div>
+
+        <div class="card"><div class="thumb"><span class="star">★</span><svg viewBox="0 0 300 140">
+          <line x1="100" y1="68" x2="132" y2="68" stroke="var(--pink)" stroke-width="2.5"/><line x1="218" y1="68" x2="250" y2="68" stroke="var(--pink)" stroke-width="2.5"/>
+          <g><rect x="34" y="48" width="66" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="34" y="48" width="5" height="42" rx="2" fill="var(--green)"/></g>
+          <g><rect x="132" y="48" width="86" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="132" y="48" width="5" height="42" rx="2" fill="var(--pink)"/></g>
+          <g><rect x="250" y="48" width="40" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)"/><rect x="250" y="48" width="5" height="42" rx="2" fill="var(--cyan)"/></g>
+        </svg></div><div class="cbody"><div class="cname">Audio Preamp<span class="menu" style="margin-left:auto">⋯</span></div><div class="cmeta">Edited 2 weeks ago · by you</div>
+          <div class="crow"><div class="chips"><span class="chip">4</span><span class="chip ok">● ready</span></div><div class="stack"><span class="av" style="background:#4c8dff">CE</span></div></div></div></div>
+
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
