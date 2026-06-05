@@ -16,8 +16,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/" className="font-mono font-bold text-[17px]">
               Electrace<span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 rounded-[1px] bg-accent" />
             </Link>
+            <Link href="/projects" className="text-sm text-dim hover:text-text">Projects</Link>
             <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
-            <Link href="/editor" className="text-sm text-dim hover:text-text">Editor</Link>
           </div>
         </nav>
         <div className="flex-1">{children}</div>

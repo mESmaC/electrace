@@ -1,12 +1,18 @@
 import Editor from "./Editor";
 import { loadDesign, blockLibrary } from "@/lib/blocks";
+import type { Design } from "@electrace/core";
 
 export const metadata = { title: "Editor — Electrace" };
 
-// Server component: load the design + block library (from disk), hand them to the
-// client editor, which runs the core's analyze() live in the browser.
-export default function EditorPage() {
-  const design = loadDesign("buck-supply");
+// Server component: load the block library (from disk) and hand it to the client editor.
+// A project's design content lives in the browser (localStorage), so for `?p=<id>` we SSR an
+// empty stub with that id and let the client hydrate it; without a project, use the bundled sample.
+export default async function EditorPage({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const blocks = blockLibrary();
-  return <Editor design={design} blocks={blocks} />;
+  const pid = (await searchParams)?.p;
+  const projectId = typeof pid === "string" ? pid : undefined;
+  const design: Design = projectId
+    ? { id: projectId, name: "Untitled project", visibility: "private", blocks: [], connections: [] }
+    : loadDesign("buck-supply");
+  return <Editor design={design} blocks={blocks} projectId={projectId} />;
 }

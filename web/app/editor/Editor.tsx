@@ -5,7 +5,9 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType } from "@electrace/core";
+import { analyze, railBudgets, deriveBlockSchematic, designReport, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole } from "@electrace/core";
+import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
+import { touchProject } from "@/lib/projects";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
 import { modelToLayout } from "./schematic-model";
@@ -104,13 +106,16 @@ function buildFlow(design: Design, blockMap: Map<string, Block>): { nodes: Node[
   return { nodes, edges };
 }
 
-export default function Editor({ design, blocks }: { design: Design; blocks: Record<string, Block> }) {
+export default function Editor({ design, blocks, projectId }: { design: Design; blocks: Record<string, Block>; projectId?: string }) {
+  // the project's display name (the SSR design is a stub; the real name arrives when we hydrate it)
+  const [designName, setDesignName] = useState(design.name);
   // A block's edited internal schematic (saved by the in-block editor) is the source of truth:
   // merge each saved layout, re-derive its parts/nets, and analyze against that. `mounted` keeps
   // the first (SSR) render on the authored blocks to avoid a hydration mismatch; `draftV` bumps
   // when the schematic editor autosaves so design-level lint refreshes when you pop back out.
   const [mounted, setMounted] = useState(false);
   const [draftV, setDraftV] = useState(0);
+  const [userV, setUserV] = useState(0); // bumps when user blocks are created/deleted
   useEffect(() => {
     setMounted(true);
     const onSave = () => setDraftV((v) => v + 1);
@@ -118,9 +123,13 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
     return () => window.removeEventListener("electrace:blocksch", onSave);
   }, []);
 
+  // library blocks (build-time) + user blocks (localStorage); user blocks only exist after mount
+  const userBlocks = useMemo(() => (mounted ? getUserBlocks() : {}), [mounted, userV]);
+  const allBlocks = useMemo(() => ({ ...blocks, ...userBlocks }), [blocks, userBlocks]);
+
   const blockMap = useMemo(() => {
     const m = new Map<string, Block>();
-    for (const [key, b] of Object.entries(blocks)) {
+    for (const [key, b] of Object.entries(allBlocks)) {
       let blk = b;
       if (mounted) {
         try {
@@ -139,7 +148,7 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
       m.set(key, blk);
     }
     return m;
-  }, [blocks, mounted, draftV]);
+  }, [allBlocks, mounted, draftV]);
 
   const initial = useMemo(() => buildFlow(design, blockMap), [design, blockMap]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
@@ -151,7 +160,7 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
   const designLive = useMemo(() => {
     const refs = new Set(nodes.map((n) => n.id));
     return {
-      id: design.id, name: design.name, visibility: design.visibility,
+      id: design.id, name: designName, visibility: design.visibility,
       blocks: nodes.map((n) => ({
         ref: n.id, block: (n.data as BlockNodeData).blockKey,
         pos: [n.position.x, n.position.y] as [number, number],
@@ -161,7 +170,7 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
         .filter((e) => refs.has(e.source) && refs.has(e.target))
         .map((e) => ({ from: `${e.source}.${e.sourceHandle ?? ""}`, to: `${e.target}.${e.targetHandle ?? ""}` })),
     };
-  }, [nodes, edges, design]);
+  }, [nodes, edges, design, designName]);
 
   const analysis = useMemo(() => {
     try {
@@ -222,6 +231,8 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
   const [selectedNet, setSelectedNet] = useState<string | null>(null); // a member node "REF.term"
   const [drillRef, setDrillRef] = useState<string | null>(null);
   const [bottomOpen, setBottomOpen] = useState(true);
+  type FormTerm = { id: string; role: TerminalRole; type: NetType };
+  const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; category: string; terminals: FormTerm[] } | null>(null);
   const rfRef = useRef<ReactFlowInstance | null>(null);
 
   // strongly highlight a block: select it (blue ring), clear other selection, and animate-centre it
@@ -349,6 +360,7 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
   const loadDesign = useCallback((d: Design) => {
     const flow = buildFlow(d, blockMap);
     restoring.current = true;
+    if (d.name) setDesignName(d.name);
     setNodes(flow.nodes);
     setEdges(flow.edges);
     history.current = [{ nodes: flow.nodes, edges: flow.edges }];
@@ -359,6 +371,20 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
 
   const resetSample = useCallback(() => loadDesign(design), [loadDesign, design]);
   // wipe every saved block-schematic draft so the blocks revert to their authored versions
+  // --- user-defined blocks ---
+  const startNewBlock = () => setNewBlock({ name: "", glyph: "", category: "", terminals: [{ id: "vin", role: "in", type: "power" }, { id: "gnd", role: "in", type: "gnd" }] });
+  const createBlock = () => {
+    if (!newBlock || !newBlock.name.trim()) return;
+    const terms: Terminal[] = newBlock.terminals.filter((t) => t.id.trim()).map((t) => ({ id: t.id.trim(), role: t.role, type: t.type }));
+    if (!terms.length) return;
+    saveUserBlock(makeUserBlock({ name: newBlock.name, glyph: newBlock.glyph, category: newBlock.category, terminals: terms }));
+    setNewBlock(null); setUserV((v) => v + 1);
+  };
+  const removeUserBlock = (key: string) => {
+    if (!window.confirm("Remove this custom block from your palette? (Its saved schematic is also discarded.)")) return;
+    deleteUserBlock(key); setUserV((v) => v + 1);
+  };
+
   const resetSchematics = useCallback(() => {
     if (typeof window === "undefined") return;
     if (!window.confirm("Clear all saved block-schematic edits and revert every block to its authored version?")) return;
@@ -379,30 +405,34 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
   // autosave (debounced)
   useEffect(() => {
     const id = setTimeout(() => {
-      try { localStorage.setItem(LS_KEY, JSON.stringify(designLive)); setSavedAt(Date.now()); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(designLive));
+        if (projectId) touchProject(projectId, designName); // keep the dashboard's "edited" stamp + name current
+        setSavedAt(Date.now());
+      } catch { /* ignore */ }
     }, 800);
     return () => clearTimeout(id);
-  }, [LS_KEY, designLive]);
+  }, [LS_KEY, designLive, projectId, designName]);
 
   const exportDesign = useCallback(() => {
     const blob = new Blob([JSON.stringify(designLive, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${design.name || "design"}.design.json`;
+    a.download = `${designName || "design"}.design.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [designLive, design.name]);
+  }, [designLive, designName]);
 
   const downloadReport = useCallback(() => {
     const md = designReport(designLive, blockMap);
     const blob = new Blob([md], { type: "text/markdown" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${(design.name || "design").replace(/\s+/g, "-").toLowerCase()}-report.md`;
+    a.download = `${(designName || "design").replace(/\s+/g, "-").toLowerCase()}-report.md`;
     a.click();
     URL.revokeObjectURL(a.href);
-  }, [designLive, blockMap, design.name]);
+  }, [designLive, blockMap, designName]);
 
   const onImportFile = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -414,20 +444,29 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
   return (
     <div className="relative flex" style={{ height: "calc(100vh - 56px)" }}>
       <aside className="w-56 shrink-0 overflow-auto border-r border-[#54607a] bg-[#454e62] p-3">
-        <h2 className="px-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5]">Blocks</h2>
+        <div className="flex items-center justify-between px-1 pb-2">
+          <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5]">Blocks</h2>
+          <button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ New</button>
+        </div>
         <div className="space-y-1.5">
-          {Object.entries(blocks).map(([key, b]) => (
-            <button
-              key={key}
-              onClick={() => addBlock(key)}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#4e586f] px-2.5 py-2 text-left hover:border-[#4c8dff]"
-            >
-              <span className="grid h-7 w-7 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">{b.glyph ?? "▦"}</span>
-              <span className="text-[12.5px] text-[#ffffff]">{b.name}</span>
-            </button>
+          {Object.entries(allBlocks).map(([key, b]) => (
+            <div key={key} className="group relative">
+              <button
+                onClick={() => addBlock(key)}
+                className="flex w-full items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#4e586f] px-2.5 py-2 text-left hover:border-[#4c8dff]"
+              >
+                <span className="grid h-7 w-7 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">{b.glyph ?? "▦"}</span>
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-white">{b.name}</span>
+                {isUserBlock(key) && <span className="shrink-0 rounded bg-[#3a4458] px-1 text-[8px] uppercase tracking-wide text-[#9aa3b5]">mine</span>}
+              </button>
+              {isUserBlock(key) && (
+                <button onClick={() => removeUserBlock(key)} title="Delete this custom block"
+                  className="absolute right-1 top-1 hidden h-5 w-5 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a1c20] hover:text-[#e2837e] group-hover:grid">✕</button>
+              )}
+            </div>
           ))}
         </div>
-        <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Click to add to the canvas · select a block + Delete to remove.</p>
+        <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Click to add to the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic · select + Delete to remove.</p>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1">
@@ -679,13 +718,64 @@ export default function Editor({ design, blocks }: { design: Design; blocks: Rec
       {drillRef && drilledBlock && (
         <div className="absolute inset-0 z-30 flex flex-col overflow-hidden bg-[#3c4658]">
           <div className="flex items-center gap-2 border-b border-[#54607a] px-4 py-2 text-sm">
-            <button onClick={() => setDrillRef(null)} className="text-[#9aa3b5] hover:text-white">← {design.name}</button>
+            <button onClick={() => setDrillRef(null)} className="text-[#9aa3b5] hover:text-white">← {designName}</button>
             <span className="text-[#677494]">/</span>
             <span className="font-semibold">{drillRef} — {drilledBlock.name}</span>
             <span className="ml-2 text-[11px] text-[#9aa3b5]">internal schematic · drag symbols, wire pins</span>
           </div>
           <div className="min-h-0 flex-1">
             <BlockSchematic blockId={drilledBlock.id} initial={drilledBlock.layout} terminals={drilledBlock.terminals} block={drilledBlock} />
+          </div>
+        </div>
+      )}
+
+      {/* create a custom block */}
+      {newBlock && (
+        <div className="absolute inset-0 z-40 grid place-items-center bg-black/55 p-4" onClick={() => setNewBlock(null)}>
+          <div className="w-full max-w-md rounded-xl border border-[#54607a] bg-[#454e62] p-4 text-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-3 text-[14px] font-semibold">New block</h3>
+            <div className="mb-3 flex gap-2">
+              <label className="flex-1 text-[11px] text-[#9aa3b5]">Name
+                <input autoFocus value={newBlock.name} onChange={(e) => setNewBlock({ ...newBlock, name: e.target.value })} placeholder="e.g. Sensor frontend"
+                  className="mt-1 w-full rounded-md border border-[#54607a] bg-[#3c4658] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#4c8dff]" />
+              </label>
+              <label className="w-16 text-[11px] text-[#9aa3b5]">Glyph
+                <input value={newBlock.glyph} onChange={(e) => setNewBlock({ ...newBlock, glyph: e.target.value.slice(0, 2) })} placeholder="▦"
+                  className="mt-1 w-full rounded-md border border-[#54607a] bg-[#3c4658] px-2 py-1.5 text-center text-[14px] outline-none focus:border-[#4c8dff]" />
+              </label>
+            </div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#9aa3b5]">Terminals</span>
+              <button onClick={() => setNewBlock({ ...newBlock, terminals: [...newBlock.terminals, { id: "", role: "in", type: "signal" }] })}
+                className="rounded border border-[#54607a] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ terminal</button>
+            </div>
+            <div className="max-h-52 space-y-1.5 overflow-y-auto">
+              {newBlock.terminals.map((t, i) => {
+                const set = (patch: Partial<FormTerm>) => setNewBlock({ ...newBlock, terminals: newBlock.terminals.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+                return (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <input value={t.id} onChange={(e) => set({ id: e.target.value })} placeholder="name"
+                      className="min-w-0 flex-1 rounded border border-[#54607a] bg-[#3c4658] px-2 py-1 font-mono text-[11px] text-white outline-none focus:border-[#4c8dff]" />
+                    <select value={t.role} onChange={(e) => set({ role: e.target.value as TerminalRole })} style={{ colorScheme: "dark" }}
+                      className="rounded border border-[#54607a] bg-[#3c4658] px-1 py-1 text-[11px] text-white outline-none">
+                      <option value="in">in</option><option value="out">out</option>
+                    </select>
+                    <select value={t.type} onChange={(e) => set({ type: e.target.value as NetType })} style={{ colorScheme: "dark" }}
+                      className="rounded border border-[#54607a] bg-[#3c4658] px-1 py-1 text-[11px] text-white outline-none">
+                      <option value="power">power</option><option value="rail">rail</option><option value="signal">signal</option><option value="gnd">gnd</option>
+                    </select>
+                    <button onClick={() => setNewBlock({ ...newBlock, terminals: newBlock.terminals.filter((_, j) => j !== i) })}
+                      className="grid h-6 w-6 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a1c20] hover:text-[#e2837e]">✕</button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setNewBlock(null)} className="rounded-md border border-[#54607a] px-3 py-1.5 text-[12px] text-white hover:border-[#4c8dff]">Cancel</button>
+              <button onClick={createBlock} disabled={!newBlock.name.trim() || !newBlock.terminals.some((t) => t.id.trim())}
+                className="rounded-md bg-[#4c8dff] px-3 py-1.5 text-[12px] text-white disabled:opacity-40">Create block</button>
+            </div>
+            <p className="mt-3 text-[10px] leading-snug text-[#9aa3b5]">After creating, click it in the palette to drop it on the canvas, then double-click to draw its internal schematic.</p>
           </div>
         </div>
       )}

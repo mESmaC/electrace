@@ -12,12 +12,10 @@ export default function Home() {
       <p className="mx-auto mt-4 max-w-md text-lg text-dim">
         Blocks that explain themselves — and catch what doesn&apos;t add up.
       </p>
-      <Link
-        href="/blocks"
-        className="mt-8 inline-block rounded-xl bg-accent px-5 py-3 font-semibold text-white transition-colors hover:bg-accent-hi"
-      >
-        Browse the block library →
-      </Link>
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <Link href="/projects" className="rounded-xl bg-accent px-5 py-3 font-semibold text-white transition-colors hover:bg-accent-hi">Start building →</Link>
+        <Link href="/blocks" className="rounded-xl border border-border px-5 py-3 font-semibold text-dim transition-colors hover:border-accent hover:text-text">Browse blocks</Link>
+      </div>
     </main>
   );
 }
