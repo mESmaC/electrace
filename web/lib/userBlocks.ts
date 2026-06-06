@@ -5,12 +5,16 @@ import type { Block, Terminal } from "@electrace/core";
 
 const KEY = "electrace:userblocks";
 
-/** All user blocks keyed by "id@version" (same shape as the library map). */
+/** Terminal ids must be unique within a block (they become net pins + React-Flow handle ids).
+ *  Drop any later duplicate so a malformed block can't crash the canvas or short two handles. */
+const uniqTerminals = (ts: Terminal[] = []): Terminal[] => ts.filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i);
+
+/** All user blocks keyed by "id@version" (same shape as the library map). Heals duplicate terminals. */
 export function getUserBlocks(): Record<string, Block> {
   if (typeof window === "undefined") return {};
   try {
     const arr = JSON.parse(localStorage.getItem(KEY) ?? "[]") as Block[];
-    return Object.fromEntries(arr.filter((b) => b && b.id).map((b) => [`${b.id}@${b.version}`, b]));
+    return Object.fromEntries(arr.filter((b) => b && b.id).map((b) => [`${b.id}@${b.version}`, { ...b, terminals: uniqTerminals(b.terminals) }]));
   } catch { return {}; }
 }
 
@@ -46,6 +50,6 @@ export function makeUserBlock(input: { name: string; glyph?: string; category?: 
     version: "1.0.0",
     category: input.category?.trim() || "custom",
     glyph: input.glyph?.trim() || "▦",
-    terminals: input.terminals,
+    terminals: uniqTerminals(input.terminals),
   };
 }

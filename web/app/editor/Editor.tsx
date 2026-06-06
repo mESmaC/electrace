@@ -58,7 +58,7 @@ function BlockNode(props: NodeProps) {
         <SchematicPreview blockId={block.id} layout={block.layout} />
       </div>
       <div className="border-t border-[#54607a] py-1">
-        {block.terminals.map((t) => {
+        {block.terminals.filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i).map((t) => {
           const out = t.role === "out";
           return (
             <div key={t.id} className="relative flex items-center gap-2 px-3" style={{ height: RH }}>

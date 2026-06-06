@@ -81,6 +81,8 @@ export function validateBlock(block: Block): ValidationIssue[] {
   if (!block.name) out.push({ severity: "error", code: "block/no-name", message: "Block has no name." });
   if (!block.version) out.push({ severity: "error", code: "block/no-version", message: "Block has no version." });
   if (!block.terminals?.length) out.push({ severity: "error", code: "block/no-terminals", message: "Block declares no terminals — it can't connect to anything." });
+  const dupTerms = (block.terminals ?? []).map((t) => t.id).filter((id, i, a) => a.indexOf(id) !== i);
+  for (const id of new Set(dupTerms)) out.push({ severity: "error", code: "block/duplicate-terminal", message: `Terminal id "${id}" is declared more than once — terminal ids must be unique.`, at: id });
 
   if (block.layout) validateLayout(block.layout, block.terminals ?? [], out);
   return out;
