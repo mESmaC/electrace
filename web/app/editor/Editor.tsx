@@ -311,7 +311,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // keep a live snapshot of the design in the assistant's context window
   const designCtx = useMemo(() => {
     const lines: string[] = [`Electrace design "${designName}".`];
-    lines.push(`Blocks (${nodes.length}): ${nodes.map((n) => { const b = (n.data as BlockNodeData).block; return `${n.id}=${b.name}${b.topology ? ` (${b.topology})` : ""}`; }).join("; ") || "none"}.`);
+    const blockNodes = nodes.filter((n) => n.type === "block");
+    const connNodes = nodes.filter((n) => n.type === "connector");
+    lines.push(`Blocks (${blockNodes.length}): ${blockNodes.map((n) => { const b = (n.data as BlockNodeData).block; return `${n.id}=${b.name}${b.topology ? ` (${b.topology})` : ""}`; }).join("; ") || "none"}.`);
+    if (connNodes.length) lines.push(`Connectors: ${connNodes.map((n) => `${n.id}=${(n.data as ConnectorNodeData).connectorId}`).join("; ")}.`);
     lines.push(`Power: ≈${round1(totalW)} W across ${analysis.resolved.nets.length} nets${worstRail ? `; worst rail ${Math.round(worstRail.usedPct ?? 0)}% used` : ""}.`);
     const nets = analysis.resolved.nets.slice(0, 24).map((n) => `${n.id} [${n.type}${n.voltage ? ` ${fmtRange(n.voltage)}` : ""}]: ${n.members.map((m) => m.node).join(", ")}`);
     if (nets.length) lines.push("Nets:\n" + nets.join("\n"));
@@ -351,6 +354,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     .filter((c) => c.qty > 0);
   // stress test: authored voltage limits across the design, ranked by headroom at the what-if input
   const stressLimits = nodes
+    .filter((n) => n.type === "block")
     .flatMap((n) => ((n.data as unknown as BlockNodeData).block.limits ?? [])
       .filter((l) => l.unit === "V" || /\bv|vin|vac/i.test(l.field))
       .map((l) => ({ ref: n.id, ...l, margin: l.value - stressV })))
