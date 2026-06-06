@@ -1,11 +1,11 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
-  ReactFlow, Background, Controls, Handle, Position, addEdge,
+  ReactFlow, Background, Controls, Handle, Position, addEdge, ConnectionMode, useNodes, useEdges,
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole } from "@electrace/core";
+import { analyze, railBudgets, deriveBlockSchematic, designReport, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
@@ -30,6 +30,7 @@ const SEV_ICON: Record<Severity, string> = {
 };
 
 interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; [k: string]: unknown }
+interface ConnectorNodeData { connectorId: string; ref: string; [k: string]: unknown }
 
 /** Short ref prefix from a block key, e.g. "@electrace/buck-converter@1.2.0" → "BC". */
 function abbrev(key: string): string {
@@ -43,6 +44,22 @@ const RH = 22; // per-terminal row height
 function BlockNode(props: NodeProps) {
   const { block, instanceRef } = props.data as unknown as BlockNodeData;
   const sel = props.selected;
+  const edges = useEdges();
+  const nodes = useNodes();
+  const connectorIds = useMemo(() => new Set(nodes.filter((n) => n.type === "connector").map((n) => n.id)), [nodes]);
+  // terminal id → "J1.2" when it's docked onto a connector pin (a hidden edge to a connector node)
+  const docked = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of edges) {
+      if (e.source === instanceRef && e.sourceHandle && connectorIds.has(e.target)) m.set(e.sourceHandle, `${e.target}.${e.targetHandle}`);
+      else if (e.target === instanceRef && e.targetHandle && connectorIds.has(e.source)) m.set(e.targetHandle, `${e.source}.${e.sourceHandle}`);
+    }
+    return m;
+  }, [edges, connectorIds, instanceRef]);
+  const terminals = block.terminals.filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i);
+  const free = terminals.filter((t) => !docked.has(t.id));
+  const dockedTerms = terminals.filter((t) => docked.has(t.id));
+  const undock = (terminal: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal } }));
   return (
     <div
       style={{ width: 210, boxShadow: sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)" }}
@@ -58,7 +75,7 @@ function BlockNode(props: NodeProps) {
         <SchematicPreview blockId={block.id} layout={block.layout} />
       </div>
       <div className="border-t border-[#54607a] py-1">
-        {block.terminals.filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i).map((t) => {
+        {free.map((t) => {
           const out = t.role === "out";
           return (
             <div key={t.id} className="relative flex items-center gap-2 px-3" style={{ height: RH }}>
@@ -78,23 +95,93 @@ function BlockNode(props: NodeProps) {
             </div>
           );
         })}
+        {/* docked terminals collapse to compact chips (declutter); their handles stay in the DOM
+            (hidden) so the hidden dock-edges remain valid. Click a chip to undock. */}
+        {dockedTerms.length > 0 && (
+          <div className="mt-1 border-t border-dashed border-[#54607a] px-3 pt-1.5">
+            <div className="mb-1 text-[8px] uppercase tracking-wide text-[#9aa3b5]">{dockedTerms.length} docked</div>
+            <div className="flex flex-wrap gap-1">
+              {dockedTerms.map((t) => (
+                <button key={t.id} onClick={() => undock(t.id)} title={`${t.id} → ${docked.get(t.id)} · click to undock`}
+                  className="rounded bg-[#3a4458] px-1 font-mono text-[9px] text-[#9ec5ff] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
+              ))}
+            </div>
+            <div style={{ height: 0, overflow: "hidden" }} aria-hidden>
+              {dockedTerms.map((t) => (
+                <Handle key={t.id} id={t.id} type={t.role === "out" ? "source" : "target"}
+                  position={t.role === "out" ? Position.Right : Position.Left} style={{ width: 1, height: 1, opacity: 0 }} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-const nodeTypes = { block: BlockNode };
+function ConnectorNode(props: NodeProps) {
+  const { connectorId, ref } = props.data as unknown as ConnectorNodeData;
+  const sel = props.selected;
+  const edges = useEdges();
+  const part = connectorPart(connectorId);
+  // pin id → "U1.tx" docked onto it (either edge direction)
+  const dockOf = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of edges) {
+      if (e.target === ref && e.targetHandle) m.set(e.targetHandle, `${e.source}.${e.sourceHandle}`);
+      else if (e.source === ref && e.sourceHandle) m.set(e.sourceHandle, `${e.target}.${e.targetHandle}`);
+    }
+    return m;
+  }, [edges, ref]);
+  if (!part) return null;
+  return (
+    <div
+      style={{ width: 158, boxShadow: sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 8px 20px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)" }}
+      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#3c4658] text-white`}
+    >
+      <div className="flex items-center gap-2 border-b border-[#54607a] px-2.5 pt-2 pb-1.5">
+        <span className="grid h-5 w-5 place-items-center rounded border border-[#4c8dff55] bg-[#4c8dff26] text-[11px] text-[#4c8dff]">⊟</span>
+        <span className="flex-1 truncate text-[11px] font-semibold">{part.name}</span>
+        <span className="text-[9px] uppercase tracking-wide text-[#9aa3b5]">{ref}</span>
+      </div>
+      <div className="py-1">
+        {part.pins.map((pin) => {
+          const d = dockOf.get(pin);
+          return (
+            <div key={pin} className="relative flex items-center gap-1.5 px-2.5" style={{ height: 17 }}>
+              <Handle id={pin} type="target" position={Position.Left}
+                style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, background: "#3c4658", border: `2px solid ${d ? "#4c8dff" : "#677494"}` }} />
+              <span className="w-5 shrink-0 font-mono text-[9px] text-[#9aa3b5]">{pin}</span>
+              <span className="flex-1 truncate font-mono text-[9.5px]" style={{ color: d ? "#fff" : "#566177" }}>{d ?? "—"}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const nodeTypes = { block: BlockNode, connector: ConnectorNode };
 
 /** Build React Flow nodes + edges from a design (used for initial load, localStorage
  *  restore, and import). Skips instances/connections referencing unknown blocks. */
 function buildFlow(design: Design, blockMap: Map<string, Block>): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = design.blocks
+  const blockNodes: Node[] = design.blocks
     .filter((bi) => blockMap.has(bi.block))
     .map((bi) => ({
       id: bi.ref, type: "block",
       position: { x: bi.pos?.[0] ?? 0, y: bi.pos?.[1] ?? 0 },
       data: { block: blockMap.get(bi.block)!, instanceRef: bi.ref, blockKey: bi.block, overrides: bi.overrides },
     }));
+  const connNodes: Node[] = (design.connectors ?? [])
+    .filter((ci) => connectorPart(ci.connector))
+    .map((ci) => ({
+      id: ci.ref, type: "connector",
+      position: { x: ci.pos?.[0] ?? 0, y: ci.pos?.[1] ?? 0 },
+      data: { connectorId: ci.connector, ref: ci.ref },
+    }));
+  const nodes = [...blockNodes, ...connNodes];
+  const connRefs = new Set(connNodes.map((n) => n.id));
   const refs = new Set(nodes.map((n) => n.id));
   const edges: Edge[] = design.connections
     .filter((c) => refs.has(c.from.split(".")[0]) && refs.has(c.to.split(".")[0]))
@@ -103,7 +190,8 @@ function buildFlow(design: Design, blockMap: Map<string, Block>): { nodes: Node[
       const [dstRef, dstTerm] = c.to.split(".");
       const srcKey = design.blocks.find((b) => b.ref === srcRef)?.block;
       const type = (srcKey && blockMap.get(srcKey)?.terminals.find((t) => t.id === srcTerm)?.type) || "signal";
-      return { id: `e${i}`, source: srcRef, sourceHandle: srcTerm, target: dstRef, targetHandle: dstTerm, style: { stroke: NET_COLOR[type] ?? "#4c8dff", strokeWidth: 2 } };
+      const dock = connRefs.has(srcRef) || connRefs.has(dstRef); // dock edges are hidden (terminal lives on the connector)
+      return { id: `e${i}`, source: srcRef, sourceHandle: srcTerm, target: dstRef, targetHandle: dstTerm, hidden: dock, style: { stroke: NET_COLOR[type] ?? "#4c8dff", strokeWidth: 2 } };
     });
   return { nodes, edges };
 }
@@ -165,10 +253,14 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     const refs = new Set(nodes.map((n) => n.id));
     return {
       id: design.id, name: designName, visibility: design.visibility,
-      blocks: nodes.map((n) => ({
+      blocks: nodes.filter((n) => n.type === "block").map((n) => ({
         ref: n.id, block: (n.data as BlockNodeData).blockKey,
         pos: [n.position.x, n.position.y] as [number, number],
         overrides: (n.data as BlockNodeData).overrides,
+      })),
+      connectors: nodes.filter((n) => n.type === "connector").map((n) => ({
+        ref: n.id, connector: (n.data as ConnectorNodeData).connectorId,
+        pos: [n.position.x, n.position.y] as [number, number],
       })),
       connections: edges
         .filter((e) => refs.has(e.source) && refs.has(e.target))
@@ -313,11 +405,33 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const onConnect = useCallback(
     (params: RFConnection) => {
       const type = termType(params.source, params.sourceHandle);
-      setEdges((eds) => addEdge({ ...params, style: { stroke: NET_COLOR[type] ?? "#4c8dff", strokeWidth: 2 } }, eds));
+      // a connection touching a connector node is a "dock": the terminal lives on the connector,
+      // so the edge is hidden (no visible wire) and the block collapses that terminal to a chip.
+      const dock = nodes.some((n) => n.type === "connector" && (n.id === params.target || n.id === params.source));
+      setEdges((eds) => addEdge({ ...params, hidden: dock, style: { stroke: NET_COLOR[type] ?? "#4c8dff", strokeWidth: 2 } }, eds));
       track({ kind: "connect", from: `${params.source}.${params.sourceHandle}`, to: `${params.target}.${params.targetHandle}`, netType: type as NetType });
     },
-    [termType, setEdges],
+    [termType, setEdges, nodes],
   );
+
+  // place a connector on the canvas
+  const addConnector = useCallback((connId: string) => {
+    setNodes((nds) => {
+      let n = 1; while (nds.some((x) => x.id === `J${n}`)) n++;
+      return [...nds, { id: `J${n}`, type: "connector", position: { x: 80 + (nds.length % 6) * 40, y: 70 + (nds.length % 6) * 40 }, data: { connectorId: connId, ref: `J${n}` } }];
+    });
+    track({ kind: "block.add", block: `connector:${connId}` });
+  }, [setNodes]);
+
+  // undock a terminal (from a block chip): drop the hidden dock edge for that block.terminal
+  useEffect(() => {
+    const onUndock = (e: Event) => {
+      const { block, terminal } = (e as CustomEvent).detail as { block: string; terminal: string };
+      setEdges((eds) => eds.filter((ed) => !((ed.source === block && ed.sourceHandle === terminal) || (ed.target === block && ed.targetHandle === terminal))));
+    };
+    window.addEventListener("electrace:undock", onUndock);
+    return () => window.removeEventListener("electrace:undock", onUndock);
+  }, [setEdges]);
 
   const addBlock = useCallback(
     (key: string) => {
@@ -535,7 +649,19 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             </div>
           ))}
         </div>
-        <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Click to add to the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic · select + Delete to remove.</p>
+
+        <h2 className="mt-4 px-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5]">Connectors</h2>
+        <div className="space-y-1.5">
+          {Object.values(CONNECTOR_CATALOG).map((c) => (
+            <button key={c.id} onClick={() => addConnector(c.id)} title={`${c.pins.length} pins`}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#3c4658] px-2.5 py-2 text-left hover:border-[#4c8dff]">
+              <span className="grid h-7 w-7 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">⊟</span>
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-white">{c.name}</span>
+              <span className="shrink-0 font-mono text-[9px] text-[#9aa3b5]">{c.pins.length}p</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Click to add to the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1">
@@ -574,13 +700,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[15px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
         </div>
         <ReactFlow
-          nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+          nodes={nodes} edges={edges} nodeTypes={nodeTypes} connectionMode={ConnectionMode.Loose}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
           onNodeClick={(_, n) => { setSelectedId(n.id); setSelectedNet(null); }}
           onEdgeClick={(_, e) => { setSelectedNet(`${e.source}.${e.sourceHandle}`); setSelectedId(null); }}
           onPaneClick={() => { setSelectedId(null); setSelectedNet(null); }}
           onInit={(inst) => { rfRef.current = inst; }}
-          onNodeDoubleClick={(_, n) => { setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}
+          onNodeDoubleClick={(_, n) => { if (n.type !== "block") return; setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}
           deleteKeyCode={drillRef ? null : ["Backspace", "Delete"]}
           fitView proOptions={{ hideAttribution: true }}
         >
