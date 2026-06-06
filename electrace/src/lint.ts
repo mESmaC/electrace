@@ -61,6 +61,38 @@ const overVoltage: Rule = (rd) =>
     });
   });
 
+/** Two or more drivers on one net — a conflict unless they're diode-OR'd / open-drain / load-shared. */
+const multipleDrivers: Rule = (rd) =>
+  rd.nets
+    .filter((net) => net.type !== "gnd" && net.sources.length >= 2)
+    .map((net) => ({
+      rule: "connectivity/multiple-drivers", severity: "warn", category: "connectivity", at: [net.id],
+      message: `${net.id} has ${net.sources.length} drivers (${net.sources.map((s) => `${s.instance}.${s.terminal}`).join(", ")}) — fine if they're diode-OR'd or open-drain, otherwise two outputs are fighting.`,
+    } satisfies Finding));
+
+/** A power/rail net feeding loads with nothing driving it (and not declared off-board). */
+const undrivenRail: Rule = (rd) =>
+  rd.nets
+    .filter((net) => (net.type === "power" || net.type === "rail")
+      && net.sinks.length >= 1 && net.sources.length === 0
+      && !net.members.some((m) => m.def.external))
+    .map((net) => ({
+      rule: "connectivity/undriven-rail", severity: "warn", category: "connectivity", at: [net.id],
+      message: `${net.id} powers ${net.sinks.length} load${net.sinks.length === 1 ? "" : "s"} but nothing drives it — connect a source, or mark it off-board.`,
+    } satisfies Finding));
+
+/** A placed block with no internal parts — an interface shell that won't appear in the BOM yet.
+ *  Info-level: hollow blocks are a legitimate top-down step, but the analyzer should say so out loud
+ *  so "0 errors" can't hide a board that's missing its real components. */
+const emptyBlock: Rule = (rd) =>
+  rd.instances
+    .filter((inst) => !inst.def.schematic?.parts?.length)
+    .map((inst) => ({
+      rule: "completeness/empty-block", severity: "info", category: "completeness", at: [inst.ref],
+      message: `${inst.ref} (${inst.def.name}) has no components yet — it's an interface shell, so it won't appear in the BOM. Populate it with the real part(s).`,
+      fix: { label: "Assign the part(s) this block represents" },
+    } satisfies Finding));
+
 // ── Recommendations (curated expert rules-of-thumb; advisory) ───────────────
 
 /** A linear regulator dropping a lot of voltage at current burns it as heat. */
@@ -136,8 +168,8 @@ const underUtilized: Rule = (rd) =>
 // ── Registry ────────────────────────────────────────────────────────────────
 
 export const RULES: Rule[] = [
-  openNet, overCurrent, overVoltage, polarityConflict,   // faults
-  lowEfficiency, underUtilized, testPoints,              // recommendations
+  openNet, overCurrent, overVoltage, polarityConflict, multipleDrivers, undrivenRail, // faults
+  lowEfficiency, underUtilized, testPoints, emptyBlock,  // recommendations + completeness
 ];
 
 const SEVERITY_ORDER = { error: 0, warn: 1, recommendation: 2, info: 3, unknown: 4 } as const;

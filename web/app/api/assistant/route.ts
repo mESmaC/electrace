@@ -20,6 +20,11 @@ provided Workspace context and general EE knowledge; don't change anything.
 You also have a web_search tool — use it to look up real datasheets and pinouts when the user asks
 about a specific part number (don't guess pin maps from memory; search, then cite the source).
 
+Read the real state instead of guessing: call list_nets to see the actual net graph and
+analyze_design to read all findings — including notes like "block has no part yet". If a block you
+created is an empty interface shell, populate it (or tell the user the real part it stands for) so it
+reaches the BOM; don't leave the design as hollow boxes.
+
 Rules: only connect terminals that exist (use the terminals returned by list_blocks/add_block).
 Don't invent block keys — use the exact keys from list_blocks. Prefer minimal, correct changes.`;
 
@@ -125,10 +130,27 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
     case "analyze_design": {
       try {
         const a = analyze(design, blockMap);
-        const errs = a.findings.filter((f) => f.severity === "error"), warns = a.findings.filter((f) => f.severity === "warn");
-        const issues = [...errs, ...warns].slice(0, 12).map((f) => `[${f.severity}] ${f.message}`).join("; ");
-        return { text: `${design.blocks.length} blocks, ${a.resolved.nets.length} nets. ${errs.length} errors, ${warns.length} warnings.${issues ? " " + issues : " All clear."}`, changed: false };
+        const n = (s: string) => a.findings.filter((f) => f.severity === s).length;
+        const head = `${design.blocks.length} blocks, ${a.resolved.nets.length} nets — ${n("error")} errors, ${n("warn")} warnings, ${n("info") + n("recommendation")} notes.`;
+        const order = { error: 0, warn: 1, recommendation: 2, info: 3 } as Record<string, number>;
+        const body = [...a.findings].sort((x, y) => (order[x.severity] ?? 9) - (order[y.severity] ?? 9))
+          .slice(0, 25).map((f) => `[${f.severity}] ${f.message}`).join("\n");
+        return { text: body ? `${head}\n${body}` : `${head} All clear.`, changed: false };
       } catch (e) { return { text: `Analysis failed: ${String(e).slice(0, 160)}`, changed: false }; }
+    }
+    case "list_nets": {
+      try {
+        const a = analyze(design, blockMap);
+        if (!a.resolved.nets.length) return { text: "(no nets — nothing wired yet)", changed: false };
+        const vstr = (r: { value?: number; min?: number; max?: number } | undefined) =>
+          !r ? "" : typeof r.value === "number" ? ` ${r.value}V` : ` ${r.min ?? "?"}–${r.max ?? "?"}V`;
+        const text = a.resolved.nets.map((nt) => {
+          const drv = nt.sources.map((s) => `${s.instance}.${s.terminal}`).join(", ") || "none";
+          const load = nt.sinks.map((s) => `${s.pin.instance}.${s.pin.terminal}`).join(", ") || "none";
+          return `${nt.id} (${nt.type}${vstr(nt.voltage)}): drivers=[${drv}] loads=[${load}]`;
+        }).join("\n");
+        return { text, changed: false };
+      } catch (e) { return { text: `Could not derive nets: ${String(e).slice(0, 160)}`, changed: false }; }
     }
     default:
       return { text: `Unknown tool ${name}.`, changed: false };
@@ -146,7 +168,8 @@ const TOOLS = [
   { name: "remove_block", description: "Remove a placed block (and its connections).", input_schema: { type: "object", properties: { ref: { type: "string" } }, required: ["ref"] } },
   { name: "connect", description: "Wire two terminals together (e.g. PWR1.vout ↔ REG1.vin).", input_schema: { type: "object", properties: { from: { type: "string", description: "REF.terminal" }, to: { type: "string", description: "REF.terminal" } }, required: ["from", "to"] } },
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
-  { name: "analyze_design", description: "Run the deterministic checks (power, nets, errors/warnings) on the current design.", input_schema: { type: "object", properties: {} } },
+  { name: "analyze_design", description: "Run the deterministic checks on the current design — returns all findings (errors, warnings, and notes like 'block has no part yet').", input_schema: { type: "object", properties: {} } },
+  { name: "list_nets", description: "List the actual derived net graph — each net's type, voltage, drivers (outputs) and loads (inputs). Read this instead of guessing connectivity.", input_schema: { type: "object", properties: {} } },
 ];
 
 export async function POST(req: Request) {

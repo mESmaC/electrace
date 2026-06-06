@@ -179,7 +179,7 @@ export interface ResolvedDesign {
 export type Severity = "error" | "warn" | "info" | "unknown" | "recommendation";
 export type Category =
   | "connectivity" | "voltage" | "current" | "power" | "limit"
-  | "polarity" | "grounding" | "thermal" | "debug" | "declaration";
+  | "polarity" | "grounding" | "thermal" | "debug" | "declaration" | "completeness";
 
 export interface Finding {
   rule: string;              // "current/over-budget"
