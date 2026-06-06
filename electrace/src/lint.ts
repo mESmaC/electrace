@@ -6,7 +6,7 @@ import type { Finding, ResolvedDesign, Rule, Range } from "./types.js";
 /** An exposed terminal wired to nothing — unless it's declared off-board (externally driven). */
 const openNet: Rule = (rd) =>
   rd.nets
-    .filter((net) => net.open && !net.members.some((p) => p.def.external))
+    .filter((net) => net.open && !net.external)
     .map((net) => {
       const p = net.members[0];
       return {
@@ -74,8 +74,7 @@ const multipleDrivers: Rule = (rd) =>
 const undrivenRail: Rule = (rd) =>
   rd.nets
     .filter((net) => (net.type === "power" || net.type === "rail")
-      && net.sinks.length >= 1 && net.sources.length === 0
-      && !net.members.some((m) => m.def.external))
+      && net.sinks.length >= 1 && net.sources.length === 0 && !net.external)
     .map((net) => ({
       rule: "connectivity/undriven-rail", severity: "warn", category: "connectivity", at: [net.id],
       message: `${net.id} powers ${net.sinks.length} load${net.sinks.length === 1 ? "" : "s"} but nothing drives it — connect a source, or mark it off-board.`,

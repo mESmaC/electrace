@@ -136,12 +136,20 @@ export interface Connection {
   net?: string;              // optional display name ("VBUS")
 }
 
+/** A multi-pin physical connector placed on the design (board I/O). A block terminal docked to one of
+ *  its pins leaves the block boundary off-board — a connector is N off-board references as one part. */
+export interface ConnectorInstance {
+  ref: string;               // "J1"
+  connector: string;         // connector catalog id, e.g. "hdr-2x10"
+  pos?: [number, number];
+}
 export interface Design {
   id: string;
   name: string;
   visibility?: "public" | "private";
   blocks: BlockInstance[];
   connections: Connection[];
+  connectors?: ConnectorInstance[];
 }
 
 // ── Resolved model (what the lint + projections operate on) ────────────────
@@ -162,6 +170,7 @@ export interface ResolvedNet {
   sinks: { pin: ResolvedPin; current?: Range }[]; // role: in
   members: ResolvedPin[];
   open: boolean;             // a single unconnected terminal
+  external?: boolean;        // reaches off-board (a connector pin, or a terminal marked external)
 }
 
 export interface ResolvedInstance extends BlockInstance {

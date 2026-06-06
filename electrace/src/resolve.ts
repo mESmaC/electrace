@@ -2,6 +2,7 @@ import type {
   Block, Design, ResolvedDesign, ResolvedInstance, ResolvedNet, ResolvedPin, NetType, InstanceOverrides,
 } from "./types.js";
 import { UnionFind } from "./uf.js";
+import { CONNECTOR_CATALOG } from "./connectors.js";
 
 /** Apply per-instance overrides to a block, producing an effective block — used
  *  everywhere downstream (lint, budgets, power) so edits flow through uniformly. */
@@ -62,9 +63,18 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
     }
   }
 
+  // Connector pins are graph nodes too (the off-board boundary). A net touching one is external.
+  const connectorPins = new Set<string>();
+  for (const conn of design.connectors ?? []) {
+    const part = CONNECTOR_CATALOG[conn.connector];
+    if (!part) throw new Error(`Unknown connector "${conn.connector}" (instance ${conn.ref})`);
+    for (const pin of part.pins) { const node = `${conn.ref}.${pin}`; uf.add(node); connectorPins.add(node); }
+  }
+
   for (const c of design.connections) {
-    if (!pinOf.has(c.from)) throw new Error(`Connection references unknown pin "${c.from}"`);
-    if (!pinOf.has(c.to)) throw new Error(`Connection references unknown pin "${c.to}"`);
+    const known = (e: string) => pinOf.has(e) || connectorPins.has(e);
+    if (!known(c.from)) throw new Error(`Connection references unknown pin "${c.from}"`);
+    if (!known(c.to)) throw new Error(`Connection references unknown pin "${c.to}"`);
     uf.union(c.from, c.to);
   }
 
@@ -83,7 +93,7 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   }
 
   const groups = new Map<string, string[]>();
-  for (const node of pinOf.keys()) {
+  for (const node of [...pinOf.keys(), ...connectorPins]) {
     const root = uf.find(node);
     const g = groups.get(root);
     if (g) g.push(node); else groups.set(root, [node]);
@@ -93,19 +103,21 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   const usedIds = new Set<string>();
   let n = 0;
   for (const members of groups.values()) {
-    const pins = members.map((m) => pinOf.get(m)!);
+    const pins = members.filter((m) => pinOf.has(m)).map((m) => pinOf.get(m)!);
+    if (!pins.length) continue; // a net of only connector pins (nothing docked) — skip
     const sources = pins.filter((p) => p.def.role === "out");
     const sinks = pins
       .filter((p) => p.def.role === "in")
       .map((p) => ({ pin: p, current: p.def.i }));
     const vsrc = sources.find((p) => p.def.v) ?? pins.find((p) => p.def.v);
+    const external = members.some((m) => connectorPins.has(m)) || pins.some((p) => p.def.external);
     let id = netName(design, new Set(members)) ?? `net${n}`;
     n++;
     if (usedIds.has(id)) { let k = 2; while (usedIds.has(`${id}#${k}`)) k++; id = `${id}#${k}`; } // keep ids unique
     usedIds.add(id);
     nets.push({
       id, type: netType(pins), voltage: vsrc?.def.v,
-      sources, sinks, members: pins, open: pins.length === 1,
+      sources, sinks, members: pins, open: pins.length === 1, external,
     });
   }
 
