@@ -142,6 +142,23 @@ export function pinAtCoord(syms: Sym[], x: number, y: number): { sym: string; pi
   return null;
 }
 
+/** The pin nearest (x, y) within `tol`, in absolute coords — lets a wire end snap onto a pin instead
+ *  of demanding a pixel-perfect click on the dot. */
+export function nearestPin(syms: Sym[], x: number, y: number, tol: number): { sym: string; pin: string; x: number; y: number } | null {
+  let best: { sym: string; pin: string; x: number; y: number } | null = null;
+  let bestD = tol * tol;
+  for (const s of syms) {
+    const d = symDims(s);
+    if (!d) continue;
+    for (const p of d.pins) {
+      const ap = symPoint(s, p.x, p.y, d.w, d.h);
+      const dd = (ap.x - x) ** 2 + (ap.y - y) ** 2;
+      if (dd <= bestD) { bestD = dd; best = { sym: s.id, pin: p.id, x: ap.x, y: ap.y }; }
+    }
+  }
+  return best;
+}
+
 /** Snap a symbol's ORIGIN so its first pin lands exactly on the grid (honouring rotation). Off-grid
  *  local pin offsets (a resistor pin at y=14, a ground at x=17) are absorbed here, so a placed/moved
  *  part's pins fall on grid lines — orthogonal wires then meet them without a jog, and parts whose

@@ -11,7 +11,27 @@ export default function AssistantBubble() {
   const { messages } = useAssistant();
   const scroller = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); }, [messages, open, busy]);
+  // Type assistant replies out instead of popping the whole message at once. Only genuinely-new
+  // assistant messages animate — not the history when you reopen the panel, not your own messages.
+  const seen = useRef<Set<string> | null>(null);
+  const [typing, setTyping] = useState<{ id: string; n: number } | null>(null);
+  useEffect(() => {
+    if (seen.current === null) { seen.current = new Set(messages.map((m) => m.id)); return; } // first load = history
+    const last = messages[messages.length - 1];
+    if (last && last.role === "assistant" && !seen.current.has(last.id)) { seen.current.add(last.id); setTyping({ id: last.id, n: 0 }); }
+    else messages.forEach((m) => seen.current!.add(m.id));
+  }, [messages]);
+  useEffect(() => {
+    if (!typing) return;
+    const msg = messages.find((m) => m.id === typing.id);
+    if (!msg || typing.n >= msg.text.length) { setTyping(null); return; }
+    const step = Math.max(1, Math.round(msg.text.length / 140)); // scale so long replies type in ~2s, not forever
+    const id = setTimeout(() => setTyping((t) => (t ? { ...t, n: Math.min(msg.text.length, t.n + step) } : t)), 16);
+    return () => clearTimeout(id);
+  }, [typing, messages]);
+  const shown = (m: { id: string; text: string }) => (typing?.id === m.id ? m.text.slice(0, typing.n) : m.text);
+
+  useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); }, [messages, open, busy, typing]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,11 +62,11 @@ export default function AssistantBubble() {
             ) : (
               messages.map((m) => (
                 <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] whitespace-pre-wrap rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[#4e586f] text-white"}`}>{m.text}</div>
+                  <div className={`max-w-[85%] whitespace-pre-wrap rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[#4e586f] text-white"}`}>{shown(m)}{typing?.id === m.id && <span className="ml-px inline-block w-1.5 animate-pulse">▍</span>}</div>
                 </div>
               ))
             )}
-            {busy && (
+            {busy && !typing && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-1 rounded-lg rounded-tl-sm bg-[#4e586f] px-3 py-2.5 text-[#9aa3b5]">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#9aa3b5] [animation-delay:-0.3s]" />

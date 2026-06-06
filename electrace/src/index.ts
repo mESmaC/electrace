@@ -18,6 +18,7 @@ export type { CatalogEntry, SymbolGroup } from "./catalog.js";
 export { validateBlock } from "./validate.js";
 export type { ValidationIssue } from "./validate.js";
 export { designContext, blockContext, blockBrief } from "./context.js";
+export { parseValue, parallelResistance, seriesSum, formatValue } from "./values.js";
 export type { DesignContext, BlockContext, BlockBrief } from "./context.js";
 export type { ElectraceEvent, CapturedEvent } from "./events.js";
 export { designReport } from "./report.js";

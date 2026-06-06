@@ -8,10 +8,10 @@ import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import { track } from "@/lib/telemetry";
 import { saveUserBlock, isUserBlock } from "@/lib/userBlocks";
-import { deriveSchematicNets, type SchematicLayout, type Terminal, type Block } from "@electrace/core";
+import { deriveSchematicNets, parseValue, parallelResistance, formatValue, type SchematicLayout, type Terminal, type Block } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
-  isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin,
+  isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin,
   PROFILES, type ChipSpec,
 } from "./schematic-model";
 
@@ -157,7 +157,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       if (e.ctrlKey || mouseWheel) {
         // pinch sends tiny deltas (needs a steeper curve); a wheel notch sends big ones
         const pinch = e.ctrlKey && Math.abs(e.deltaY) < 50;
-        const k = pinch ? 0.01 : 0.0035;
+        const k = pinch ? 0.016 : 0.006; // zoom-per-notch sensitivity (higher = faster zoom)
         const step = Math.max(-120, Math.min(120, e.deltaY));
         const nz = clamp(z * Math.exp(-step * k), 0.35, 3.5);
         const ox = e.clientX - r.left, oy = e.clientY - r.top;
@@ -285,11 +285,12 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       else if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); redo(); }
       else if (k === "escape") setDraw(null);
       else if (k === "enter") {
-        // finish the wire in free space (a floating end)
+        // finish the wire at the cursor — on a pin if one's near, else a floating grid point
         setDraw((d) => {
           if (!d) return d;
-          const p = { x: snap(cursorRef.current.x), y: snap(cursorRef.current.y) };
-          setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: d.a, b: p, mid: d.pts }] }));
+          const ws = wireSnap(cursorRef.current);
+          const end = ws.pin && !(d.a.sym === ws.pin.sym && d.a.pin === ws.pin.pin) ? ws.pin : { x: ws.x, y: ws.y };
+          setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: d.a, b: end, mid: d.pts }] }));
           return null;
         });
       }
@@ -310,6 +311,13 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     const r = svgRef.current!.getBoundingClientRect();
     const z = zoomRef.current;
     return { x: panRef.current.x + (e.clientX - r.left) / z, y: panRef.current.y + (e.clientY - r.top) / z };
+  };
+
+  // Snap a wire point: magnetically to the nearest pin (within ~10 screen px), else to the grid. The
+  // tolerance is in content units so it stays a constant screen distance at any zoom.
+  const wireSnap = (p: Pt): { x: number; y: number; pin?: PinRef } => {
+    const hit = nearestPin(model.syms, p.x, p.y, 10 / zoomRef.current);
+    return hit ? { x: hit.x, y: hit.y, pin: { sym: hit.sym, pin: hit.pin } } : { x: snap(p.x), y: snap(p.y) };
   };
 
   // place a symbol centred at content point (cx, cy)
@@ -390,7 +398,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     }
     const p = localPt(e);
     cursorRef.current = p;
-    if (draw) setCursor(p); // only the wiring preview needs cursor in the render tree
+    if (draw) { const ws = wireSnap(p); setCursor({ x: ws.x, y: ws.y }); } // preview snaps to pins/grid
     const bd = band.current;
     if (bd) {
       if (!bd.active && Math.hypot(p.x - bd.start.x, p.y - bd.start.y) > 4 / zoomRef.current) bd.active = true;
@@ -478,7 +486,17 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     band.current = { start: localPt(e), active: false, shift: e.shiftKey };
   };
   const onBg = (e: RME) => {
-    if (draw) { const p = localPt(e); setDraw((d) => (d ? { ...d, pts: [...d.pts, { x: snap(p.x), y: snap(p.y) }] } : d)); }
+    if (!draw) return;
+    const ws = wireSnap(localPt(e));
+    if (ws.pin && !(draw.a.sym === ws.pin.sym && draw.a.pin === ws.pin.pin)) {
+      // clicked near a pin → finish the wire on it (no need to hit the dot exactly)
+      const pin = ws.pin;
+      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: pin, mid: draw.pts }] }));
+      track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${pin.sym}.${pin.pin}` });
+      setDraw(null);
+    } else {
+      setDraw((d) => (d ? { ...d, pts: [...d.pts, { x: ws.x, y: ws.y }] } : d)); // empty space → add a bend
+    }
   };
 
   const canUndo = hidx.current > 0;
@@ -601,6 +619,26 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     });
     termStatus.forEach(({ t, connected, portId }) => { if (!connected) problems.push({ sev: "warn", msg: `Terminal "${t.id}" isn't wired into the circuit`, target: portId ? { kind: "sym", id: portId } : undefined }); });
     openPinList.forEach((k) => problems.push({ sev: "info", msg: `${k.ref ?? k.sym}.${k.pin} is unconnected`, target: { kind: "sym", id: k.sym } }));
+
+    // circuit insight: resistors whose two pins land on the same pair of nets are in parallel → Req
+    const byNetPair = new Map<string, Sym[]>();
+    model.syms.filter((s) => s.type === "resistor").forEach((s) => {
+      const a = pinNet.get(`${s.id}.1`), b = pinNet.get(`${s.id}.2`);
+      if (a == null || b == null || a === b) return; // unwired, or both pins on one net (a short, flagged elsewhere)
+      const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
+      (byNetPair.get(key) ?? byNetPair.set(key, []).get(key)!).push(s);
+    });
+    byNetPair.forEach((group) => {
+      if (group.length < 2) return;
+      const label = group.map((s) => s.ref ?? s.id).join(" ∥ ");
+      const ohms = group.map((s) => parseValue(s.value));
+      const known = ohms.filter((o): o is number => o != null && o > 0);
+      const msg = known.length === group.length
+        ? `${label} are in parallel = ${formatValue(parallelResistance(known))}Ω`
+        : `${label} are in parallel (give them values to compute Req)`;
+      problems.push({ sev: "info", msg, target: { kind: "sym", id: group[0].id } });
+    });
+
     const probCount = {
       error: problems.filter((p) => p.sev === "error").length,
       warn: problems.filter((p) => p.sev === "warn").length,
@@ -727,7 +765,13 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
 
           {draw && (() => {
             const a = pinAbs(model.syms, draw.a);
-            return a ? <path d={ortho([a, ...draw.pts, cursor])} fill="none" stroke="#f7b13c" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" /> : null;
+            if (!a) return null;
+            return (
+              <g pointerEvents="none">
+                <path d={ortho([a, ...draw.pts, cursor])} fill="none" stroke="#f7b13c" strokeWidth={2} strokeDasharray="5 4" />
+                <circle cx={cursor.x} cy={cursor.y} r={3.5} fill="#f7b13c" /> {/* where the wire will land */}
+              </g>
+            );
           })()}
 
           {model.syms.map((s) => {
@@ -752,8 +796,13 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                     const open = !nets.connectedPins.has(`${s.id}.${p.id}`);
                     return (
                       <g key={p.id}>
-                        {open && <circle cx={p.x} cy={p.y} r={7} fill="none" stroke="#f7b13c" strokeWidth="1.5" pointerEvents="none" />}
-                        <circle cx={p.x} cy={p.y} r={4.5} fill={open ? "#f7b13c" : "#4c8dff"} stroke="#3c4658" strokeWidth="1"
+                        {/* KiCad-style square pin endpoint: hollow square = unconnected (needs wiring),
+                            small filled square = connected. */}
+                        {open
+                          ? <rect x={p.x - 3.5} y={p.y - 3.5} width={7} height={7} fill="none" stroke="#f7b13c" strokeWidth="1.4" pointerEvents="none" />
+                          : <rect x={p.x - 2.5} y={p.y - 2.5} width={5} height={5} fill="#4c8dff" pointerEvents="none" />}
+                        {/* generous invisible hit target so grabbing a pin isn't pixel-precise */}
+                        <circle cx={p.x} cy={p.y} r={9} fill="transparent"
                           onClick={(e) => onPin(e, s.id, p.id)}
                           onPointerEnter={() => { const n = pinNet.get(`${s.id}.${p.id}`); if (n != null) setHoverNet(n); }}
                           onPointerLeave={() => setHoverNet(null)}

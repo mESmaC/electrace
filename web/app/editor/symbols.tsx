@@ -163,32 +163,32 @@ export const SYMBOLS: Record<string, SymbolDef> = {
   },
   "npn": {
     label: "NPN BJT", w: 58, h: 64, defaultRef: "Q",
-    pins: [{ id: "B", x: 0, y: 32, label: "B" }, { id: "C", x: 38, y: 2, label: "C" }, { id: "E", x: 38, y: 62, label: "E" }],
+    pins: [{ id: "B", x: 0, y: 32, label: "B" }, { id: "C", x: 40, y: 2, label: "C" }, { id: "E", x: 40, y: 62, label: "E" }],
     draw: () => (
       <>
         <circle cx="28" cy="32" r="24" fill="none" stroke={W} strokeWidth="1.2" />
         <line x1="0" y1="32" x2="18" y2="32" stroke={A} strokeWidth="2" />
         <line x1="18" y1="18" x2="18" y2="46" stroke={W} strokeWidth="2" />
-        <line x1="18" y1="27" x2="38" y2="14" stroke={W} strokeWidth="2" />
-        <line x1="38" y1="14" x2="38" y2="2" stroke={A} strokeWidth="2" />
-        <line x1="18" y1="37" x2="38" y2="50" stroke={W} strokeWidth="2" />
-        <line x1="38" y1="50" x2="38" y2="62" stroke={A} strokeWidth="2" />
+        <line x1="18" y1="27" x2="40" y2="14" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="14" x2="40" y2="2" stroke={A} strokeWidth="2" />
+        <line x1="18" y1="37" x2="40" y2="50" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="50" x2="40" y2="62" stroke={A} strokeWidth="2" />
         <polygon points="33,52 27,46 35,44" fill={W} />
       </>
     ),
   },
   "pnp": {
     label: "PNP BJT", w: 58, h: 64, defaultRef: "Q",
-    pins: [{ id: "B", x: 0, y: 32, label: "B" }, { id: "C", x: 38, y: 2, label: "C" }, { id: "E", x: 38, y: 62, label: "E" }],
+    pins: [{ id: "B", x: 0, y: 32, label: "B" }, { id: "C", x: 40, y: 2, label: "C" }, { id: "E", x: 40, y: 62, label: "E" }],
     draw: () => (
       <>
         <circle cx="28" cy="32" r="24" fill="none" stroke={W} strokeWidth="1.2" />
         <line x1="0" y1="32" x2="18" y2="32" stroke={A} strokeWidth="2" />
         <line x1="18" y1="18" x2="18" y2="46" stroke={W} strokeWidth="2" />
-        <line x1="18" y1="27" x2="38" y2="14" stroke={W} strokeWidth="2" />
-        <line x1="38" y1="14" x2="38" y2="2" stroke={A} strokeWidth="2" />
-        <line x1="18" y1="37" x2="38" y2="50" stroke={W} strokeWidth="2" />
-        <line x1="38" y1="50" x2="38" y2="62" stroke={A} strokeWidth="2" />
+        <line x1="18" y1="27" x2="40" y2="14" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="14" x2="40" y2="2" stroke={A} strokeWidth="2" />
+        <line x1="18" y1="37" x2="40" y2="50" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="50" x2="40" y2="62" stroke={A} strokeWidth="2" />
         <polygon points="20,34 26,40 18,42" fill={W} />
       </>
     ),
