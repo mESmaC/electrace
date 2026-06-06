@@ -62,6 +62,7 @@ export const SYMBOL_CATALOG: Record<string, CatalogEntry> = {
   // ── Power
   ground: { label: "Ground", group: "power", defaultRef: "GND", partType: "gnd", pins: ["1"] },
   vcc:    { label: "Power (V+)", group: "power", defaultRef: "VCC", partType: "power", pins: ["1"] },
+  offboard: { label: "Off-board net", group: "power", defaultRef: "EXT", partType: "offboard", pins: ["1"], terminal: true },
   // ── Electromechanical
   switch:  { label: "Switch", group: "electromechanical", defaultRef: "SW", partType: "switch", pins: ["1", "2"] },
   button:  { label: "Push Button", group: "electromechanical", defaultRef: "SW", partType: "switch", pins: ["1", "2"] },

@@ -269,7 +269,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [drillRef, setDrillRef] = useState<string | null>(null);
   const [bottomOpen, setBottomOpen] = useState(true);
   type FormTerm = { id: string; role: TerminalRole; type: NetType };
-  const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; category: string; terminals: FormTerm[] } | null>(null);
+  const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; category: string; terminals: FormTerm[]; editKey?: string } | null>(null);
   const rfRef = useRef<ReactFlowInstance | null>(null);
 
   // strongly highlight a block: select it (blue ring), clear other selection, and animate-centre it
@@ -414,11 +414,23 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // wipe every saved block-schematic draft so the blocks revert to their authored versions
   // --- user-defined blocks ---
   const startNewBlock = () => setNewBlock({ name: "", glyph: "", category: "", terminals: [{ id: "vin", role: "in", type: "power" }, { id: "gnd", role: "in", type: "gnd" }] });
+  // Edit a block you made: re-open the same form pre-filled. Saving keeps the block's id (and its
+  // drawn internal schematic) so existing instances keep resolving — only its definition changes.
+  const startEditBlock = (key: string) => {
+    const b = allBlocks[key];
+    if (!b) return;
+    setNewBlock({ name: b.name, glyph: b.glyph ?? "", category: b.category ?? "", editKey: key, terminals: b.terminals.map((t) => ({ id: t.id, role: t.role, type: t.type })) });
+  };
   const createBlock = () => {
     if (!newBlock || !newBlock.name.trim()) return;
     const terms: Terminal[] = newBlock.terminals.filter((t) => t.id.trim()).map((t) => ({ id: t.id.trim(), role: t.role, type: t.type }));
     if (!terms.length) return;
-    saveUserBlock(makeUserBlock({ name: newBlock.name, glyph: newBlock.glyph, category: newBlock.category, terminals: terms }));
+    if (newBlock.editKey && allBlocks[newBlock.editKey]) {
+      const existing = allBlocks[newBlock.editKey];                  // preserve id/version/layout/schematic
+      saveUserBlock({ ...existing, name: newBlock.name.trim(), glyph: newBlock.glyph.trim() || existing.glyph, category: newBlock.category.trim() || existing.category, terminals: terms });
+    } else {
+      saveUserBlock(makeUserBlock({ name: newBlock.name, glyph: newBlock.glyph, category: newBlock.category, terminals: terms }));
+    }
     setNewBlock(null); setUserV((v) => v + 1);
   };
   const removeUserBlock = (key: string) => {
@@ -513,8 +525,12 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                 {isUserBlock(key) && <span className="shrink-0 rounded bg-[#3a4458] px-1 text-[8px] uppercase tracking-wide text-[#9aa3b5]">mine</span>}
               </button>
               {isUserBlock(key) && (
-                <button onClick={() => removeUserBlock(key)} title="Delete this custom block"
-                  className="absolute right-1 top-1 hidden h-5 w-5 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a1c20] hover:text-[#e2837e] group-hover:grid">✕</button>
+                <>
+                  <button onClick={() => startEditBlock(key)} title="Edit this block's name & terminals"
+                    className="absolute right-7 top-1 hidden h-5 w-5 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a4458] hover:text-white group-hover:grid">✎</button>
+                  <button onClick={() => removeUserBlock(key)} title="Delete this custom block"
+                    className="absolute right-1 top-1 hidden h-5 w-5 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a1c20] hover:text-[#e2837e] group-hover:grid">✕</button>
+                </>
               )}
             </div>
           ))}
@@ -786,7 +802,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       {newBlock && (
         <div className="absolute inset-0 z-40 grid place-items-center bg-black/55 p-4" onClick={() => setNewBlock(null)}>
           <div className="w-full max-w-md rounded-xl border border-[#54607a] bg-[#454e62] p-4 text-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-3 text-[14px] font-semibold">New block</h3>
+            <h3 className="mb-3 text-[14px] font-semibold">{newBlock.editKey ? "Edit block" : "New block"}</h3>
             <div className="mb-3 flex gap-2">
               <label className="flex-1 text-[11px] text-[#9aa3b5]">Name
                 <input autoFocus value={newBlock.name} onChange={(e) => setNewBlock({ ...newBlock, name: e.target.value })} placeholder="e.g. Sensor frontend"
@@ -826,9 +842,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setNewBlock(null)} className="rounded-md border border-[#54607a] px-3 py-1.5 text-[12px] text-white hover:border-[#4c8dff]">Cancel</button>
               <button onClick={createBlock} disabled={!newBlock.name.trim() || !newBlock.terminals.some((t) => t.id.trim())}
-                className="rounded-md bg-[#4c8dff] px-3 py-1.5 text-[12px] text-white disabled:opacity-40">Create block</button>
+                className="rounded-md bg-[#4c8dff] px-3 py-1.5 text-[12px] text-white disabled:opacity-40">{newBlock.editKey ? "Save changes" : "Create block"}</button>
             </div>
-            <p className="mt-3 text-[10px] leading-snug text-[#9aa3b5]">After creating, click it in the palette to drop it on the canvas, then double-click to draw its internal schematic.</p>
+            <p className="mt-3 text-[10px] leading-snug text-[#9aa3b5]">{newBlock.editKey ? "Editing keeps the block's id and drawn schematic; renaming or removing a terminal may leave existing connections to it dangling." : "After creating, click it in the palette to drop it on the canvas, then double-click to draw its internal schematic."}</p>
           </div>
         </div>
       )}
