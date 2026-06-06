@@ -8,7 +8,7 @@ import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import { track } from "@/lib/telemetry";
 import { saveUserBlock, isUserBlock } from "@/lib/userBlocks";
-import { deriveSchematicNets, parseValue, parallelResistance, formatValue, type SchematicLayout, type Terminal, type Block } from "@electrace/core";
+import { deriveSchematicNets, schematicInsights, type InsightComponent, type SchematicLayout, type Terminal, type Block } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
   isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin,
@@ -620,23 +620,19 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     termStatus.forEach(({ t, connected, portId }) => { if (!connected) problems.push({ sev: "warn", msg: `Terminal "${t.id}" isn't wired into the circuit`, target: portId ? { kind: "sym", id: portId } : undefined }); });
     openPinList.forEach((k) => problems.push({ sev: "info", msg: `${k.ref ?? k.sym}.${k.pin} is unconnected`, target: { kind: "sym", id: k.sym } }));
 
-    // circuit insight: resistors whose two pins land on the same pair of nets are in parallel → Req
-    const byNetPair = new Map<string, Sym[]>();
-    model.syms.filter((s) => s.type === "resistor").forEach((s) => {
-      const a = pinNet.get(`${s.id}.1`), b = pinNet.get(`${s.id}.2`);
-      if (a == null || b == null || a === b) return; // unwired, or both pins on one net (a short, flagged elsewhere)
-      const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
-      (byNetPair.get(key) ?? byNetPair.set(key, []).get(key)!).push(s);
-    });
-    byNetPair.forEach((group) => {
-      if (group.length < 2) return;
-      const label = group.map((s) => s.ref ?? s.id).join(" ∥ ");
-      const ohms = group.map((s) => parseValue(s.value));
-      const known = ohms.filter((o): o is number => o != null && o > 0);
-      const msg = known.length === group.length
-        ? `${label} are in parallel = ${formatValue(parallelResistance(known))}Ω`
-        : `${label} are in parallel (give them values to compute Req)`;
-      problems.push({ sev: "info", msg, target: { kind: "sym", id: group[0].id } });
+    // circuit insights (parallel/series R & C, voltage dividers) — shared, tested core analysis
+    const insightComps: InsightComponent[] = model.syms
+      .filter((s) => symDims(s)?.pins.length === 2 && s.ref)
+      .map((s) => ({
+        ref: s.ref!, type: s.type, value: s.value,
+        pins: Object.fromEntries((symDims(s)?.pins ?? [])
+          .map((p) => [p.id, pinNet.get(`${s.id}.${p.id}`)])
+          .filter(([, n]) => n != null)) as Record<string, number>,
+      }))
+      .filter((c) => Object.keys(c.pins).length === 2);
+    const symByRef = new Map(model.syms.filter((s) => s.ref).map((s) => [s.ref!, s.id]));
+    schematicInsights(insightComps).forEach((ins) => {
+      problems.push({ sev: "info", msg: ins.text, target: { kind: "sym", id: symByRef.get(ins.refs[0]) ?? ins.refs[0] } });
     });
 
     const probCount = {
