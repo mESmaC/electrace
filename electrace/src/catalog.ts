@@ -28,6 +28,9 @@ export const SYMBOL_CATALOG: Record<string, CatalogEntry> = {
   ferrite:       { label: "Ferrite Bead", group: "passive", defaultRef: "FB", partType: "inductor", pins: ["1", "2"] },
   crystal:       { label: "Crystal", group: "passive", defaultRef: "Y", partType: "crystal", pins: ["1", "2"] },
   fuse:          { label: "Fuse", group: "passive", defaultRef: "F", partType: "fuse", pins: ["1", "2"] },
+  thermistor:    { label: "Thermistor (NTC)", group: "passive", defaultRef: "TH", partType: "thermistor", pins: ["1", "2"] },
+  ldr:           { label: "Photoresistor (LDR)", group: "passive", defaultRef: "R", partType: "ldr", pins: ["1", "2"] },
+  varistor:      { label: "Varistor (MOV)", group: "passive", defaultRef: "RV", partType: "varistor", pins: ["1", "2"] },
   // ── Diode
   diode:      { label: "Diode", group: "diode", defaultRef: "D", partType: "diode", pins: ["1", "2"] },
   schottky:   { label: "Schottky", group: "diode", defaultRef: "D", partType: "diode", pins: ["1", "2"] },
@@ -36,11 +39,17 @@ export const SYMBOL_CATALOG: Record<string, CatalogEntry> = {
   tvs_bi:     { label: "TVS (bidir)", group: "diode", defaultRef: "D", partType: "tvs", pins: ["1", "2"] },
   led:        { label: "LED", group: "diode", defaultRef: "D", partType: "led", pins: ["1", "2"] },
   photodiode: { label: "Photodiode", group: "diode", defaultRef: "D", partType: "diode", pins: ["1", "2"] },
+  scr:        { label: "SCR / Thyristor", group: "diode", defaultRef: "D", partType: "scr", pins: ["A", "K", "G"] },
+  triac:      { label: "Triac", group: "diode", defaultRef: "D", partType: "triac", pins: ["MT1", "MT2", "G"] },
+  diac:       { label: "Diac", group: "diode", defaultRef: "D", partType: "diac", pins: ["1", "2"] },
   // ── Transistor
   npn:  { label: "NPN BJT", group: "transistor", defaultRef: "Q", partType: "bjt", pins: ["B", "C", "E"] },
   pnp:  { label: "PNP BJT", group: "transistor", defaultRef: "Q", partType: "bjt", pins: ["B", "C", "E"] },
   nmos: { label: "N-MOSFET", group: "transistor", defaultRef: "Q", partType: "mosfet", pins: ["G", "D", "S"] },
   pmos: { label: "P-MOSFET", group: "transistor", defaultRef: "Q", partType: "mosfet", pins: ["G", "D", "S"] },
+  njfet: { label: "N-JFET", group: "transistor", defaultRef: "Q", partType: "jfet", pins: ["G", "D", "S"] },
+  pjfet: { label: "P-JFET", group: "transistor", defaultRef: "Q", partType: "jfet", pins: ["G", "D", "S"] },
+  phototransistor: { label: "Phototransistor", group: "transistor", defaultRef: "Q", partType: "phototransistor", pins: ["C", "E"] },
   // ── Integrated
   ic:        { label: "IC", group: "integrated", defaultRef: "U", partType: "ic", pins: ["1", "2", "3", "4"] },
   opamp:     { label: "Op-Amp", group: "integrated", defaultRef: "U", partType: "ic", pins: ["in+", "in-", "out"] },

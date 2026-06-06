@@ -589,6 +589,142 @@ export const SYMBOLS: Record<string, SymbolDef> = {
       </>
     ),
   },
+  njfet: {
+    label: "N-JFET", w: 58, h: 64, defaultRef: "Q",
+    pins: [{ id: "G", x: 0, y: 32, label: "G" }, { id: "D", x: 40, y: 2, label: "D" }, { id: "S", x: 40, y: 62, label: "S" }],
+    draw: () => (
+      <>
+        <circle cx="28" cy="32" r="24" fill="none" stroke={W} strokeWidth="1.2" />
+        <line x1="0" y1="32" x2="22" y2="32" stroke={A} strokeWidth="2" />
+        <polygon points="22,28 28,32 22,36" fill={W} />
+        <line x1="28" y1="14" x2="28" y2="50" stroke={W} strokeWidth="2.5" />
+        <line x1="28" y1="20" x2="40" y2="20" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="20" x2="40" y2="2" stroke={A} strokeWidth="2" />
+        <line x1="28" y1="44" x2="40" y2="44" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="44" x2="40" y2="62" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  pjfet: {
+    label: "P-JFET", w: 58, h: 64, defaultRef: "Q",
+    pins: [{ id: "G", x: 0, y: 32, label: "G" }, { id: "D", x: 40, y: 2, label: "D" }, { id: "S", x: 40, y: 62, label: "S" }],
+    draw: () => (
+      <>
+        <circle cx="28" cy="32" r="24" fill="none" stroke={W} strokeWidth="1.2" />
+        <line x1="0" y1="32" x2="22" y2="32" stroke={A} strokeWidth="2" />
+        <polygon points="28,28 22,32 28,36" fill={W} />
+        <line x1="28" y1="14" x2="28" y2="50" stroke={W} strokeWidth="2.5" />
+        <line x1="28" y1="20" x2="40" y2="20" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="20" x2="40" y2="2" stroke={A} strokeWidth="2" />
+        <line x1="28" y1="44" x2="40" y2="44" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="44" x2="40" y2="62" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  phototransistor: {
+    label: "Phototransistor", w: 58, h: 64, defaultRef: "Q",
+    pins: [{ id: "C", x: 40, y: 2, label: "C" }, { id: "E", x: 40, y: 62, label: "E" }],
+    draw: () => (
+      <>
+        <circle cx="28" cy="32" r="24" fill="none" stroke={W} strokeWidth="1.2" />
+        <line x1="18" y1="18" x2="18" y2="46" stroke={W} strokeWidth="2" />
+        <line x1="18" y1="27" x2="40" y2="14" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="14" x2="40" y2="2" stroke={A} strokeWidth="2" />
+        <line x1="18" y1="37" x2="40" y2="50" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="50" x2="40" y2="62" stroke={A} strokeWidth="2" />
+        <polygon points="35,52 29,46 37,44" fill={W} />
+        <line x1="2" y1="20" x2="12" y2="28" stroke={W} strokeWidth="1.3" />
+        <polyline points="12,22 12,28 6,28" fill="none" stroke={W} strokeWidth="1.3" />
+        <line x1="6" y1="30" x2="16" y2="38" stroke={W} strokeWidth="1.3" />
+        <polyline points="16,32 16,38 10,38" fill="none" stroke={W} strokeWidth="1.3" />
+      </>
+    ),
+  },
+  scr: {
+    label: "SCR / Thyristor", w: 70, h: 48, defaultRef: "D",
+    pins: [{ id: "A", x: 0, y: 14, label: "A" }, { id: "K", x: 70, y: 14, label: "K" }, { id: "G", x: 40, y: 44, label: "G" }],
+    draw: () => (
+      <>
+        <line x1="0" y1="14" x2="28" y2="14" stroke={A} strokeWidth="2" />
+        <polygon points="28,5 28,23 44,14" fill={W} />
+        <line x1="44" y1="5" x2="44" y2="23" stroke={W} strokeWidth="2" />
+        <line x1="44" y1="14" x2="70" y2="14" stroke={A} strokeWidth="2" />
+        <line x1="44" y1="18" x2="40" y2="32" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="32" x2="40" y2="44" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  triac: {
+    label: "Triac", w: 70, h: 48, defaultRef: "D",
+    pins: [{ id: "MT1", x: 0, y: 14, label: "T1" }, { id: "MT2", x: 70, y: 14, label: "T2" }, { id: "G", x: 40, y: 44, label: "G" }],
+    draw: () => (
+      <>
+        <line x1="0" y1="14" x2="18" y2="14" stroke={A} strokeWidth="2" />
+        <polygon points="18,5 18,23 34,14" fill={W} />
+        <polygon points="52,5 52,23 36,14" fill={W} />
+        <line x1="34" y1="4" x2="34" y2="24" stroke={W} strokeWidth="2" />
+        <line x1="36" y1="4" x2="36" y2="24" stroke={W} strokeWidth="2" />
+        <line x1="52" y1="14" x2="70" y2="14" stroke={A} strokeWidth="2" />
+        <line x1="34" y1="20" x2="40" y2="32" stroke={W} strokeWidth="2" />
+        <line x1="40" y1="32" x2="40" y2="44" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  diac: {
+    label: "Diac", w: 70, h: 28, defaultRef: "D",
+    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 70, y: 14 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="14" x2="18" y2="14" stroke={A} strokeWidth="2" />
+        <polygon points="18,5 18,23 34,14" fill={W} />
+        <polygon points="52,5 52,23 36,14" fill={W} />
+        <line x1="34" y1="4" x2="34" y2="24" stroke={W} strokeWidth="2" />
+        <line x1="36" y1="4" x2="36" y2="24" stroke={W} strokeWidth="2" />
+        <line x1="52" y1="14" x2="70" y2="14" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  thermistor: {
+    label: "Thermistor (NTC)", w: 90, h: 28, defaultRef: "TH",
+    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 90, y: 14 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="14" x2="22" y2="14" stroke={A} strokeWidth="2" />
+        <rect x="22" y="6" width="46" height="16" fill="none" stroke={W} strokeWidth="2" />
+        <line x1="68" y1="14" x2="90" y2="14" stroke={A} strokeWidth="2" />
+        <line x1="24" y1="26" x2="58" y2="2" stroke={W} strokeWidth="1.6" />
+        <line x1="24" y1="26" x2="32" y2="26" stroke={W} strokeWidth="1.6" />
+      </>
+    ),
+  },
+  ldr: {
+    label: "Photoresistor (LDR)", w: 90, h: 42, defaultRef: "R",
+    pins: [{ id: "1", x: 0, y: 24 }, { id: "2", x: 90, y: 24 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="24" x2="26" y2="24" stroke={A} strokeWidth="2" />
+        <rect x="26" y="16" width="38" height="16" fill="none" stroke={W} strokeWidth="2" />
+        <line x1="64" y1="24" x2="90" y2="24" stroke={A} strokeWidth="2" />
+        <line x1="38" y1="2" x2="44" y2="12" stroke={W} strokeWidth="1.4" />
+        <polyline points="38,8 44,12 44,6" fill="none" stroke={W} strokeWidth="1.4" />
+        <line x1="50" y1="2" x2="56" y2="12" stroke={W} strokeWidth="1.4" />
+        <polyline points="50,8 56,12 56,6" fill="none" stroke={W} strokeWidth="1.4" />
+      </>
+    ),
+  },
+  varistor: {
+    label: "Varistor (MOV)", w: 90, h: 28, defaultRef: "RV",
+    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 90, y: 14 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="14" x2="22" y2="14" stroke={A} strokeWidth="2" />
+        <rect x="22" y="6" width="46" height="16" fill="none" stroke={W} strokeWidth="2" />
+        <line x1="68" y1="14" x2="90" y2="14" stroke={A} strokeWidth="2" />
+        <line x1="28" y1="26" x2="62" y2="2" stroke={W} strokeWidth="1.6" />
+        <text x="58" y="6" fontFamily="var(--font-mono)" fontSize="8" fill={W}>U</text>
+      </>
+    ),
+  },
   // Off-board net reference: a connection that leaves the board (a connector, cable, another board,
   // an external supply). Wiring a net to one declares it externally driven/terminated — so ERC stops
   // flagging it as floating, and the marker's ref (e.g. CAN_PWR, +12V_EXT) names the net.
@@ -693,9 +829,9 @@ export function useSymbolStyle(): SymStyle {
 
 /** Palette grouping + display order. `port` is intentionally omitted (editor-managed). */
 export const SYMBOL_GROUPS: { name: string; types: string[] }[] = [
-  { name: "Passive", types: ["resistor", "potentiometer", "capacitor", "cap-pol", "inductor", "transformer", "ferrite", "crystal", "fuse"] },
-  { name: "Diode", types: ["diode", "schottky", "zener", "tvs", "tvs_bi", "led", "photodiode"] },
-  { name: "Transistor", types: ["npn", "pnp", "nmos", "pmos"] },
+  { name: "Passive", types: ["resistor", "potentiometer", "capacitor", "cap-pol", "inductor", "transformer", "ferrite", "crystal", "fuse", "thermistor", "ldr", "varistor"] },
+  { name: "Diode", types: ["diode", "schottky", "zener", "tvs", "tvs_bi", "led", "photodiode", "scr", "triac", "diac"] },
+  { name: "Transistor", types: ["npn", "pnp", "nmos", "pmos", "njfet", "pjfet", "phototransistor"] },
   { name: "Integrated", types: ["chip", "ic", "opamp", "regulator"] },
   { name: "Source", types: ["battery", "isource", "acsource"] },
   { name: "Power", types: ["ground", "vcc", "offboard"] },
