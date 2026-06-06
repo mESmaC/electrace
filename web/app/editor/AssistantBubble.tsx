@@ -7,16 +7,19 @@ import { useAssistant, sendMessage, clearChat } from "@/lib/assistant";
 export default function AssistantBubble() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
   const { messages } = useAssistant();
   const scroller = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); }, [messages, open]);
+  useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); }, [messages, open, busy]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    sendMessage(input);
+    const text = input.trim();
+    if (!text || busy) return;
     setInput("");
+    setBusy(true);
+    sendMessage(text).finally(() => setBusy(false));
   };
 
   return (
@@ -34,21 +37,30 @@ export default function AssistantBubble() {
             {messages.length === 0 ? (
               <div className="rounded-lg rounded-tl-sm bg-[#4e586f] p-2.5 leading-relaxed text-white">
                 Hi — I&apos;ll help wire a chip from its part number, add the support parts a block needs, and explain what&apos;s on a net.
-                <span className="mt-1 block text-[10px] text-[#9aa3b5]">Not wired to a model yet, but your conversation is saved.</span>
+                <span className="mt-1 block text-[10px] text-[#9aa3b5]">I can see your current design / PCB context.</span>
               </div>
             ) : (
               messages.map((m) => (
                 <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[#4e586f] text-white"}`}>{m.text}</div>
+                  <div className={`max-w-[85%] whitespace-pre-wrap rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[#4e586f] text-white"}`}>{m.text}</div>
                 </div>
               ))
+            )}
+            {busy && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-1 rounded-lg rounded-tl-sm bg-[#4e586f] px-3 py-2.5 text-[#9aa3b5]">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#9aa3b5] [animation-delay:-0.3s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#9aa3b5] [animation-delay:-0.15s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#9aa3b5]" />
+                </div>
+              </div>
             )}
           </div>
 
           <form onSubmit={submit} className="flex gap-1.5 border-t border-[#54607a] p-2">
-            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your design…"
-              className="flex-1 rounded-md border border-[#54607a] bg-[#3c4658] px-2.5 py-2 text-[12px] text-white outline-none placeholder:text-[#677494] focus:border-[#4c8dff]" />
-            <button type="submit" disabled={!input.trim()} title="Send"
+            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your design…" disabled={busy}
+              className="flex-1 rounded-md border border-[#54607a] bg-[#3c4658] px-2.5 py-2 text-[12px] text-white outline-none placeholder:text-[#677494] focus:border-[#4c8dff] disabled:opacity-60" />
+            <button type="submit" disabled={!input.trim() || busy} title="Send"
               className="grid w-9 place-items-center rounded-md bg-[#4c8dff] text-white disabled:opacity-40">→</button>
           </form>
         </div>

@@ -3,10 +3,10 @@ import type { Finding, ResolvedDesign, Rule, Range } from "./types.js";
 
 // ── Faults (deterministic arithmetic / threshold) ──────────────────────────
 
-/** An exposed terminal wired to nothing. */
+/** An exposed terminal wired to nothing — unless it's declared off-board (externally driven). */
 const openNet: Rule = (rd) =>
   rd.nets
-    .filter((net) => net.open)
+    .filter((net) => net.open && !net.members.some((p) => p.def.external))
     .map((net) => {
       const p = net.members[0];
       return {

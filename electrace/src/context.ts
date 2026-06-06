@@ -75,7 +75,7 @@ export function designContext(design: Design, blocks: Map<string, Block>): Desig
 export interface BlockContext extends BlockBrief {
   limits?: { field: string; value: number; unit?: string; note: string }[];
   nets?: { name: string; connect: string[] }[];
-  parts?: { ref: string; type: string; value?: string; why?: string }[];
+  parts?: { ref: string; type: string; value?: string; polarized?: boolean; why?: string }[];
   explain?: string;
 }
 
@@ -86,7 +86,7 @@ export function blockContext(block: Block, explain?: string): BlockContext {
     ...blockBrief(block),
     limits: block.limits,
     nets: block.schematic?.nets.map((n) => ({ name: n.name, connect: n.connect })),
-    parts: block.schematic?.parts.map((p) => ({ ref: p.ref, type: p.type, value: p.value, why: p.why })),
+    parts: block.schematic?.parts.map((p) => ({ ref: p.ref, type: p.type, value: p.value, ...(p.polarized ? { polarized: true } : {}), why: p.why })),
     explain,
   };
 }

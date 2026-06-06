@@ -7,10 +7,11 @@ import { SYMBOLS, SYMBOL_GROUPS, renderChip, useSymbolStyle } from "./symbols";
 import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import { track } from "@/lib/telemetry";
+import { saveUserBlock, isUserBlock } from "@/lib/userBlocks";
 import { deriveSchematicNets, type SchematicLayout, type Terminal, type Block } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
-  isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot,
+  isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin,
   PROFILES, type ChipSpec,
 } from "./schematic-model";
 
@@ -229,7 +230,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   const nudgeSel = useCallback((dx: number, dy: number) => {
     const ids = new Set(idsOfKind(selRef.current, "sym"));
     if (!ids.size) return;
-    setModel((m) => ({ ...m, syms: m.syms.map((s) => (ids.has(s.id) ? { ...s, x: snap(s.x + dx), y: snap(s.y + dy) } : s)) }));
+    setModel((m) => ({ ...m, syms: m.syms.map((s) => { if (!ids.has(s.id)) return s; const o = anchorOrigin(s, s.x + dx, s.y + dy, GRID); return { ...s, x: o.x, y: o.y }; }) }));
   }, []);
 
   const duplicateSel = useCallback(() => {
@@ -246,7 +247,8 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       counts[s.type] = (counts[s.type] ?? 0) + 1;
       const ref = def?.defaultRef === "GND" ? "GND" : `${def?.defaultRef}${m.syms.filter((x) => x.type === s.type).length + counts[s.type]}`;
       const nid = `${s.type}-${Math.floor(performance.now())}-${clones.length}`;
-      clones.push({ ...s, id: nid, ref, x: snap(s.x + 20), y: snap(s.y + 20) });
+      const o = anchorOrigin(s, s.x + 20, s.y + 20, GRID);
+      clones.push({ ...s, id: nid, ref, x: o.x, y: o.y });
       keys.push(symKey(nid));
     }
     if (!clones.length) return;
@@ -319,7 +321,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       const n = m.syms.filter((s) => s.type === type).length + 1;
       const ref = def.defaultRef === "GND" ? "GND" : `${def.defaultRef}${n}`;
       const chip = type === "chip" ? { chip: { profile: "soic", pins: 8, names: {}, mpn: "" } as ChipSpec } : {};
-      return { ...m, syms: [...m.syms, { id: `${type}-${Math.floor(performance.now())}`, type, ref, x: snap(cx - def.w / 2), y: snap(cy - def.h / 2), ...chip }] };
+      const base: Sym = { id: `${type}-${Math.floor(performance.now())}`, type, ref, x: cx - def.w / 2, y: cy - def.h / 2, ...chip };
+      const o = anchorOrigin(base, base.x, base.y, GRID); // land its first pin on the grid
+      return { ...m, syms: [...m.syms, { ...base, x: o.x, y: o.y }] };
     });
   };
   // click-to-add drops near the centre of the current view (with a slight cascade)
@@ -395,8 +399,8 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     }
     const d = drag.current;
     if (d) {
-      const dx = p.x - d.startMouse.x, dy = p.y - d.startMouse.y;
-      setModel((m) => ({ ...m, syms: m.syms.map((s) => { const st = d.starts.get(s.id); return st ? { ...s, x: snap(st.x + dx), y: snap(st.y + dy) } : s; }) }));
+      const dx = snap(p.x - d.startMouse.x), dy = snap(p.y - d.startMouse.y); // grid-step delta keeps anchored pins on grid
+      setModel((m) => ({ ...m, syms: m.syms.map((s) => { const st = d.starts.get(s.id); return st ? { ...s, x: st.x + dx, y: st.y + dy } : s; }) }));
       return;
     }
     const pd = pend.current;
@@ -544,7 +548,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     const wireColor = (id: string) => WIRE_COLOR[wireState(model.wires.find((w) => w.id === id)!)];
 
     // live design checks
-    const openPinList = model.syms.filter((s) => s.type !== "port")
+    const openPinList = model.syms.filter((s) => s.type !== "port" && s.type !== "offboard")
       .flatMap((s) => (symDims(s)?.pins ?? []).map((p) => ({ sym: s.id, pin: p.id, ref: s.ref })))
       .filter((k) => !nets.connectedPins.has(`${k.sym}.${k.pin}`));
     const shortCount = nets.nets.reduce((n, net) => n + net.shorts.length, 0);
@@ -565,11 +569,24 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     const termOf = (symId: string) => terminals.find((t) => t.id === ports.find((p) => p.id === symId)?.ref);
     const portConnected = (symId: string) => termStatus.find((s) => s.portId === symId)?.connected ?? false;
 
-    // a net's display name: the terminal it reaches (a port's ref), if any
+    // a net's display name: the terminal it reaches (a port's ref), else an off-board marker's ref
+    const offboards = model.syms.filter((s) => s.type === "offboard");
+    const offPinName = new Map(offboards.map((o) => [`${o.id}.1`, o.ref ?? "EXT"]));
     const netLabel = new Map<number, string>();
     nets.nets.forEach((n) => {
       const pp = n.pins.find((p) => portPinKeys.has(p));
-      if (pp) { const ref = ports.find((q) => q.id === pp.slice(0, pp.lastIndexOf(".")))?.ref; if (ref) netLabel.set(n.id, ref); }
+      if (pp) { const ref = ports.find((q) => q.id === pp.slice(0, pp.lastIndexOf(".")))?.ref; if (ref) { netLabel.set(n.id, ref); return; } }
+      const op = n.pins.find((p) => offPinName.has(p)); // off-board nets named by their connector
+      if (op) netLabel.set(n.id, offPinName.get(op)!);
+    });
+
+    // which declared terminals reach an off-board marker → externally supplied. Persisted onto the
+    // block definition so the design-level analyzer treats them as driven, not floating.
+    const externalTerms = new Set<string>();
+    terminals.forEach((t) => {
+      const port = ports.find((p) => p.ref === t.id);
+      const nid = port ? pinNet.get(`${port.id}.1`) : undefined;
+      if (nid != null && nets.nets[nid].pins.some((p) => offPinName.has(p))) externalTerms.add(t.id);
     });
 
     // problems — each carries a locate target (click to select + pan)
@@ -590,9 +607,21 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       info: problems.filter((p) => p.sev === "info").length,
     };
 
-    return { junctions, crossings, nets, pinNet, wireState, wireColor, openPinList, shortCount, realNets, termStatus, unwiredTerms, termOf, portConnected, netLabel, problems, probCount };
+    return { junctions, crossings, nets, pinNet, wireState, wireColor, openPinList, shortCount, realNets, termStatus, unwiredTerms, termOf, portConnected, netLabel, externalTerms, problems, probCount };
   }, [model, terminals]);
-  const { junctions, crossings, nets, pinNet, wireState, wireColor, shortCount, realNets, termStatus, unwiredTerms, termOf, portConnected, netLabel, problems, probCount } = derived;
+  const { junctions, crossings, nets, pinNet, wireState, wireColor, shortCount, realNets, termStatus, unwiredTerms, termOf, portConnected, netLabel, externalTerms, problems, probCount } = derived;
+
+  // Propagate off-board terminals onto the block definition (user blocks only), so the design-level
+  // analyzer knows can_power & friends are externally driven. Guarded to avoid a save→reload loop.
+  const extKey = [...externalTerms].sort().join("|");
+  useEffect(() => {
+    if (!block || !isUserBlock(block.id)) return;
+    const cur = block.terminals.filter((t) => t.external).map((t) => t.id).sort().join("|");
+    if (cur === extKey) return;
+    const next = externalTerms;
+    saveUserBlock({ ...block, terminals: block.terminals.map((t) => ({ ...t, external: next.has(t.id) || undefined })) });
+    window.dispatchEvent(new CustomEvent("electrace:userblocks"));
+  }, [extKey, block]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -631,6 +660,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
             className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[14px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">⟳</button>
           <button onClick={() => { if (size.w) { const f = computeFit(model, size); setZoom(f.zoom); setPan(f.pan); } }} title="Fit to view"
             className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[13px] text-white hover:border-[#4c8dff]">⤢</button>
+          <button onClick={() => setModel((m) => ({ ...m, syms: m.syms.map((s) => { const o = anchorOrigin(s, s.x, s.y, GRID); return { ...s, x: o.x, y: o.y }; }) }))}
+            title="Align — snap every part so its pins land on the grid (fixes wires not meeting pins)"
+            className="grid h-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] px-2 text-[11px] text-white hover:border-[#4c8dff]">Align</button>
           <button onClick={resetBlock} title="Revert to the authored schematic (discard your edits)"
             className="grid h-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] px-2 text-[11px] text-white hover:border-[#4c8dff]">Reset</button>
           <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"

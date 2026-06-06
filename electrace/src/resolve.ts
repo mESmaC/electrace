@@ -26,11 +26,17 @@ function netType(pins: ResolvedPin[]): NetType {
 }
 
 /** Display name for a net: prefer a connection's declared name, else derive. */
-function netName(design: Design, members: Set<string>, fallback: string): string {
+// A human net name (not "net0"): an explicit connection label if present, else the terminal the net
+// reaches — preferring a power/ground-looking rail when several terminals share the net. Returns null
+// only when there are no members to name it after (the caller then uses a numbered fallback).
+function netName(design: Design, members: Set<string>): string | null {
   for (const c of design.connections) {
     if (c.net && (members.has(c.from) || members.has(c.to))) return c.net;
   }
-  return fallback;
+  const terms = [...members].map((node) => node.slice(node.lastIndexOf(".") + 1)).filter(Boolean);
+  if (!terms.length) return null;
+  const rail = terms.find((t) => /^[+-]|^(v|gnd|agnd|dgnd|vcc|vdd|vss|vin|vout)\b|\d/i.test(t));
+  return rail ?? terms[0];
 }
 
 /**
@@ -84,6 +90,7 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   }
 
   const nets: ResolvedNet[] = [];
+  const usedIds = new Set<string>();
   let n = 0;
   for (const members of groups.values()) {
     const pins = members.map((m) => pinOf.get(m)!);
@@ -92,7 +99,10 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
       .filter((p) => p.def.role === "in")
       .map((p) => ({ pin: p, current: p.def.i }));
     const vsrc = sources.find((p) => p.def.v) ?? pins.find((p) => p.def.v);
-    const id = netName(design, new Set(members), `net${n++}`);
+    let id = netName(design, new Set(members)) ?? `net${n}`;
+    n++;
+    if (usedIds.has(id)) { let k = 2; while (usedIds.has(`${id}#${k}`)) k++; id = `${id}#${k}`; } // keep ids unique
+    usedIds.add(id);
     nets.push({
       id, type: netType(pins), voltage: vsrc?.def.v,
       sources, sinks, members: pins, open: pins.length === 1,

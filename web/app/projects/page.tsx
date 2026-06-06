@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { listProjects, createProject, deleteProject, renameProject, getDesign, type ProjectMeta } from "@/lib/projects";
+import { onHydrated } from "@/lib/serverSync";
 
 function relTime(t: number): string {
   const s = Math.floor((Date.now() - t) / 1000);
@@ -17,7 +18,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [mounted, setMounted] = useState(false);
   const refresh = () => setProjects(listProjects());
-  useEffect(() => { setMounted(true); refresh(); }, []);
+  useEffect(() => { setMounted(true); refresh(); return onHydrated(refresh); }, []); // re-list once server data lands
 
   const onNew = () => {
     const name = window.prompt("Name your project", "Untitled project");

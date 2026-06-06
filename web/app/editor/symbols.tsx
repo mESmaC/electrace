@@ -21,40 +21,40 @@ const A = "#4c8dff"; // leads / pins
 
 export const SYMBOLS: Record<string, SymbolDef> = {
   resistor: {
-    label: "Resistor", w: 88, h: 28, defaultRef: "R",
-    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 88, y: 14 }],
+    label: "Resistor", w: 90, h: 28, defaultRef: "R",
+    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 90, y: 14 }],
     draw: (style) => (
       <>
         <line x1="0" y1="14" x2="22" y2="14" stroke={A} strokeWidth="2" />
         {style === "iec"
           ? <rect x="22" y="6" width="44" height="16" fill="none" stroke={W} strokeWidth="2" />
           : <polyline points="22,14 28,5 40,23 52,5 64,23 70,14" fill="none" stroke={W} strokeWidth="2" />}
-        <line x1={style === "iec" ? 66 : 70} y1="14" x2="88" y2="14" stroke={A} strokeWidth="2" />
+        <line x1={style === "iec" ? 66 : 70} y1="14" x2="90" y2="14" stroke={A} strokeWidth="2" />
       </>
     ),
   },
   capacitor: {
-    label: "Capacitor", w: 64, h: 30, defaultRef: "C",
-    pins: [{ id: "1", x: 0, y: 15 }, { id: "2", x: 64, y: 15 }],
+    label: "Capacitor", w: 60, h: 30, defaultRef: "C",
+    pins: [{ id: "1", x: 0, y: 15 }, { id: "2", x: 60, y: 15 }],
     draw: () => (
       <>
         <line x1="0" y1="15" x2="28" y2="15" stroke={A} strokeWidth="2" />
         <line x1="28" y1="3" x2="28" y2="27" stroke={W} strokeWidth="2" />
         <line x1="36" y1="3" x2="36" y2="27" stroke={W} strokeWidth="2" />
-        <line x1="36" y1="15" x2="64" y2="15" stroke={A} strokeWidth="2" />
+        <line x1="36" y1="15" x2="60" y2="15" stroke={A} strokeWidth="2" />
       </>
     ),
   },
   inductor: {
-    label: "Inductor", w: 88, h: 24, defaultRef: "L",
-    pins: [{ id: "1", x: 0, y: 16 }, { id: "2", x: 88, y: 16 }],
+    label: "Inductor", w: 90, h: 24, defaultRef: "L",
+    pins: [{ id: "1", x: 0, y: 16 }, { id: "2", x: 90, y: 16 }],
     draw: (style) => (
       <>
         <line x1="0" y1="16" x2="20" y2="16" stroke={A} strokeWidth="2" />
         {style === "iec"
           ? <rect x="20" y="10" width="48" height="12" rx="1" fill="#566177" stroke={W} strokeWidth="2" />
           : <path d="M20 16 q7 -12 14 0 q7 -12 14 0 q7 -12 14 0 q7 -12 14 0" fill="none" stroke={W} strokeWidth="2" />}
-        <line x1="68" y1="16" x2="88" y2="16" stroke={A} strokeWidth="2" />
+        <line x1="68" y1="16" x2="90" y2="16" stroke={A} strokeWidth="2" />
       </>
     ),
   },
@@ -123,6 +123,41 @@ export const SYMBOLS: Record<string, SymbolDef> = {
         <polygon points="28,5 28,23 44,14" fill={W} />
         <polyline points="38,5 44,5 44,23 50,23" fill="none" stroke={W} strokeWidth="2" />
         <line x1="44" y1="14" x2="70" y2="14" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  tvs: {
+    // Unidirectional TVS (transient-voltage suppressor) — clamps one polarity, e.g. SMBJ36A.
+    label: "TVS (uni)", w: 70, h: 28, defaultRef: "D",
+    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 70, y: 14 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="14" x2="20" y2="14" stroke={A} strokeWidth="2" />
+        <polygon points="20,5 20,23 36,14" fill={W} />
+        <line x1="36" y1="6" x2="36" y2="22" stroke={W} strokeWidth="2" />
+        <line x1="36" y1="6" x2="30" y2="6" stroke={W} strokeWidth="2" />
+        <line x1="36" y1="22" x2="42" y2="22" stroke={W} strokeWidth="2" />
+        <line x1="36" y1="14" x2="70" y2="14" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  tvs_bi: {
+    // Bidirectional TVS — two zeners cathode-to-cathode, clamps both polarities, e.g. SMBJ36CA.
+    label: "TVS (bidir)", w: 70, h: 28, defaultRef: "D",
+    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 70, y: 14 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="14" x2="10" y2="14" stroke={A} strokeWidth="2" />
+        <polygon points="10,5 10,23 26,14" fill={W} />
+        <line x1="26" y1="6" x2="26" y2="22" stroke={W} strokeWidth="2" />
+        <line x1="26" y1="6" x2="21" y2="6" stroke={W} strokeWidth="2" />
+        <line x1="26" y1="22" x2="31" y2="22" stroke={W} strokeWidth="2" />
+        <line x1="26" y1="14" x2="44" y2="14" stroke={W} strokeWidth="2" />
+        <polygon points="60,5 60,23 44,14" fill={W} />
+        <line x1="44" y1="6" x2="44" y2="22" stroke={W} strokeWidth="2" />
+        <line x1="44" y1="6" x2="49" y2="6" stroke={W} strokeWidth="2" />
+        <line x1="44" y1="22" x2="39" y2="22" stroke={W} strokeWidth="2" />
+        <line x1="60" y1="14" x2="70" y2="14" stroke={A} strokeWidth="2" />
       </>
     ),
   },
@@ -238,27 +273,27 @@ export const SYMBOLS: Record<string, SymbolDef> = {
     ),
   },
   crystal: {
-    label: "Crystal", w: 56, h: 28, defaultRef: "Y",
-    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 56, y: 14 }],
+    label: "Crystal", w: 60, h: 28, defaultRef: "Y",
+    pins: [{ id: "1", x: 0, y: 14 }, { id: "2", x: 60, y: 14 }],
     draw: () => (
       <>
         <line x1="0" y1="14" x2="16" y2="14" stroke={A} strokeWidth="2" />
         <line x1="16" y1="5" x2="16" y2="23" stroke={W} strokeWidth="2" />
         <rect x="20" y="3" width="16" height="22" rx="1" fill="none" stroke={W} strokeWidth="2" />
         <line x1="40" y1="5" x2="40" y2="23" stroke={W} strokeWidth="2" />
-        <line x1="40" y1="14" x2="56" y2="14" stroke={A} strokeWidth="2" />
+        <line x1="40" y1="14" x2="60" y2="14" stroke={A} strokeWidth="2" />
       </>
     ),
   },
   fuse: {
-    label: "Fuse", w: 64, h: 20, defaultRef: "F",
-    pins: [{ id: "1", x: 0, y: 10 }, { id: "2", x: 64, y: 10 }],
+    label: "Fuse", w: 60, h: 20, defaultRef: "F",
+    pins: [{ id: "1", x: 0, y: 10 }, { id: "2", x: 60, y: 10 }],
     draw: () => (
       <>
         <line x1="0" y1="10" x2="14" y2="10" stroke={A} strokeWidth="2" />
         <rect x="14" y="3" width="36" height="14" rx="7" fill="none" stroke={W} strokeWidth="2" />
         <line x1="18" y1="10" x2="46" y2="10" stroke={W} strokeWidth="2" />
-        <line x1="50" y1="10" x2="64" y2="10" stroke={A} strokeWidth="2" />
+        <line x1="50" y1="10" x2="60" y2="10" stroke={A} strokeWidth="2" />
       </>
     ),
   },
@@ -288,27 +323,27 @@ export const SYMBOLS: Record<string, SymbolDef> = {
     ),
   },
   "cap-pol": {
-    label: "Polarized Cap", w: 64, h: 32, defaultRef: "C",
-    pins: [{ id: "1", x: 0, y: 17, label: "+" }, { id: "2", x: 64, y: 17 }],
+    label: "Polarized Cap", w: 60, h: 32, defaultRef: "C",
+    pins: [{ id: "1", x: 0, y: 17, label: "+" }, { id: "2", x: 60, y: 17 }],
     draw: () => (
       <>
         <line x1="0" y1="17" x2="28" y2="17" stroke={A} strokeWidth="2" />
         <line x1="28" y1="4" x2="28" y2="30" stroke={W} strokeWidth="2" />
         <path d="M44,4 Q50,17 44,30" fill="none" stroke={W} strokeWidth="2" />
-        <line x1="46" y1="17" x2="64" y2="17" stroke={A} strokeWidth="2" />
+        <line x1="46" y1="17" x2="60" y2="17" stroke={A} strokeWidth="2" />
         <line x1="11" y1="7" x2="19" y2="7" stroke={W} strokeWidth="1.3" />
         <line x1="15" y1="3" x2="15" y2="11" stroke={W} strokeWidth="1.3" />
       </>
     ),
   },
   ferrite: {
-    label: "Ferrite Bead", w: 64, h: 20, defaultRef: "FB",
-    pins: [{ id: "1", x: 0, y: 10 }, { id: "2", x: 64, y: 10 }],
+    label: "Ferrite Bead", w: 60, h: 20, defaultRef: "FB",
+    pins: [{ id: "1", x: 0, y: 10 }, { id: "2", x: 60, y: 10 }],
     draw: () => (
       <>
         <line x1="0" y1="10" x2="14" y2="10" stroke={A} strokeWidth="2" />
         <rect x="14" y="3" width="36" height="14" rx="7" fill="#566177" stroke={W} strokeWidth="2" />
-        <line x1="50" y1="10" x2="64" y2="10" stroke={A} strokeWidth="2" />
+        <line x1="50" y1="10" x2="60" y2="10" stroke={A} strokeWidth="2" />
       </>
     ),
   },
@@ -554,6 +589,21 @@ export const SYMBOLS: Record<string, SymbolDef> = {
       </>
     ),
   },
+  // Off-board net reference: a connection that leaves the board (a connector, cable, another board,
+  // an external supply). Wiring a net to one declares it externally driven/terminated — so ERC stops
+  // flagging it as floating, and the marker's ref (e.g. CAN_PWR, +12V_EXT) names the net.
+  offboard: {
+    label: "Off-board net", w: 44, h: 20, defaultRef: "EXT",
+    pins: [{ id: "1", x: 0, y: 10 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="10" x2="10" y2="10" stroke={A} strokeWidth="2" />
+        <polygon points="10,2 30,2 42,10 30,18 10,18" fill="#3c4658" stroke={A} strokeWidth="2" />
+        <line x1="15" y1="7" x2="26" y2="7" stroke={A} strokeWidth="1.4" />
+        <line x1="15" y1="13" x2="23" y2="13" stroke={A} strokeWidth="1.4" />
+      </>
+    ),
+  },
   // a block terminal exposed to the outside world; placed/managed by the editor, not the palette
   port: {
     label: "Port", w: 30, h: 20, defaultRef: "P",
@@ -644,11 +694,11 @@ export function useSymbolStyle(): SymStyle {
 /** Palette grouping + display order. `port` is intentionally omitted (editor-managed). */
 export const SYMBOL_GROUPS: { name: string; types: string[] }[] = [
   { name: "Passive", types: ["resistor", "potentiometer", "capacitor", "cap-pol", "inductor", "transformer", "ferrite", "crystal", "fuse"] },
-  { name: "Diode", types: ["diode", "schottky", "zener", "led", "photodiode"] },
+  { name: "Diode", types: ["diode", "schottky", "zener", "tvs", "tvs_bi", "led", "photodiode"] },
   { name: "Transistor", types: ["npn", "pnp", "nmos", "pmos"] },
   { name: "Integrated", types: ["chip", "ic", "opamp", "regulator"] },
   { name: "Source", types: ["battery", "isource", "acsource"] },
-  { name: "Power", types: ["ground", "vcc"] },
+  { name: "Power", types: ["ground", "vcc", "offboard"] },
   { name: "Electromechanical", types: ["switch", "button", "relay", "motor", "speaker", "buzzer", "lamp"] },
   { name: "Connector", types: ["header2", "header4", "testpoint", "antenna"] },
 ];

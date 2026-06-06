@@ -23,3 +23,6 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# file-backed local store (web/.data)
+.data/

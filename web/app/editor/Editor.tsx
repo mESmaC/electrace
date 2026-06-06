@@ -8,6 +8,8 @@ import "@xyflow/react/dist/style.css";
 import { analyze, railBudgets, deriveBlockSchematic, designReport, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
+import { onHydrated } from "@/lib/serverSync";
+import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
 import { modelToLayout } from "./schematic-model";
@@ -119,8 +121,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   useEffect(() => {
     setMounted(true);
     const onSave = () => setDraftV((v) => v + 1);
+    const onUserBlocks = () => setUserV((v) => v + 1); // a block's terminals changed (e.g. off-board flag)
     window.addEventListener("electrace:blocksch", onSave);
-    return () => window.removeEventListener("electrace:blocksch", onSave);
+    window.addEventListener("electrace:userblocks", onUserBlocks);
+    return () => { window.removeEventListener("electrace:blocksch", onSave); window.removeEventListener("electrace:userblocks", onUserBlocks); };
   }, []);
 
   // library blocks (build-time) + user blocks (localStorage); user blocks only exist after mount
@@ -211,6 +215,39 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const totalW = budgets.filter((b) => b.type === "rail").reduce((a, b) => a + (b.watts ?? 0), 0);
   const worstRail = budgets.filter((b) => b.capacityA != null).sort((a, b) => (b.usedPct ?? 0) - (a.usedPct ?? 0))[0];
   const probCount = { error: analysis.findings.filter((f) => f.severity === "error").length, warn: analysis.findings.filter((f) => f.severity === "warn").length };
+
+  // keep a live snapshot of the design in the assistant's context window
+  const designCtx = useMemo(() => {
+    const lines: string[] = [`Electrace design "${designName}".`];
+    lines.push(`Blocks (${nodes.length}): ${nodes.map((n) => { const b = (n.data as BlockNodeData).block; return `${n.id}=${b.name}${b.topology ? ` (${b.topology})` : ""}`; }).join("; ") || "none"}.`);
+    lines.push(`Power: ≈${round1(totalW)} W across ${analysis.resolved.nets.length} nets${worstRail ? `; worst rail ${Math.round(worstRail.usedPct ?? 0)}% used` : ""}.`);
+    const nets = analysis.resolved.nets.slice(0, 24).map((n) => `${n.id} [${n.type}${n.voltage ? ` ${fmtRange(n.voltage)}` : ""}]: ${n.members.map((m) => m.node).join(", ")}`);
+    if (nets.length) lines.push("Nets:\n" + nets.join("\n"));
+    if (analysis.findings.length) lines.push("Checks: " + analysis.findings.slice(0, 12).map((f) => `[${f.severity}] ${f.message}`).join("; "));
+    return lines.join("\n");
+  }, [designName, nodes, analysis, totalW, worstRail]);
+  useEffect(() => { setContextItem("design", designCtx); }, [designCtx]);
+  useEffect(() => () => setContextItem("design", ""), []);
+
+  // expose the live design + blocks to the assistant so it can read and edit them via tools
+  const designLiveRef = useRef(designLive); designLiveRef.current = designLive;
+  const blockMapRef = useRef(blockMap); blockMapRef.current = blockMap;
+  const loadDesignRef = useRef<(d: Design, m?: Map<string, Block>) => void>(() => {});
+  useEffect(() => registerAgentSession({
+    getDesign: () => designLiveRef.current,
+    getBlocks: () => Object.fromEntries(blockMapRef.current),
+    apply: ({ design, blocks, deletedBlocks }) => {
+      const created = (blocks as Block[] | undefined) ?? [];
+      const deleted = deletedBlocks ?? [];
+      created.forEach((b) => saveUserBlock(b));          // persist new/updated user blocks
+      deleted.forEach((k) => deleteUserBlock(k));        // remove deleted ones
+      const merged = new Map(blockMapRef.current);        // a block map valid right now (don't wait for re-render)
+      created.forEach((b) => merged.set(`${b.id}@${b.version}`, b));
+      deleted.forEach((k) => merged.delete(k));
+      if (created.length || deleted.length) setUserV((v) => v + 1); // refresh the palette
+      if (design) loadDesignRef.current(design as Design, merged);
+    },
+  }), []);
   const [stressV, setStressV] = useState(24); // what-if input voltage for the stress test
   // part-value consolidation: distinct values per passive family (from the BOM)
   const consolidation = ([["res", "Resistors"], ["cap", "Capacitors"], ["inductor", "Inductors"]] as const)
@@ -348,8 +385,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo, drillRef]);
 
-  const canUndo = hidx.current > 0;
-  const canRedo = hidx.current < history.current.length - 1;
+  // Gate on `mounted`: these read refs (not render state), so without it SSR and the first client
+  // render can disagree on the button's `disabled` and trip a hydration mismatch. Until mounted both
+  // sides render "disabled" deterministically; the real state appears after hydration.
+  const canUndo = mounted && hidx.current > 0;
+  const canRedo = mounted && hidx.current < history.current.length - 1;
 
   // ── local persistence: autosave to localStorage + export/import ───────────
   const LS_KEY = `electrace:design:${design.id}`;
@@ -357,8 +397,8 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const loadedRef = useRef(false);
 
-  const loadDesign = useCallback((d: Design) => {
-    const flow = buildFlow(d, blockMap);
+  const loadDesign = useCallback((d: Design, mapOverride?: Map<string, Block>) => {
+    const flow = buildFlow(d, mapOverride ?? blockMap);
     restoring.current = true;
     if (d.name) setDesignName(d.name);
     setNodes(flow.nodes);
@@ -368,6 +408,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     setSelectedId(null);
     bumpHist((v) => v + 1);
   }, [blockMap, setNodes, setEdges]);
+  loadDesignRef.current = loadDesign; // keep the assistant's apply() pointing at the latest
 
   const resetSample = useCallback(() => loadDesign(design), [loadDesign, design]);
   // wipe every saved block-schematic draft so the blocks revert to their authored versions
@@ -401,6 +442,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       if (raw) { const d = JSON.parse(raw) as Design; if (Array.isArray(d?.blocks)) loadDesign(d); }
     } catch { /* ignore */ }
   }, [LS_KEY, loadDesign]);
+
+  // If localStorage was empty on load (fresh browser / cleared cache) and the server hydrates this
+  // design afterwards, restore it — but only while the canvas is still the empty initial stub, so we
+  // never clobber edits already in progress.
+  useEffect(() => onHydrated(() => {
+    const live = designLiveRef.current;
+    if (live.blocks.length || live.connections.length) return;
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) { const d = JSON.parse(raw) as Design; if (Array.isArray(d?.blocks)) loadDesignRef.current(d); }
+    } catch { /* ignore */ }
+  }), [LS_KEY]);
 
   // autosave (debounced)
   useEffect(() => {
@@ -650,7 +703,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         <Panel title={`BOM · ${analysis.bom.length}`}>
           <div className="mt-2 space-y-1 font-mono text-[11px] text-white">
             {analysis.bom.map((r, i) => (
-              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type} <span className="text-[#9aa3b5]">{r.refs.join(", ")}</span></div>
+              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[#6ea3ff]">pol</span>} <span className="text-[#9aa3b5]">{r.refs.join(", ")}</span></div>
             ))}
           </div>
         </Panel>

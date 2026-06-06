@@ -37,7 +37,9 @@ export const PROFILES: { id: string; name: string; kind: "dual" | "quad" | "grid
 ];
 export const profileKind = (id: string) => PROFILES.find((p) => p.id === id)?.kind ?? "dual";
 
-const PITCH = 20, STUB = 12, MARGIN = 14, GP = 18;
+// All grid-aligned (multiples of 10) so a chip's pins land on the editor grid once its first pin is
+// anchor-snapped — keeping pins collinear across parts and letting orthogonal wires meet them cleanly.
+const PITCH = 20, STUB = 10, MARGIN = 20, GP = 20;
 
 /** Geometry for a package: body box + pin coordinates, numbered the standard way
  *  (CCW from pin 1 at top-left for dual/quad; row-major A1.. for BGA grids). */
@@ -49,12 +51,13 @@ export function chipGeometry(profile: string, count: number): Dims {
   if (kind === "grid") {
     const cols = Math.ceil(Math.sqrt(n));
     const rows = Math.ceil(n / cols);
-    const w = cols * GP + 12, h = rows * GP + 12;
+    const PAD = 10;
+    const w = cols * GP + 2 * PAD, h = rows * GP + 2 * PAD;
     let k = 0;
     for (let r = 0; r < rows && k < n; r++) for (let c = 0; c < cols && k < n; c++, k++) {
-      pins.push({ id: `${String.fromCharCode(65 + r)}${c + 1}`, x: 6 + GP / 2 + c * GP, y: 6 + GP / 2 + r * GP });
+      pins.push({ id: `${String.fromCharCode(65 + r)}${c + 1}`, x: PAD + GP / 2 + c * GP, y: PAD + GP / 2 + r * GP });
     }
-    return { w, h, pins, body: { x: 4, y: 4, w: w - 8, h: h - 8 } };
+    return { w, h, pins, body: { x: 6, y: 6, w: w - 12, h: h - 12 } };
   }
 
   if (kind === "quad") {
@@ -73,7 +76,7 @@ export function chipGeometry(profile: string, count: number): Dims {
   // dual (DIP / SOIC / TSSOP / SOT…): pin 1 top-left, down the left, up the right
   const left = Math.ceil(n / 2), right = n - left;
   const rows = Math.max(left, right, 1);
-  const h = MARGIN * 2 + (rows - 1) * PITCH, w = 68;
+  const h = MARGIN * 2 + (rows - 1) * PITCH, w = 70;
   for (let i = 0; i < left; i++) pins.push({ id: `${i + 1}`, x: 0, y: MARGIN + i * PITCH });
   for (let i = 0; i < right; i++) pins.push({ id: `${n - i}`, x: w, y: MARGIN + i * PITCH });
   return { w, h, pins, body: { x: STUB, y: 6, w: w - 2 * STUB, h: h - 12 }, pin1: { x: STUB + 5, y: MARGIN } };
@@ -137,6 +140,19 @@ export function pinAtCoord(syms: Sym[], x: number, y: number): { sym: string; pi
     }
   }
   return null;
+}
+
+/** Snap a symbol's ORIGIN so its first pin lands exactly on the grid (honouring rotation). Off-grid
+ *  local pin offsets (a resistor pin at y=14, a ground at x=17) are absorbed here, so a placed/moved
+ *  part's pins fall on grid lines — orthogonal wires then meet them without a jog, and parts whose
+ *  pin pitch is grid-aligned stay collinear. */
+export function anchorOrigin(s: Sym, x: number, y: number, grid = 10): Pt {
+  const r = (n: number) => Math.round(n / grid) * grid;
+  const d = symDims(s);
+  const pin = d?.pins[0];
+  if (!d || !pin) return { x: r(x), y: r(y) };
+  const ap = symPoint({ ...s, x, y }, pin.x, pin.y, d.w, d.h); // where pin 0 lands for origin (x, y)
+  return { x: x + (r(ap.x) - ap.x), y: y + (r(ap.y) - ap.y) };
 }
 
 /** Resolve an editor wire end to a core endpoint: a real pin, a floating point, or a broken ref. */

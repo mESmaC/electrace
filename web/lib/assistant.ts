@@ -56,13 +56,40 @@ export function buildAgentPayload(): { context: ContextItem[]; history: ChatMess
   return { context: getContext(), history: getChat() };
 }
 
-/** Send a user message. Appends to history; the agent reply is appended once a model is wired. */
-export function sendMessage(text: string): void {
+// The active editor registers an "agent session" so the assistant can read the live design and
+// apply changes it makes via tools. Only one session is active at a time (the editor you're in).
+export interface AgentSession { getDesign: () => unknown; getBlocks: () => unknown; apply: (result: { design?: unknown; blocks?: unknown[]; deletedBlocks?: string[] }) => void }
+let agentSession: AgentSession | null = null;
+export function registerAgentSession(s: AgentSession): () => void {
+  agentSession = s;
+  return () => { if (agentSession === s) agentSession = null; };
+}
+
+/** Send a user message: append it, call the server route (which holds the API key + tools), append
+ *  the model's reply, and apply any design changes it made. Resolves when the turn is complete. */
+export async function sendMessage(text: string): Promise<void> {
   const t = text.trim();
   if (!t) return;
+  const history = getChat().map((m) => ({ role: m.role, text: m.text })); // prior turns, before this message
+  const context = getContext();
   appendChat("user", t);
-  // TODO: const reply = await callAgent(buildAgentPayload()); pushContext(...); appendChat("assistant", reply);
-  appendChat("assistant", "I'm not wired to a model yet — but I'm keeping this conversation. Ask away and I'll answer once I'm online.");
+  const body: Record<string, unknown> = { context, history, message: t };
+  if (agentSession) { body.design = agentSession.getDesign(); body.blocks = agentSession.getBlocks(); }
+  try {
+    const res = await fetch("/api/assistant", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({} as { reply?: string; error?: string; design?: unknown; blocks?: unknown[]; deletedBlocks?: string[] }));
+    if (res.ok && data.reply) appendChat("assistant", data.reply);
+    else appendChat("assistant", `⚠️ ${data.error ?? "The assistant is unavailable."}`);
+    if (res.ok && agentSession && (data.design || data.blocks?.length || data.deletedBlocks?.length)) {
+      agentSession.apply({ design: data.design, blocks: data.blocks, deletedBlocks: data.deletedBlocks });
+    }
+  } catch {
+    appendChat("assistant", "⚠️ Couldn't reach the assistant. Is ANTHROPIC_API_KEY set in web/.env.local (and the dev server restarted)?");
+  }
 }
 
 /** Subscribe to the conversation + context window (synced across bubbles and tabs). */

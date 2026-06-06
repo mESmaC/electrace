@@ -32,6 +32,8 @@ export const SYMBOL_CATALOG: Record<string, CatalogEntry> = {
   diode:      { label: "Diode", group: "diode", defaultRef: "D", partType: "diode", pins: ["1", "2"] },
   schottky:   { label: "Schottky", group: "diode", defaultRef: "D", partType: "diode", pins: ["1", "2"] },
   zener:      { label: "Zener", group: "diode", defaultRef: "D", partType: "diode", pins: ["1", "2"] },
+  tvs:        { label: "TVS (uni)", group: "diode", defaultRef: "D", partType: "tvs", pins: ["1", "2"] },
+  tvs_bi:     { label: "TVS (bidir)", group: "diode", defaultRef: "D", partType: "tvs", pins: ["1", "2"] },
   led:        { label: "LED", group: "diode", defaultRef: "D", partType: "led", pins: ["1", "2"] },
   photodiode: { label: "Photodiode", group: "diode", defaultRef: "D", partType: "diode", pins: ["1", "2"] },
   // ── Transistor

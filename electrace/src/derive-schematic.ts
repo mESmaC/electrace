@@ -56,7 +56,7 @@ export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Par
     if (a?.part) part.part = a.part;
     if (a?.footprint) part.footprint = a.footprint;
     if (a?.why) part.why = a.why;
-    if (a?.polarized) part.polarized = a.polarized;
+    if (a?.polarized ?? s.type === "cap-pol") part.polarized = true; // a polarized-cap symbol is polarized
     if (a?.shielded) part.shielded = a.shielded;
     return part;
   });

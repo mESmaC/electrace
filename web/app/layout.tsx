@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import ServerSync from "./ServerSync";
 
 export const metadata: Metadata = {
   title: "Electrace — see inside every circuit",
@@ -11,6 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
+        <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-7">
             <Link href="/" className="font-mono font-bold text-[17px]">

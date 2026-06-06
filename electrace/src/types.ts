@@ -34,6 +34,8 @@ export interface Terminal {
   polarity?: "+" | "-";
   groundClass?: GroundClass;
   sensitive?: boolean;
+  external?: boolean;          // fed/terminated off-board (a connector, cable, another board) — a design
+                               // needn't wire it on-board, so ERC treats it as driven, not floating.
 }
 
 export interface Limit {
@@ -199,6 +201,7 @@ export interface BomRow {
   value?: string;
   footprint?: string;
   part?: string;
+  polarized?: boolean;       // electrolytic/tantalum — a distinct line from a bipolar cap of the same value
   refs: string[];            // ["REG1/U1", ...]
 }
 

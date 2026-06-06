@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "sync-core": "cd ../electrace && npm run build && cd ../web && rm -rf node_modules/@electrace && npm install"
+    "sync-core": "cd ../electrace && npm run build && cd ../web && node -e \"const fs=require('fs'),cp=require('child_process'),d='node_modules/@electrace/core';fs.existsSync(d)?(fs.cpSync('../electrace/dist',d+'/dist',{recursive:true}),console.log('synced dist in place')):cp.execSync('npm install',{stdio:'inherit'})\""
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
