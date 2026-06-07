@@ -255,7 +255,9 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const schematic = deriveBlockSchematic(layout, b!.schematic?.parts ?? []);
       const nb: Block = { ...b!, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      return { text: `Set ${ref} = ${value} in ${b!.name}.`, changed: true };
+      const insts = design.blocks.filter((bi) => bi.block === key).length;
+      const shared = insts > 1 ? ` ⚠ This block has ${insts} placed instances and they SHARE one definition — every one is now ${value}. If they need different values, give each its own subcircuit (fold the part into the functional block it serves via author_schematic) instead of reusing one shared block.` : "";
+      return { text: `Set ${ref} = ${value} in ${b!.name}.${shared}`, changed: true };
     }
     case "delete_block": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -291,9 +293,14 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const b = blocks[key]; if (!b) return { text: `No such block "${key}". Call list_blocks for valid keys.`, changed: false };
       const ref = (typeof input.ref === "string" && input.ref.trim()) ? input.ref.trim() : freshRef(design, b);
       if (design.blocks.some((x) => x.ref === ref)) return { text: `Ref "${ref}" already exists.`, changed: false };
+      const dupes = design.blocks.filter((x) => x.block === key).length;
+      const singleComponent = (b.schematic?.parts?.length ?? 0) === 1;
       const n = design.blocks.length;
       design.blocks.push({ ref, block: key, pos: [40 + (n % 4) * 260, 120 + Math.floor(n / 4) * 220] });
-      return { text: `Added ${ref} (${b.name}). Terminals: ${termList(b)}.`, changed: true };
+      // Nudge away from scattering the same single-part block as N instances that share one value —
+      // support parts (caps, pull-ups) belong inside the functional block they serve (author_schematic).
+      const nudge = (dupes >= 1 && singleComponent) ? ` ⚠ That's instance #${dupes + 1} of a single-component block — all instances share one value (set_value hits them all). If these are support parts (decoupling/load caps, pull-ups), fold them into the functional block they serve via author_schematic instead, so each carries its own value.` : "";
+      return { text: `Added ${ref} (${b.name}). Terminals: ${termList(b)}.${nudge}`, changed: true };
     }
     case "remove_block": {
       const ref = String(input.ref ?? "");
