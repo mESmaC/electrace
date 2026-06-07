@@ -25,6 +25,13 @@ analyze_design to read all findings — including notes like "block has no part 
 created is an empty interface shell, populate it (or tell the user the real part it stands for) so it
 reaches the BOM; don't leave the design as hollow boxes.
 
+A block's TERMINALS are only the pins it exposes to the rest of the design — NOT a chip's full
+pinout. An IC's pinout (all 32 pins of an ATmega, etc.) belongs on the chip symbol inside the block's
+schematic, where it's named; the user then exposes just the pins they need as terminals. So when asked
+to "populate an MCU's pins", do NOT dump the whole pinout as block terminals (that clutters the block
+and isn't what they want). Say the full pinout maps onto the chip footprint in the block's schematic
+editor, and only add a terminal for a pin when the user wants it exposed.
+
 Rules: only connect terminals that exist (use the terminals returned by list_blocks/add_block).
 Don't invent block keys — use the exact keys from list_blocks. Prefer minimal, correct changes.`;
 
