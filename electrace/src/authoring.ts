@@ -68,6 +68,35 @@ export function authorPartLayout(
   return { layout: { symbols, wires } };
 }
 
+/** Expose more of an already-authored chip's pins as block terminals — in bulk, without re-authoring.
+ *  Adds a wired port (→ a new terminal) for each requested function name that's on the chip and not
+ *  already exposed. Because it only ADDS to the existing layout, it never renames existing terminals
+ *  or orphans wires (unlike re-running author_block). Returns the updated layout + the new terminals,
+ *  and which names were added vs skipped (already-exposed or not on the chip). */
+export function exposeChipPins(layout: SchematicLayout, pins: string[], chipRef?: string): { layout: SchematicLayout; terminals: Terminal[]; added: string[]; skipped: string[] } {
+  const chip = layout.symbols.find((s) => s.type === "chip" && (!chipRef || (s.ref ?? s.id) === chipRef));
+  if (!chip?.chip) return { layout, terminals: [], added: [], skipped: [...pins] };
+  const nameToPin = new Map<string, string>();
+  for (const [pin, fn] of Object.entries(chip.chip.names ?? {})) if (fn && !nameToPin.has(fn)) nameToPin.set(fn, pin);
+  const exposed = new Set(layout.symbols.filter((s) => s.type === "port").map((s) => s.ref));
+  const cref = chip.ref ?? chip.id;
+  const symbols = [...layout.symbols], wires = [...layout.wires], terminals: Terminal[] = [];
+  const added: string[] = [], skipped: string[] = [];
+  let row = layout.symbols.filter((s) => s.type === "port").length;
+  for (const raw of pins) {
+    const fn = raw.trim();
+    if (!fn) continue;
+    const pin = nameToPin.get(fn);
+    if (exposed.has(fn) || !pin) { skipped.push(fn); continue; }
+    const portId = `P_${fn.replace(/[^A-Za-z0-9]+/g, "_")}`;
+    symbols.push({ id: portId, type: "port", ref: fn, x: 40, y: 40 + row * 40 });
+    wires.push({ from: `${portId}.1`, to: `${cref}.${pin}` });
+    terminals.push({ id: fn, ...inferRoleType(fn) });
+    exposed.add(fn); added.push(fn); row++;
+  }
+  return { layout: { symbols, wires }, terminals, added, skipped };
+}
+
 /** One component in a block's internal subcircuit: a discrete (type+value) or a chip (with its pinout). */
 export interface PartSpec { ref: string; type?: string; value?: string; mpn?: string; chip?: ChipSpec }
 /** One net inside the block: the pins it joins (each "ref.pin" — for a chip, "ref.FUNCNAME" works too).

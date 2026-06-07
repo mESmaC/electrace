@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, authorChipLayout, buildBlockLayout, deriveBlockSchematic, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
+import { analyze, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
@@ -68,7 +68,9 @@ pinout. An IC's pinout (all 32 pins of an ATmega, etc.) belongs on the chip symb
 schematic, where it's named; the user then exposes just the pins they need as terminals. So when asked
 to "populate an MCU's pins", do NOT dump the whole pinout as block terminals (that clutters the block
 and isn't what they want). Say the full pinout maps onto the chip footprint in the block's schematic
-editor, and only add a terminal for a pin when the user wants it exposed.
+editor, and only add a terminal for a pin when the user wants it exposed. To break out many pins at once
+(e.g. a D0–D13 / A0–A7 header), use expose_pins with the list of function names — it adds them in one
+call without re-authoring (so it won't rename or orphan anything), rather than exposing them one by one.
 
 Rules: only connect terminals that exist (use the terminals returned by list_blocks/add_block).
 Don't invent block keys — use the exact keys from list_blocks. Prefer minimal, correct changes.`;
@@ -199,6 +201,23 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
       const warn = orphanWarning(b!.terminals.map((t) => t.id), terminals.map((t) => t.id), key, design);
       return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.${warn}`, changed: true };
+    }
+    case "expose_pins": {
+      const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
+      if (err) return { text: err, changed: false };
+      const pins = Array.isArray(input.pins) ? input.pins.map(String) : [];
+      if (!pins.length) return { text: 'expose_pins needs pins[] — the chip function names to break out, e.g. ["PD0","PD1","PD2","PC0","PC1"].', changed: false };
+      if (!b!.layout?.symbols.some((s) => s.type === "chip")) return { text: `${b!.name} has no authored chip — use author_block/author_schematic first. expose_pins breaks out more of an existing chip's pins.`, changed: false };
+      const chipRef = typeof input.ref === "string" && input.ref.trim() ? input.ref.trim() : undefined;
+      const { layout, terminals, added, skipped } = exposeChipPins(b!.layout, pins, chipRef);
+      if (!added.length) return { text: `Nothing to add. Skipped (already exposed or not on the chip): ${skipped.join(", ") || "—"}.`, changed: false };
+      const schematic = deriveBlockSchematic(layout, b!.schematic?.parts ?? []);
+      const have = new Set(b!.terminals.map((t) => t.id));
+      const merged = [...b!.terminals];
+      for (const t of terminals) if (!have.has(t.id)) { merged.push(t); have.add(t.id); }
+      const nb: Block = { ...b!, terminals: merged, layout, schematic };
+      blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
+      return { text: `Exposed ${added.length} pin(s) on ${b!.name}: ${added.join(", ")}.${skipped.length ? ` Skipped (already exposed / not on chip): ${skipped.join(", ")}.` : ""} No existing terminals were renamed.`, changed: true };
     }
     case "set_value": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -354,6 +373,7 @@ const TOOLS = [
   { name: "get_block", description: "Inspect ONE block's current state: its terminals, whether it's been authored with a real chip (and which), and the parts in its internal schematic with their values (what's on the BOM). Use this to verify ground truth after authoring/editing instead of assuming — read-after-write.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "author_block", description: "Populate a custom block's INTERNAL schematic with a real chip: places the IC with its full pinout as an actual part (so it hits the BOM + gets a PCB footprint), and exposes the chosen pins as the block's terminals. This is how you make a block real instead of a hollow shell — use it for MCUs/ICs.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, ref: { type: "string", description: "chip reference designator, e.g. U1 (default U1)" }, chip: { type: "object", properties: { profile: { type: "string", description: "package: soic | qfp | qfn | dip | sot | bga" }, pins: { type: "number" }, mpn: { type: "string", description: "manufacturer part number, e.g. ATmega328P-AU" }, names: { type: "object", description: 'pin map { "1": "PD3", "4": "VCC", "7": "PB6_XTAL1", ... } — pin number → function name' } }, required: ["names"] }, expose: { type: "array", items: { type: "string" }, description: 'function names to expose as block terminals, e.g. ["VCC","GND","PD0_RXD","PC6_RESET"]' } }, required: ["block", "chip"] } },
   { name: "author_schematic", description: "Build a custom block's INTERNAL SCHEMATIC as a real functional subcircuit: SEVERAL parts wired together, exposing only the pins the rest of the design connects to. This is how a block should be built — an oscillator block = crystal + 2 load caps; a power-supply block = regulator + input/output caps + diode; an MCU block = the chip + its decoupling caps + reset network. Do NOT make one block per component (a block holding a single cap is wrong). Pass all the parts and the nets that join them in one call. Endpoints are 'ref.pin'; for a chip part you can use the function name ('U1.VCC'). A net with `expose` becomes a block terminal of that name; nets without `expose` are internal nodes.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, parts: { type: "array", description: "the components in this block", items: { type: "object", properties: { ref: { type: "string", description: "reference designator, e.g. C1, R3, Y1, U1" }, type: { type: "string", description: "symbol type for a discrete: capacitor | cap-pol | resistor | inductor | ferrite | crystal | fuse | diode | schottky | zener | tvs | led | npn | pnp | nmos | pmos | regulator | battery | isource | thermistor | varistor — OR omit and give chip{} for an IC" }, value: { type: "string", description: "value, e.g. 22pF, 10k, 16MHz" }, mpn: { type: "string", description: "manufacturer part number (optional)" }, chip: { type: "object", description: "for an IC part: its package + full pinout", properties: { profile: { type: "string", description: "soic | qfp | qfn | dip | sot" }, pins: { type: "number" }, mpn: { type: "string" }, names: { type: "object", description: 'pin map { "1":"PD3", "4":"VCC", ... }' } } } }, required: ["ref"] } }, nets: { type: "array", description: "the nets joining the parts; expose the ones the design connects to", items: { type: "object", properties: { connect: { type: "array", items: { type: "string" }, description: "endpoints 'ref.pin' (chip pins may use function names, e.g. 'U1.XTAL1')" }, expose: { type: "string", description: "if set, this net becomes a block terminal of this name" }, role: { type: "string", enum: ["in", "out"], description: "override the exposed terminal's role (else inferred)" }, type: { type: "string", enum: ["power", "rail", "signal", "gnd"], description: "override the exposed terminal's type (else inferred)" } }, required: ["connect"] } } }, required: ["block", "parts"] } },
+  { name: "expose_pins", description: "Break out MORE of an already-authored chip's pins as block terminals, in bulk — e.g. expose D0–D13 and A0–A7 as a header in one call. Pass the chip function names. Unlike re-running author_block, this only ADDS terminals (it never renames existing ones or orphans wires), so it's the safe way to grow a block's exposed interface.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, pins: { type: "array", items: { type: "string" }, description: 'chip function names to expose, e.g. ["PD0","PD1","PD2","PC0","PC1","PB5"]' }, ref: { type: "string", description: "chip reference designator if the block has more than one (optional)" } }, required: ["block", "pins"] } },
   { name: "set_value", description: "Change one part's value inside a block you authored (e.g. C1 to 22pF, R3 to 10k) without re-authoring the whole block. Values are first-class — get_block and the BOM reflect them.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, ref: { type: "string", description: "the part's reference designator, e.g. C1, R3, Y1" }, value: { type: "string", description: "the new value, e.g. 22pF, 10k, 16MHz" } }, required: ["block", "ref", "value"] } },
   { name: "delete_block", description: "Delete a custom block you created (also removes any placed instances). Library blocks can't be deleted.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "list_instances", description: "List the blocks already placed in the current design.", input_schema: { type: "object", properties: {} } },

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorChipLayout, authorPartLayout, buildBlockLayout, deriveBlockSchematic } from "../src/index.js";
+import { authorChipLayout, authorPartLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic } from "../src/index.js";
 
 test("authorChipLayout: chip becomes a part, exposed pins become wired terminals", () => {
   const { layout, terminals } = authorChipLayout(
@@ -104,4 +104,23 @@ test("buildBlockLayout: a signal net wired only to passives defaults to a LOAD (
     [{ connect: ["U1.OUT"], expose: "OUT" }],
   );
   assert.equal(withChip.terminals.find((t) => t.id === "OUT")!.role, "out");
+});
+
+test("exposeChipPins: bulk-exposes more chip pins without re-authoring (adds, never renames)", () => {
+  // start with a chip block exposing just VCC/GND
+  const { layout } = authorChipLayout("U1",
+    { profile: "qfp", pins: 32, names: { "4": "VCC", "3": "GND", "30": "PD0", "31": "PD1", "9": "PB5" } },
+    ["VCC", "GND"]);
+  const before = deriveBlockSchematic(layout).nets.length;
+
+  const r = exposeChipPins(layout, ["PD0", "PD1", "PB5", "NOPE", "VCC"]);
+  assert.deepEqual(r.added.sort(), ["PB5", "PD0", "PD1"]);   // real, not-yet-exposed pins
+  assert.deepEqual(r.skipped.sort(), ["NOPE", "VCC"]);        // not on chip / already exposed
+  assert.deepEqual(r.terminals.map((t) => t.id).sort(), ["PB5", "PD0", "PD1"]);
+
+  // the new terminals actually reach their chip pins, and nothing pre-existing was renamed
+  const sch = deriveBlockSchematic(r.layout);
+  assert.ok(sch.nets.some((n) => n.connect.includes("@PD0") && n.connect.includes("U1.PD0")));
+  assert.ok(sch.nets.some((n) => n.connect.includes("@VCC") && n.connect.includes("U1.VCC"))); // VCC still there
+  assert.equal(sch.nets.length, before + 3);
 });
