@@ -47,3 +47,18 @@ test("undriven-rail is suppressed when the terminal is off-board", () => {
   const d: Design = { id: "d", name: "d", blocks: [{ ref: "L", block: key(load) }, { ref: "K", block: key(sink) }], connections: [{ from: "L.i", to: "K.i" }] };
   assert.ok(!has(analyze(d, lib(load, sink)).findings, "connectivity/undriven-rail"));
 });
+
+test("an acknowledged finding is muted (flagged + not counted as a warning), keyed to its subject", () => {
+  const s = B("@t/s", [{ id: "o", role: "out", type: "rail", v: { value: 5 }, i: { max: 3 } }]);
+  const t = B("@t/t", [{ id: "o", role: "out", type: "rail", v: { value: 5 }, i: { max: 3 } }]);
+  const base: Design = { id: "d", name: "d", blocks: [{ ref: "S", block: key(s) }, { ref: "T", block: key(t) }], connections: [{ from: "S.o", to: "T.o" }] };
+  // the net id the two drivers share (what the finding points at)
+  const net = analyze(base, lib(s, t)).findings.find((f) => f.rule === "connectivity/multiple-drivers")!.at;
+
+  const acked: Design = { ...base, acks: [{ rule: "connectivity/multiple-drivers", at: net, note: "intentional diode-OR" }] };
+  const f = analyze(acked, lib(s, t)).findings.find((x) => x.rule === "connectivity/multiple-drivers")!;
+  assert.ok(f.acknowledged, "the finding is flagged acknowledged");
+  assert.equal(f.acknowledged!.note, "intentional diode-OR");
+  // it must NOT count among active warnings anymore
+  assert.equal(analyze(acked, lib(s, t)).findings.filter((x) => x.severity === "warn" && !x.acknowledged).length, 0);
+});

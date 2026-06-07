@@ -173,10 +173,18 @@ export const RULES: Rule[] = [
 
 const SEVERITY_ORDER = { error: 0, warn: 1, recommendation: 2, info: 3, unknown: 4 } as const;
 
-/** Run every rule and return findings, most severe first. */
+/** A finding's identity: its rule + the subjects it points at (order-independent). An acknowledgement
+ *  with the same key mutes exactly that occurrence — not the rule everywhere. */
+export const findingKey = (f: { rule: string; at: string[] }): string => `${f.rule}@${[...f.at].sort().join(",")}`;
+
+/** Run every rule and return findings, most severe first. Findings the user/agent marked intended
+ *  (design.acks) are flagged `acknowledged` (with the note) so consumers can mute them and drop them
+ *  from the error/warning counts — keeping the linter trustworthy instead of noisy-but-correct. */
 export function lint(rd: ResolvedDesign): Finding[] {
+  const acks = new Map((rd.design.acks ?? []).map((a) => [findingKey(a), a.note]));
   return RULES.flatMap((rule) => rule(rd))
-    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+    .map((f) => (acks.has(findingKey(f)) ? { ...f, acknowledged: { note: acks.get(findingKey(f)) } } : f))
+    .sort((a, b) => Number(!!a.acknowledged) - Number(!!b.acknowledged) || SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 
 // helpers

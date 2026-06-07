@@ -237,13 +237,32 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
     case "analyze_design": {
       try {
         const a = analyze(design, blockMap);
-        const n = (s: string) => a.findings.filter((f) => f.severity === s).length;
-        const head = `${design.blocks.length} blocks, ${a.resolved.nets.length} nets — ${n("error")} errors, ${n("warn")} warnings, ${n("info") + n("recommendation")} notes.`;
-        const order = { error: 0, warn: 1, recommendation: 2, info: 3 } as Record<string, number>;
-        const body = [...a.findings].sort((x, y) => (order[x.severity] ?? 9) - (order[y.severity] ?? 9))
-          .slice(0, 25).map((f) => `[${f.severity}] ${f.message}`).join("\n");
-        return { text: body ? `${head}\n${body}` : `${head} All clear.`, changed: false };
+        const active = a.findings.filter((f) => !f.acknowledged), acked = a.findings.filter((f) => f.acknowledged);
+        const n = (s: string) => active.filter((f) => f.severity === s).length;
+        const head = `${design.blocks.length} blocks, ${a.resolved.nets.length} nets — ${n("error")} errors, ${n("warn")} warnings, ${n("info") + n("recommendation")} notes${acked.length ? `, ${acked.length} acknowledged` : ""}.`;
+        // include rule@at so you can acknowledge a specific correct-but-noisy finding
+        const body = active.slice(0, 25).map((f) => `[${f.severity}] ${f.message}  ·  ${f.rule} @ ${f.at.join(",")}`).join("\n");
+        const ack = acked.map((f) => `✓ ${f.message}${f.acknowledged?.note ? ` (intended: ${f.acknowledged.note})` : ""}`).join("\n");
+        return { text: [body ? `${head}\n${body}` : `${head} All clear.`, ack].filter(Boolean).join("\n"), changed: false };
       } catch (e) { return { text: `Analysis failed: ${String(e).slice(0, 160)}`, changed: false }; }
+    }
+    case "acknowledge": {
+      const rule = String(input.rule ?? "").trim();
+      const at = Array.isArray(input.at) ? input.at.map(String) : (input.at ? [String(input.at)] : []);
+      if (!rule || !at.length) return { text: "acknowledge needs the finding's rule and at (from analyze_design, e.g. rule \"connectivity/multiple-drivers\", at [\"VCC\"]).", changed: false };
+      const note = typeof input.note === "string" ? input.note.trim() : "";
+      const acks = design.acks ?? (design.acks = []);
+      const exists = acks.find((x) => x.rule === rule && [...x.at].sort().join(",") === [...at].sort().join(","));
+      if (exists) { exists.note = note || exists.note; return { text: `Already acknowledged ${rule} @ ${at.join(",")}.`, changed: true }; }
+      acks.push({ rule, at, ...(note ? { note } : {}) });
+      return { text: `Acknowledged ${rule} @ ${at.join(",")}${note ? ` — "${note}"` : ""}. It's now muted and won't count as a warning. Only do this for findings that are genuinely correct/intended.`, changed: true };
+    }
+    case "unacknowledge": {
+      const rule = String(input.rule ?? "").trim();
+      const at = Array.isArray(input.at) ? input.at.map(String) : (input.at ? [String(input.at)] : []);
+      const before = (design.acks ?? []).length;
+      design.acks = (design.acks ?? []).filter((x) => !(x.rule === rule && [...x.at].sort().join(",") === [...at].sort().join(",")));
+      return { text: design.acks.length < before ? `Un-acknowledged ${rule} @ ${at.join(",")} — it will be flagged again.` : "No matching acknowledgement.", changed: design.acks.length < before };
     }
     case "list_nets": {
       try {
@@ -280,6 +299,8 @@ const TOOLS = [
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
   { name: "analyze_design", description: "Run the deterministic checks on the current design — returns all findings (errors, warnings, and notes like 'block has no part yet').", input_schema: { type: "object", properties: {} } },
   { name: "list_nets", description: "List the actual derived net graph — each net's type, voltage, drivers (outputs) and loads (inputs). Read this instead of guessing connectivity.", input_schema: { type: "object", properties: {} } },
+  { name: "acknowledge", description: "Mark a specific finding as INTENDED so it's muted and stops counting as a warning/error — for a correct-but-noisy check, e.g. an intentional diode-OR where two sources (USB 5V + regulator) legitimately share a rail. Use the rule + at from analyze_design. Only acknowledge findings that are genuinely correct; never silence a real problem. Always note WHY.", input_schema: { type: "object", properties: { rule: { type: "string", description: "the finding's rule, e.g. connectivity/multiple-drivers" }, at: { type: "array", items: { type: "string" }, description: "the finding's subjects (net ids/refs), e.g. [\"VCC\"]" }, note: { type: "string", description: "why it's intended (shown to the user)" } }, required: ["rule", "at"] } },
+  { name: "unacknowledge", description: "Remove an acknowledgement so the finding is flagged again.", input_schema: { type: "object", properties: { rule: { type: "string" }, at: { type: "array", items: { type: "string" } } }, required: ["rule", "at"] } },
 ];
 
 export async function POST(req: Request) {

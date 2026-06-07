@@ -150,7 +150,12 @@ export interface Design {
   blocks: BlockInstance[];
   connections: Connection[];
   connectors?: ConnectorInstance[];
+  acks?: Ack[];              // findings the user/agent marked intended (e.g. an intentional diode-OR)
 }
+
+/** An acknowledged finding: a correct-but-noisy warning marked intended so it stops counting against
+ *  the design. Keyed by the finding's rule + its `at` subjects, so it mutes that one occurrence only. */
+export interface Ack { rule: string; at: string[]; note?: string }
 
 // ── Resolved model (what the lint + projections operate on) ────────────────
 
@@ -198,6 +203,7 @@ export interface Finding {
   message: string;           // conversational
   derivation?: string;       // the shown arithmetic
   fix?: { label: string };   // optional advisory
+  acknowledged?: { note?: string }; // set when the user/agent marked this finding intended — muted, not counted
 }
 
 export type Rule = (rd: ResolvedDesign) => Finding[];

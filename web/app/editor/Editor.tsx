@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, railBudgets, deriveBlockSchematic, designReport, findingKey, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
@@ -239,6 +239,7 @@ function buildFlow(design: Design, blockMap: Map<string, Block>): { nodes: Node[
 export default function Editor({ design, blocks, projectId }: { design: Design; blocks: Record<string, Block>; projectId?: string }) {
   // the project's display name (the SSR design is a stub; the real name arrives when we hydrate it)
   const [designName, setDesignName] = useState(design.name);
+  const [acks, setAcks] = useState<Ack[]>(design.acks ?? []); // findings marked intended (muted, not counted)
   // A block's edited internal schematic (saved by the in-block editor) is the source of truth:
   // merge each saved layout, re-derive its parts/nets, and analyze against that. `mounted` keeps
   // the first (SSR) render on the authored blocks to avoid a hydration mismatch; `draftV` bumps
@@ -305,8 +306,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       connections: edges
         .filter((e) => refs.has(e.source) && refs.has(e.target))
         .map((e) => ({ from: `${e.source}.${e.sourceHandle ?? ""}`, to: `${e.target}.${e.targetHandle ?? ""}` })),
+      acks,
     };
-  }, [nodes, edges, design, designName]);
+  }, [nodes, edges, design, designName, acks]);
 
   const analysis = useMemo(() => {
     try {
@@ -343,10 +345,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     [setNodes],
   );
 
+  // Mark a correct-but-noisy finding as intended (or un-mark): mutes it + drops it from the counts.
+  const toggleAck = useCallback((f: Finding) => {
+    const k = findingKey(f);
+    setAcks((prev) => prev.some((a) => findingKey(a) === k)
+      ? prev.filter((a) => findingKey(a) !== k)
+      : [...prev, { rule: f.rule, at: f.at, note: (typeof window !== "undefined" ? window.prompt("Why is this intended? (optional)") : "") || undefined }]);
+  }, []);
+
   const budgets = useMemo(() => railBudgets(analysis.resolved), [analysis]);
   const totalW = budgets.filter((b) => b.type === "rail").reduce((a, b) => a + (b.watts ?? 0), 0);
   const worstRail = budgets.filter((b) => b.capacityA != null).sort((a, b) => (b.usedPct ?? 0) - (a.usedPct ?? 0))[0];
-  const probCount = { error: analysis.findings.filter((f) => f.severity === "error").length, warn: analysis.findings.filter((f) => f.severity === "warn").length };
+  const probCount = { error: analysis.findings.filter((f) => f.severity === "error" && !f.acknowledged).length, warn: analysis.findings.filter((f) => f.severity === "warn" && !f.acknowledged).length };
 
   // keep a live snapshot of the design in the assistant's context window
   const designCtx = useMemo(() => {
@@ -580,6 +590,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     const flow = buildFlow(d, mapOverride ?? blockMap);
     restoring.current = true;
     if (d.name) setDesignName(d.name);
+    setAcks(d.acks ?? []);
     setNodes(flow.nodes);
     setEdges(flow.edges);
     history.current = [{ nodes: flow.nodes, edges: flow.edges }];
@@ -832,17 +843,26 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
               <ul className="space-y-0.5">
                 {analysis.findings.map((f, i) => {
                   const blk = findingBlock(f);
+                  const ackd = !!f.acknowledged;
+                  const canAck = f.severity === "error" || f.severity === "warn";
                   return (
-                    <li key={i}>
+                    <li key={i} className="group flex items-start gap-1">
                       <button onClick={() => blk && locateBlock(blk)} disabled={!blk}
-                        className="flex w-full items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[#454e62] disabled:cursor-default">
-                        <span style={{ color: SEV_COLOR[f.severity] }}>{SEV_ICON[f.severity]}</span>
+                        className={`flex min-w-0 flex-1 items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[#454e62] disabled:cursor-default ${ackd ? "opacity-50" : ""}`}>
+                        <span style={{ color: ackd ? "#9aa3b5" : SEV_COLOR[f.severity] }}>{ackd ? "✓" : SEV_ICON[f.severity]}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="text-white">{f.message}</span>
-                          {f.derivation && <span className="ml-1.5 font-mono text-[10.5px] text-[#9aa3b5]">— {f.derivation}</span>}
+                          <span className={ackd ? "text-[#9aa3b5] line-through" : "text-white"}>{f.message}</span>
+                          {ackd && f.acknowledged?.note && <span className="ml-1.5 text-[10.5px] text-[#46dca6]">intended: {f.acknowledged.note}</span>}
+                          {!ackd && f.derivation && <span className="ml-1.5 font-mono text-[10.5px] text-[#9aa3b5]">— {f.derivation}</span>}
                         </span>
                         {blk && <span className="ml-auto shrink-0 font-mono text-[10px] text-[#677494]">{blk} ↗</span>}
                       </button>
+                      {(canAck || ackd) && (
+                        <button onClick={() => toggleAck(f)} title={ackd ? "Flag this again" : "Mark this finding as intended — mutes it"}
+                          className="shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] text-[#677494] opacity-0 hover:text-white group-hover:opacity-100">
+                          {ackd ? "unmute" : "mark intended"}
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -932,7 +952,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         <Panel title={selectedId ? `Checks · ${selectedId}` : `Checks · ${analysis.findings.length}`}>
           {shownFindings.length === 0
             ? <p className="mt-2 text-sm text-[#46dca6]">● {selectedId ? "No issues on this block" : "All clear"}</p>
-            : <div className="mt-2 space-y-2">{shownFindings.map((f, i) => <FindingCard key={i} f={f} />)}</div>}
+            : <div className="mt-2 space-y-2">{shownFindings.map((f, i) => <FindingCard key={i} f={f} onToggleAck={toggleAck} />)}</div>}
         </Panel>
 
         <Panel title={`BOM · ${analysis.bom.length}`}>
@@ -1095,11 +1115,20 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function FindingCard({ f }: { f: Finding }) {
+function FindingCard({ f, onToggleAck }: { f: Finding; onToggleAck?: (f: Finding) => void }) {
+  const ackd = !!f.acknowledged;
+  const canAck = f.severity === "error" || f.severity === "warn";
   return (
-    <div className="rounded-lg border border-[#54607a] bg-[#4e586f] p-3 text-xs">
-      <div className="font-semibold" style={{ color: SEV_COLOR[f.severity] }}>{SEV_ICON[f.severity]} {f.message}</div>
-      {f.derivation && <div className="mt-1 font-mono text-[11px] text-white">{f.derivation}</div>}
+    <div className={`rounded-lg border border-[#54607a] bg-[#4e586f] p-3 text-xs ${ackd ? "opacity-60" : ""}`}>
+      <div className="flex items-start gap-2">
+        <div className={`flex-1 font-semibold ${ackd ? "line-through" : ""}`} style={{ color: ackd ? "#9aa3b5" : SEV_COLOR[f.severity] }}>{ackd ? "✓" : SEV_ICON[f.severity]} {f.message}</div>
+        {onToggleAck && (canAck || ackd) && (
+          <button onClick={() => onToggleAck(f)} title={ackd ? "Flag this again" : "Mark intended — mutes it"}
+            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[#9aa3b5] hover:text-white">{ackd ? "unmute" : "intended?"}</button>
+        )}
+      </div>
+      {ackd && f.acknowledged?.note && <div className="mt-1 text-[11px] text-[#46dca6]">intended: {f.acknowledged.note}</div>}
+      {!ackd && f.derivation && <div className="mt-1 font-mono text-[11px] text-white">{f.derivation}</div>}
     </div>
   );
 }
