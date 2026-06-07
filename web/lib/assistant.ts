@@ -10,7 +10,12 @@ import { useEffect, useState } from "react";
 export interface ChatMessage { id: string; role: "user" | "assistant"; text: string; t: number }
 export interface ContextItem { kind: string; text: string }
 
-const CHAT_KEY = "electrace:chat";          // localStorage — persistent
+/** One conversation in the assistant — its own message history, switchable like chats in any chat app. */
+export interface Conversation { id: string; title: string; messages: ChatMessage[]; updatedAt: number }
+
+const CHATS_KEY = "electrace:chats";        // localStorage — all conversations
+const ACTIVE_KEY = "electrace:chat:active"; // localStorage — active conversation id
+const LEGACY_KEY = "electrace:chat";        // the old single-conversation store (migrated once)
 const CTX_KEY = "electrace:assistant-ctx";  // sessionStorage — per browsing session
 const EVT = "electrace:assistant";
 
@@ -21,16 +26,70 @@ const read = <T,>(store: Storage | undefined, key: string): T[] => {
 };
 const emit = () => { try { window.dispatchEvent(new CustomEvent(EVT)); } catch { /* ignore */ } };
 
-export const getChat = (): ChatMessage[] => read(ls(), CHAT_KEY);
+const uid = (p: string) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+const titleOf = (text: string) => text.replace(/\s+/g, " ").trim().slice(0, 40) || "New chat";
+const readChats = (): Conversation[] => read<Conversation>(ls(), CHATS_KEY);
+const writeChats = (cs: Conversation[]) => { try { ls()?.setItem(CHATS_KEY, JSON.stringify(cs)); } catch { /* ignore */ } };
+const setActive = (id: string) => { try { ls()?.setItem(ACTIVE_KEY, id); } catch { /* ignore */ } };
+
+/** Load conversations, migrating the old single-chat store and guaranteeing at least one exists. */
+function ensureChats(): Conversation[] {
+  let cs = readChats();
+  if (!cs.length) {
+    const legacy = read<ChatMessage>(ls(), LEGACY_KEY);
+    const firstUser = legacy.find((m) => m.role === "user");
+    const conv: Conversation = { id: uid("c"), title: firstUser ? titleOf(firstUser.text) : "", messages: legacy, updatedAt: Date.now() };
+    cs = [conv];
+    writeChats(cs); setActive(conv.id);
+    try { ls()?.removeItem(LEGACY_KEY); } catch { /* ignore */ }
+  }
+  return cs;
+}
+function activeId(): string {
+  const cs = ensureChats();
+  let id = ls()?.getItem(ACTIVE_KEY) ?? "";
+  if (!cs.some((c) => c.id === id)) { id = cs[0].id; setActive(id); }
+  return id;
+}
+
+export const getChat = (): ChatMessage[] => { const id = activeId(); return ensureChats().find((c) => c.id === id)?.messages ?? []; };
 export const getContext = (): ContextItem[] => read(ss(), CTX_KEY);
 
+/** All conversations, most-recently-updated first (for the chat switcher). */
+export function getConversations(): Conversation[] { return ensureChats().slice().sort((a, b) => b.updatedAt - a.updatedAt); }
+export function getActiveId(): string { return activeId(); }
+
 export function appendChat(role: ChatMessage["role"], text: string): void {
-  const arr = getChat();
-  arr.push({ id: `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, role, text, t: Date.now() });
-  try { ls()?.setItem(CHAT_KEY, JSON.stringify(arr)); } catch { /* ignore */ }
+  const cs = ensureChats(); const id = activeId();
+  const conv = cs.find((c) => c.id === id); if (!conv) return;
+  conv.messages.push({ id: uid("m"), role, text, t: Date.now() });
+  if (!conv.title && role === "user") conv.title = titleOf(text); // name the chat from its first message
+  conv.updatedAt = Date.now();
+  writeChats(cs); emit();
+}
+
+/** Start a fresh conversation and make it active. */
+export function newConversation(): string {
+  const cs = ensureChats();
+  const conv: Conversation = { id: uid("c"), title: "", messages: [], updatedAt: Date.now() };
+  cs.unshift(conv); writeChats(cs); setActive(conv.id); emit();
+  return conv.id;
+}
+export function switchConversation(id: string): void { if (ensureChats().some((c) => c.id === id)) { setActive(id); emit(); } }
+export function deleteConversation(id: string): void {
+  let cs = ensureChats().filter((c) => c.id !== id);
+  if (!cs.length) cs = [{ id: uid("c"), title: "", messages: [], updatedAt: Date.now() }];
+  writeChats(cs);
+  if ((ls()?.getItem(ACTIVE_KEY) ?? "") === id) setActive(cs[0].id);
   emit();
 }
-export function clearChat(): void { try { ls()?.removeItem(CHAT_KEY); } catch { /* ignore */ } emit(); }
+/** Clear the ACTIVE conversation's messages (keeps it as an empty chat). */
+export function clearChat(): void {
+  const cs = ensureChats(); const id = activeId();
+  const conv = cs.find((c) => c.id === id);
+  if (conv) { conv.messages = []; conv.title = ""; conv.updatedAt = Date.now(); writeChats(cs); }
+  emit();
+}
 
 /** Add to the ephemeral context window (e.g. the current design/block snapshot). */
 export function pushContext(item: ContextItem): void {
@@ -93,15 +152,17 @@ export async function sendMessage(text: string): Promise<void> {
 }
 
 /** Subscribe to the conversation + context window (synced across bubbles and tabs). */
-export function useAssistant(): { messages: ChatMessage[]; context: ContextItem[] } {
+export function useAssistant(): { messages: ChatMessage[]; context: ContextItem[]; conversations: Conversation[]; activeId: string } {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [context, setContext] = useState<ContextItem[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string>("");
   useEffect(() => {
-    const sync = () => { setMessages(getChat()); setContext(getContext()); };
+    const sync = () => { setMessages(getChat()); setContext(getContext()); setConversations(getConversations()); setActiveId(getActiveId()); };
     sync();
     window.addEventListener(EVT, sync);
     window.addEventListener("storage", sync); // cross-tab history sync
     return () => { window.removeEventListener(EVT, sync); window.removeEventListener("storage", sync); };
   }, []);
-  return { messages, context };
+  return { messages, context, conversations, activeId };
 }
