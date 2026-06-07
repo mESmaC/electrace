@@ -13,7 +13,7 @@ const pinId = (key: string) => key.slice(key.indexOf(".") + 1);
 
 /** Project a layout into a semantic schematic. `authoredParts` (if given) supplies the
  *  human-authored part metadata — `why`, `footprint`, `part`, polarity — merged in by ref. */
-export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Part[] = []): Schematic {
+export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Array<Partial<Part> & { ref: string }> = []): Schematic {
   const ports = new Map<string, string>();      // symbol id → terminal id (its ref)
   const markers = new Map<string, string>();    // net-marker symbol id → the net name it asserts
   const comp = new Map<string, PlacedSymbol>(); // real components (everything else)

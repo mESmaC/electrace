@@ -21,7 +21,7 @@ export { designContext, blockContext, blockBrief } from "./context.js";
 export { parseValue, parallelResistance, seriesSum, formatValue } from "./values.js";
 export { schematicInsights, type InsightComponent, type Insight } from "./insights.js";
 export { CONNECTOR_CATALOG, connectorPart, type ConnectorPart } from "./connectors.js";
-export { authorChipLayout, inferRoleType } from "./authoring.js";
+export { authorChipLayout, authorPartLayout, inferRoleType } from "./authoring.js";
 export type { DesignContext, BlockContext, BlockBrief } from "./context.js";
 export type { ElectraceEvent, CapturedEvent } from "./events.js";
 export { designReport } from "./report.js";

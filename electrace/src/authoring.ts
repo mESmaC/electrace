@@ -2,6 +2,7 @@
 // from a part spec. This is what lets the assistant populate a block with an actual IC instead of
 // leaving a hollow shell — the chip becomes a BOM/PCB part and the exposed pins become terminals.
 import type { SchematicLayout, PlacedSymbol, SchematicWire, ChipSpec, Terminal, NetType } from "./types.js";
+import { SYMBOL_CATALOG } from "./catalog.js";
 
 const POWER_RE = /^(vdd|vcc|vbat|vin|vsys|avdd|avcc|vref|vddio|[+]?\d*v\d*|3v3|5v|1v8)$/i;
 const GND_RE = /^(gnd|vss|avss|agnd|dgnd|v-|0v|gnd\d+)$/i;
@@ -37,4 +38,32 @@ export function authorChipLayout(ref: string, chip: ChipSpec, expose: string[]):
     row++;
   }
   return { layout: { symbols, wires }, terminals };
+}
+
+/** Build a block's internal schematic around ONE discrete/passive part (resistor, capacitor, diode,
+ *  crystal, regulator, transistor, source, …) wired to the block's existing terminals. This is the
+ *  low-friction path for the simple parts that would otherwise be skipped or left as open pins:
+ *  the part becomes a real BOM/PCB component (with its value), and the block stops being a shell.
+ *
+ *  `pinMap` pairs each of the block's terminals with one of the symbol's pins. When omitted, pins are
+ *  assigned positionally (terminal[i] ↔ the symbol's i-th pin from the catalog) — correct for the
+ *  common 2-terminal passive. Returns the layout only; the block keeps its declared terminals. */
+export function authorPartLayout(
+  ref: string,
+  type: string,
+  terminalIds: string[],
+  value?: string,
+  pinMap?: Record<string, string>,
+): { layout: SchematicLayout } {
+  const pins = SYMBOL_CATALOG[type]?.pins ?? terminalIds.map((_, i) => String(i + 1));
+  const symbols: PlacedSymbol[] = [{ id: ref, type, ref, x: 220, y: 120, ...(value ? { value } : {}) }];
+  const wires: SchematicWire[] = [];
+  terminalIds.forEach((tid, i) => {
+    const pin = pinMap?.[tid] ?? pins[i];
+    if (!pin) return; // more terminals than the symbol has pins → leave the extra unwired
+    const portId = `P_${tid.replace(/[^A-Za-z0-9]+/g, "_")}`;
+    symbols.push({ id: portId, type: "port", ref: tid, x: 40, y: 40 + i * 40 });
+    wires.push({ from: `${portId}.1`, to: `${ref}.${pin}` });
+  });
+  return { layout: { symbols, wires } };
 }
