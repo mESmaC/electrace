@@ -58,7 +58,7 @@ export function buildAgentPayload(): { context: ContextItem[]; history: ChatMess
 
 // The active editor registers an "agent session" so the assistant can read the live design and
 // apply changes it makes via tools. Only one session is active at a time (the editor you're in).
-export interface AgentSession { getDesign: () => unknown; getBlocks: () => unknown; apply: (result: { design?: unknown; blocks?: unknown[]; deletedBlocks?: string[] }) => void }
+export interface AgentSession { getDesign: () => unknown; getBlocks: () => unknown; apply: (result: { design?: unknown; blocks?: unknown[]; deletedBlocks?: string[]; blockSchematics?: { id: string; layout: unknown }[] }) => void }
 let agentSession: AgentSession | null = null;
 export function registerAgentSession(s: AgentSession): () => void {
   agentSession = s;
@@ -81,11 +81,11 @@ export async function sendMessage(text: string): Promise<void> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json().catch(() => ({} as { reply?: string; error?: string; design?: unknown; blocks?: unknown[]; deletedBlocks?: string[] }));
+    const data = await res.json().catch(() => ({} as { reply?: string; error?: string; design?: unknown; blocks?: unknown[]; deletedBlocks?: string[]; blockSchematics?: { id: string; layout: unknown }[] }));
     if (res.ok && data.reply) appendChat("assistant", data.reply);
     else appendChat("assistant", `⚠️ ${data.error ?? "The assistant is unavailable."}`);
-    if (res.ok && agentSession && (data.design || data.blocks?.length || data.deletedBlocks?.length)) {
-      agentSession.apply({ design: data.design, blocks: data.blocks, deletedBlocks: data.deletedBlocks });
+    if (res.ok && agentSession && (data.design || data.blocks?.length || data.deletedBlocks?.length || data.blockSchematics?.length)) {
+      agentSession.apply({ design: data.design, blocks: data.blocks, deletedBlocks: data.deletedBlocks, blockSchematics: data.blockSchematics });
     }
   } catch {
     appendChat("assistant", "⚠️ Couldn't reach the assistant. Is ANTHROPIC_API_KEY set in web/.env.local (and the dev server restarted)?");

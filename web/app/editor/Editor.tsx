@@ -5,14 +5,14 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole } from "@electrace/core";
+import { analyze, railBudgets, deriveBlockSchematic, designReport, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
 import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
-import { modelToLayout } from "./schematic-model";
+import { modelToLayout, layoutToModel } from "./schematic-model";
 import { track } from "@/lib/telemetry";
 import TelemetryToggle from "./TelemetryToggle";
 import SymbolStyleToggle from "./SymbolStyleToggle";
@@ -371,15 +371,24 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   useEffect(() => registerAgentSession({
     getDesign: () => designLiveRef.current,
     getBlocks: () => Object.fromEntries(blockMapRef.current),
-    apply: ({ design, blocks, deletedBlocks }) => {
+    apply: ({ design, blocks, deletedBlocks, blockSchematics }) => {
       const created = (blocks as Block[] | undefined) ?? [];
       const deleted = deletedBlocks ?? [];
       created.forEach((b) => saveUserBlock(b));          // persist new/updated user blocks
       deleted.forEach((k) => deleteUserBlock(k));        // remove deleted ones
+      // authored internal schematics → write each block's editor draft (the source of truth that
+      // overrides block.layout) so the chip shows in the schematic editor + hits the BOM/footprints
+      (blockSchematics ?? []).forEach(({ id, layout }) => {
+        try {
+          localStorage.setItem(`electrace:blocksch:${id}`, JSON.stringify(layoutToModel(layout as SchematicLayout)));
+          window.dispatchEvent(new CustomEvent("electrace:blocksch", { detail: id }));
+        } catch { /* ignore */ }
+      });
       const merged = new Map(blockMapRef.current);        // a block map valid right now (don't wait for re-render)
       created.forEach((b) => merged.set(`${b.id}@${b.version}`, b));
       deleted.forEach((k) => merged.delete(k));
       if (created.length || deleted.length) setUserV((v) => v + 1); // refresh the palette
+      if (blockSchematics?.length) setDraftV((v) => v + 1);          // re-derive blocks from new drafts
       if (design) loadDesignRef.current(design as Design, merged);
     },
   }), []);

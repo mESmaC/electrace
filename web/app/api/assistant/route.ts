@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, type Design, type Block } from "@electrace/core";
+import { analyze, authorChipLayout, type Design, type Block, type SchematicLayout } from "@electrace/core";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
@@ -22,8 +22,10 @@ about a specific part number (don't guess pin maps from memory; search, then cit
 
 Read the real state instead of guessing: call list_nets to see the actual net graph and
 analyze_design to read all findings — including notes like "block has no part yet". If a block you
-created is an empty interface shell, populate it (or tell the user the real part it stands for) so it
-reaches the BOM; don't leave the design as hollow boxes.
+created is an empty interface shell, populate it so it reaches the BOM; don't leave the design as
+hollow boxes. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
+(chip.names) and the pins to expose — that drops the actual chip into the block's schematic (BOM +
+footprint) and makes those pins terminals (no need to add the whole pinout as terminals by hand).
 
 Terminal directions matter for the driver checks: a passive part (crystal/resonator, ferrite,
 resistor, the second pad of a 2-terminal part) and a header/breakout pin are LOADS — declare them
@@ -65,7 +67,7 @@ function cleanTerminals(raw: unknown): { id: string; role: "in" | "out"; type: "
   }).filter((x): x is { id: string; role: "in" | "out"; type: "power" | "rail" | "signal" | "gnd" } => !!x);
 }
 
-interface Effects { upserts: Map<string, Block>; deleted: Set<string> }
+interface Effects { upserts: Map<string, Block>; deleted: Set<string>; schematics: Map<string, SchematicLayout> }
 function runTool(name: string, input: Record<string, unknown>, design: Design, blocks: Record<string, Block>, eff: Effects): { text: string; changed: boolean } {
   const blockMap = new Map(Object.entries(blocks));
   const userOnly = (key: string, b?: Block) => (!b ? `No block "${key}".` : !b.id.startsWith("@user/") ? `"${key}" is a library block — only blocks you created can be edited or deleted.` : null);
@@ -93,6 +95,23 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       if (input.terminals !== undefined) { const t = cleanTerminals(input.terminals); if (!t.length) return { text: "terminals must be a non-empty list of { id, role, type }.", changed: false }; nb.terminals = t; }
       blocks[key] = nb; eff.upserts.set(key, nb);
       return { text: `Updated ${nb.name} (${key}). Terminals: ${termList(nb)}.`, changed: false };
+    }
+    case "author_block": {
+      const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
+      if (err) return { text: err, changed: false };
+      const c = input.chip as { profile?: unknown; pins?: unknown; mpn?: unknown; names?: unknown } | undefined;
+      const names = c?.names && typeof c.names === "object" ? (c.names as Record<string, string>) : null;
+      if (!names || !Object.keys(names).length) return { text: 'author_block needs chip.names — a { pinNumber: function } map, e.g. { "4": "VCC", "7": "PB6_XTAL1" }.', changed: false };
+      const chip = { profile: String(c?.profile ?? "qfp"), pins: Math.max(Object.keys(names).length, Number(c?.pins) || 0), names, ...(c?.mpn ? { mpn: String(c.mpn) } : {}) };
+      const ref = typeof input.ref === "string" && input.ref.trim() ? input.ref.trim() : "U1";
+      const expose = Array.isArray(input.expose) ? input.expose.map(String) : [];
+      const { layout, terminals } = authorChipLayout(ref, chip, expose);
+      const have = new Set(b!.terminals.map((t) => t.id));
+      const merged = [...b!.terminals];
+      for (const t of terminals) if (!have.has(t.id)) { merged.push(t); have.add(t.id); }
+      const nb: Block = { ...b!, terminals: merged, layout };
+      blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
+      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (BOM + footprint); exposed ${terminals.length} pin(s) as terminals.`, changed: true };
     }
     case "delete_block": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -174,6 +193,7 @@ const TOOLS = [
   { name: "list_blocks", description: "List the block types available to place, with their terminals. Library blocks plus any you've created.", input_schema: { type: "object", properties: {} } },
   { name: "create_block", description: "Create a new custom (user) block with named terminals/pins. It appears in the palette and can be placed with add_block.", input_schema: { type: "object", properties: { name: { type: "string" }, glyph: { type: "string", description: "1–2 char icon (optional)" }, category: { type: "string", description: "optional, e.g. power/signal/custom" }, terminals: TERMS_SCHEMA }, required: ["name", "terminals"] } },
   { name: "update_block", description: "Edit a custom block you created — rename it, change its glyph/category, or relabel its terminals (pins). Library blocks can't be edited.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, name: { type: "string" }, glyph: { type: "string" }, category: { type: "string" }, terminals: TERMS_SCHEMA }, required: ["block"] } },
+  { name: "author_block", description: "Populate a custom block's INTERNAL schematic with a real chip: places the IC with its full pinout as an actual part (so it hits the BOM + gets a PCB footprint), and exposes the chosen pins as the block's terminals. This is how you make a block real instead of a hollow shell — use it for MCUs/ICs.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, ref: { type: "string", description: "chip reference designator, e.g. U1 (default U1)" }, chip: { type: "object", properties: { profile: { type: "string", description: "package: soic | qfp | qfn | dip | sot | bga" }, pins: { type: "number" }, mpn: { type: "string", description: "manufacturer part number, e.g. ATmega328P-AU" }, names: { type: "object", description: 'pin map { "1": "PD3", "4": "VCC", "7": "PB6_XTAL1", ... } — pin number → function name' } }, required: ["names"] }, expose: { type: "array", items: { type: "string" }, description: 'function names to expose as block terminals, e.g. ["VCC","GND","PD0_RXD","PC6_RESET"]' } }, required: ["block", "chip"] } },
   { name: "delete_block", description: "Delete a custom block you created (also removes any placed instances). Library blocks can't be deleted.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "list_instances", description: "List the blocks already placed in the current design.", input_schema: { type: "object", properties: {} } },
   { name: "add_block", description: "Place a block instance. Returns the new ref + its terminals.", input_schema: { type: "object", properties: { block: { type: "string", description: "exact block key (id@version) from list_blocks" }, ref: { type: "string", description: "optional instance ref; auto-generated if omitted" } }, required: ["block"] } },
@@ -224,12 +244,13 @@ export async function POST(req: Request) {
     return r.json();
   };
 
-  const eff: Effects = { upserts: new Map(), deleted: new Set() };
+  const eff: Effects = { upserts: new Map(), deleted: new Set(), schematics: new Map() };
   const result = (reply: string, changed: boolean) => Response.json({
     reply,
     ...(changed && design ? { design } : {}),
     ...(eff.upserts.size ? { blocks: [...eff.upserts.values()] } : {}),
     ...(eff.deleted.size ? { deletedBlocks: [...eff.deleted] } : {}),
+    ...(eff.schematics.size ? { blockSchematics: [...eff.schematics].map(([key, layout]) => ({ id: key.split("@")[0], layout })) } : {}),
   });
 
   try {
