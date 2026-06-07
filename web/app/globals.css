@@ -23,20 +23,26 @@
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* Dark (default) — slate-blue dusk. */
-:root, [data-theme="dark"] {
+/* Three themes (spec: design.md). MID is the default — a slate-dusk middle ground. */
+/* Mid — the primary slate-blue dusk palette. */
+:root, [data-theme="mid"] {
   --c-bg: #3c4658; --c-bg2: #36404f; --c-surface: #454e62; --c-surface-2: #4e586f; --c-surface-3: #59647d;
   --c-border: #54607a; --c-border-strong: #677494; --c-text: #ffffff; --c-dim: #d4dae6; --c-faint: #9aa3b5;
 }
-/* Light — soft paper, same blue accent. */
+/* Dark — starker, deeper than Mid (same blue accent). */
+[data-theme="dark"] {
+  --c-bg: #161b22; --c-bg2: #11151b; --c-surface: #1e242d; --c-surface-2: #283039; --c-surface-3: #353f4b;
+  --c-border: #303a46; --c-border-strong: #46515f; --c-text: #f3f6fb; --c-dim: #c2cad6; --c-faint: #828c9c;
+  color-scheme: dark;
+}
+/* Light — cream-tinted paper, same blue accent. */
 [data-theme="light"] {
-  --c-bg: #eef1f6; --c-bg2: #e4e9f1; --c-surface: #ffffff; --c-surface-2: #f3f5fa; --c-surface-3: #e7ecf3;
-  --c-border: #d3dae7; --c-border-strong: #aab4c6; --c-text: #1b2333; --c-dim: #3a4658; --c-faint: #66718a;
+  --c-bg: #f1ede4; --c-bg2: #e7e2d6; --c-surface: #ffffff; --c-surface-2: #f6f3ec; --c-surface-3: #ece7db;
+  --c-border: #ded8c9; --c-border-strong: #b6ae9c; --c-text: #1e242e; --c-dim: #3c4350; --c-faint: #6a7180;
   color-scheme: light;
 }
 
 html { color-scheme: dark; }
-[data-theme="light"] { color-scheme: light; }
 body {
   background: var(--color-bg);
   color: var(--color-text);

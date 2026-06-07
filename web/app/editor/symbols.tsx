@@ -841,7 +841,7 @@ export function SymbolNode(props: NodeProps) {
       </svg>
       {(d.ref || d.value) && (
         <div style={{ position: "absolute", top: -16, left: 0, width: sym.w }}
-          className="text-center font-mono text-[10px] text-white pointer-events-none">
+          className="text-center font-mono text-[10px] text-[var(--color-text)] pointer-events-none">
           {d.ref}{d.value ? ` ${d.value}` : ""}
         </div>
       )}

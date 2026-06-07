@@ -22,10 +22,10 @@ const NET = "#4c8dff";
 function PartNode({ data }: NodeProps) {
   const d = data as unknown as { label: string; sub?: string; why?: string };
   return (
-    <div title={d.why} className="relative rounded-lg border border-[#677494] bg-[#4e586f] px-3 py-2 text-center text-[#ffffff] shadow">
+    <div title={d.why} className="relative rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] px-3 py-2 text-center text-[#ffffff] shadow">
       <Ports />
       <div className="font-mono text-[12px] font-bold">{d.label}</div>
-      {d.sub && <div className="font-mono text-[10px] text-[#9aa3b5]">{d.sub}</div>}
+      {d.sub && <div className="font-mono text-[10px] text-[var(--color-faint)]">{d.sub}</div>}
     </div>
   );
 }
@@ -40,7 +40,7 @@ function NetNode({ data }: NodeProps) {
 function PortNode({ data }: NodeProps) {
   const d = data as unknown as { label: string };
   return (
-    <div className="relative rounded-md border border-[#9aa3b5] bg-[#454e62] px-2.5 py-1 font-mono text-[10px] text-white">
+    <div className="relative rounded-md border border-[var(--color-faint)] bg-[var(--color-surface)] px-2.5 py-1 font-mono text-[10px] text-[var(--color-text)]">
       <Ports />⏚ {d.label}
     </div>
   );

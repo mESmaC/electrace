@@ -68,12 +68,12 @@ function BlockNode(props: NodeProps) {
   // docked terminals collapse to chips; their handles stay in the DOM (hidden) so the hidden
   // dock-edges remain valid. Click a chip to undock.
   const dockedSection = dockedTerms.length > 0 ? (
-    <div className="border-t border-dashed border-[#54607a] px-3 py-1.5">
-      <div className="mb-1 text-[8px] uppercase tracking-wide text-[#9aa3b5]">{dockedTerms.length} docked</div>
+    <div className="border-t border-dashed border-[var(--color-border)] px-3 py-1.5">
+      <div className="mb-1 text-[8px] uppercase tracking-wide text-[var(--color-faint)]">{dockedTerms.length} docked</div>
       <div className="flex flex-wrap gap-1">
         {dockedTerms.map((t) => (
           <button key={t.id} onClick={() => undock(t.id)} title={`${t.id} → ${docked.get(t.id)} · click to undock`}
-            className="rounded bg-[#3a4458] px-1 font-mono text-[9px] text-[#9ec5ff] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
+            className="rounded bg-[var(--color-bg2)] px-1 font-mono text-[9px] text-[#9ec5ff] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
         ))}
       </div>
       <div style={{ height: 0, overflow: "hidden" }} aria-hidden>
@@ -97,15 +97,15 @@ function BlockNode(props: NodeProps) {
     const posOf = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
     return (
       <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow }}
-        className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#454e62] text-white`}>
+        className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface)] text-[var(--color-text)]`}>
         <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center text-center">
           <span className="text-base" style={block.glyphColor ? { color: block.glyphColor } : undefined}>{block.glyph ?? "▦"}</span>
           <span className="text-[11px] font-semibold leading-tight">{block.name}</span>
-          <span className="text-[9px] uppercase tracking-wide text-[#9aa3b5]">{instanceRef}</span>
+          <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}</span>
         </div>
         {order.map((side) => sides[side].map((t, i, arr) => {
           const pct = `${((i + 1) / (arr.length + 1)) * 100}%`;
-          const lblBase = "pointer-events-none absolute font-mono text-[8px] text-white whitespace-nowrap";
+          const lblBase = "pointer-events-none absolute font-mono text-[8px] text-[var(--color-text)] whitespace-nowrap";
           const lbl = side === "left" ? { left: 7, top: pct, transform: "translateY(-50%)" }
             : side === "right" ? { right: 7, top: pct, transform: "translateY(-50%)" }
             : side === "top" ? { top: 8, left: pct, transform: "translate(-50%) rotate(-90deg)", transformOrigin: "left center" }
@@ -118,24 +118,24 @@ function BlockNode(props: NodeProps) {
             </Fragment>
           );
         }))}
-        {dockedSection && <div className="absolute left-0 right-0 rounded-b-lg bg-[#4e586f]" style={{ top: dim }}>{dockedSection}</div>}
+        {dockedSection && <div className="absolute left-0 right-0 rounded-b-lg bg-[var(--color-surface-2)]" style={{ top: dim }}>{dockedSection}</div>}
       </div>
     );
   }
 
   return (
     <div style={{ width: 210, boxShadow: shadow }}
-      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#4e586f] text-[#ffffff]`}>
+      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface-2)] text-[#ffffff]`}>
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
         <span className="grid h-6 w-6 place-items-center rounded-md border text-sm" style={glyphChip(block.glyphColor)}>{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
-        <span className="text-[9px] uppercase tracking-wide text-[#9aa3b5]">{instanceRef}</span>
+        <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}</span>
       </div>
-      <div className="px-3 pb-2 font-mono text-[11px] text-white">{block.topology ?? block.category ?? ""}</div>
+      <div className="px-3 pb-2 font-mono text-[11px] text-[var(--color-text)]">{block.topology ?? block.category ?? ""}</div>
       <div className="px-3 pb-2">
         <SchematicPreview blockId={block.id} layout={block.layout} />
       </div>
-      <div className="border-t border-[#54607a] py-1">
+      <div className="border-t border-[var(--color-border)] py-1">
         {free.map((t) => {
           const out = t.role === "out";
           return (
@@ -152,7 +152,7 @@ function BlockNode(props: NodeProps) {
               />
               <span style={{ color: NET_COLOR[t.type] }}>●</span>
               <span className="font-mono text-[11px]">{t.id}</span>
-              <span className="ml-auto text-[9px] uppercase text-[#9aa3b5]">{t.role}</span>
+              <span className="ml-auto text-[9px] uppercase text-[var(--color-faint)]">{t.role}</span>
             </div>
           );
         })}
@@ -180,12 +180,12 @@ function ConnectorNode(props: NodeProps) {
   return (
     <div
       style={{ width: 158, boxShadow: sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 8px 20px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)" }}
-      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#3c4658] text-white`}
+      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-bg)] text-[var(--color-text)]`}
     >
-      <div className="flex items-center gap-2 border-b border-[#54607a] px-2.5 pt-2 pb-1.5">
+      <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-2.5 pt-2 pb-1.5">
         <span className="grid h-5 w-5 place-items-center rounded border border-[#4c8dff55] bg-[#4c8dff26] text-[11px] text-[#4c8dff]">⊟</span>
         <span className="flex-1 truncate text-[11px] font-semibold">{part.name}</span>
-        <span className="text-[9px] uppercase tracking-wide text-[#9aa3b5]">{ref}</span>
+        <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{ref}</span>
       </div>
       <div className="py-1">
         {part.pins.map((pin) => {
@@ -194,7 +194,7 @@ function ConnectorNode(props: NodeProps) {
             <div key={pin} className="relative flex items-center gap-1.5 px-2.5" style={{ height: 17 }}>
               <Handle id={pin} type="target" position={Position.Left}
                 style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, background: "#3c4658", border: `2px solid ${d ? "#4c8dff" : "#677494"}` }} />
-              <span className="w-5 shrink-0 font-mono text-[9px] text-[#9aa3b5]">{pin}</span>
+              <span className="w-5 shrink-0 font-mono text-[9px] text-[var(--color-faint)]">{pin}</span>
               <span className="flex-1 truncate font-mono text-[9.5px]" style={{ color: d ? "#fff" : "#566177" }}>{d ?? "—"}</span>
             </div>
           );
@@ -726,16 +726,16 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     <div key={key} className="group relative">
       <button onClick={() => addBlock(key)} draggable title={b.name}
         onDragStart={(e) => { e.dataTransfer.setData("application/electrace-block", key); e.dataTransfer.effectAllowed = "copy"; }}
-        className="flex h-full w-full cursor-grab flex-col items-center gap-1 rounded-lg border border-[#54607a] bg-[#4e586f] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
+        className="flex h-full w-full cursor-grab flex-col items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
         <span className="grid h-8 w-8 place-items-center rounded-md border text-base" style={glyphChip(b.glyphColor)}>{b.glyph ?? "▦"}</span>
-        <span className="text-[10px] leading-tight text-white" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.name}</span>
+        <span className="text-[10px] leading-tight text-[var(--color-text)]" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.name}</span>
       </button>
       {isUserBlock(key) && (
         <div className="absolute right-0.5 top-0.5 hidden gap-0.5 group-hover:flex">
           <button onClick={() => startEditBlock(key)} title="Edit this block's name & terminals"
-            className="grid h-4 w-4 place-items-center rounded bg-[#3a4458] text-[9px] text-[#9aa3b5] hover:text-white">✎</button>
+            className="grid h-4 w-4 place-items-center rounded bg-[var(--color-bg2)] text-[9px] text-[var(--color-faint)] hover:text-[var(--color-text)]">✎</button>
           <button onClick={() => removeUserBlock(key)} title="Delete this custom block"
-            className="grid h-4 w-4 place-items-center rounded bg-[#3a4458] text-[9px] text-[#9aa3b5] hover:text-[#e2837e]">✕</button>
+            className="grid h-4 w-4 place-items-center rounded bg-[var(--color-bg2)] text-[9px] text-[var(--color-faint)] hover:text-[#e2837e]">✕</button>
         </div>
       )}
     </div>
@@ -743,12 +743,12 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
 
   return (
     <div className="relative flex" style={{ height: "calc(100vh - 56px)" }}>
-      <aside className="w-60 shrink-0 overflow-auto border-r border-[#54607a] bg-[#454e62] p-3">
+      <aside className="w-60 shrink-0 overflow-auto border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3">
         <CollapsibleSection title={`My blocks${myEntries.length ? ` (${myEntries.length})` : ""}`}
           action={<button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ New</button>}>
           {myEntries.length
             ? <div className="grid grid-cols-2 gap-1.5">{myEntries.map(([k, b]) => blockTile(k, b))}</div>
-            : <p className="px-1 pb-1 text-[10px] text-[#677494]">None yet — <button onClick={startNewBlock} className="text-[#9ec5ff] hover:underline">create one</button>.</p>}
+            : <p className="px-1 pb-1 text-[10px] text-[var(--color-border-strong)]">None yet — <button onClick={startNewBlock} className="text-[#9ec5ff] hover:underline">create one</button>.</p>}
         </CollapsibleSection>
 
         <CollapsibleSection title={`Library (${libEntries.length})`}>
@@ -760,51 +760,51 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             {Object.values(CONNECTOR_CATALOG).map((c) => (
               <button key={c.id} onClick={() => addConnector(c.id)} title={`${c.name} · ${c.pins.length} pins`}
                 draggable onDragStart={(e) => { e.dataTransfer.setData("application/electrace-connector", c.id); e.dataTransfer.effectAllowed = "copy"; }}
-                className="flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[#54607a] bg-[#3c4658] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
+                className="flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
                 <span className="grid h-8 w-8 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-base text-[#4c8dff]">⊟</span>
-                <span className="text-[10px] leading-tight text-white" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.name}</span>
-                <span className="font-mono text-[8px] text-[#9aa3b5]">{c.pins.length}p</span>
+                <span className="text-[10px] leading-tight text-[var(--color-text)]" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.name}</span>
+                <span className="font-mono text-[8px] text-[var(--color-faint)]">{c.pins.length}p</span>
               </button>
             ))}
           </div>
         </CollapsibleSection>
-        <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Drag (or click) onto the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
+        <p className="mt-3 px-1 text-[10px] text-[var(--color-faint)]">Drag (or click) onto the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1 overflow-hidden" onDrop={onCanvasDrop} onDragOver={onCanvasDragOver}>
         <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
-          <button onClick={resetSample} className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">New</button>
-          <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">Import</button>
-          <button onClick={exportDesign} className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">Export</button>
-          <button onClick={downloadReport} title="Generate a Markdown design report" className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">Report</button>
-          <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">Reset schematics</button>
+          <button onClick={resetSample} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">New</button>
+          <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Import</button>
+          <button onClick={exportDesign} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Export</button>
+          <button onClick={downloadReport} title="Generate a Markdown design report" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
+          <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset schematics</button>
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
-          {savedAt && <span className="ml-1 text-[10px] text-[#9aa3b5]">Saved ✓</span>}
+          {savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
           <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
           <SymbolStyleToggle />
           <TelemetryToggle />
         </div>
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-[#54607a] bg-[#454e62]/80 px-3 py-1.5 text-[11px] text-[#9aa3b5]">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]/80 px-3 py-1.5 text-[11px] text-[var(--color-faint)]">
           Drag between ports to wire · select a wire + Delete to remove
         </div>
         <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-          <div className="pointer-events-none flex items-center gap-3 rounded-md border border-[#54607a] bg-[#454e62]/90 px-3 py-1.5 text-[11px]">
-            <span><span className="text-[#9aa3b5]">Power</span> <span className="font-mono text-white">≈{round1(totalW)} W</span></span>
-            <span className="text-[#54607a]">·</span>
-            <span><span className="text-[#9aa3b5]">Blocks</span> <span className="font-mono text-white">{nodes.length}</span></span>
-            <span className="text-[#54607a]">·</span>
-            <span><span className="text-[#9aa3b5]">Nets</span> <span className="font-mono text-white">{analysis.resolved.nets.length}</span></span>
+          <div className="pointer-events-none flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]/90 px-3 py-1.5 text-[11px]">
+            <span><span className="text-[var(--color-faint)]">Power</span> <span className="font-mono text-[var(--color-text)]">≈{round1(totalW)} W</span></span>
+            <span className="text-[var(--color-border)]">·</span>
+            <span><span className="text-[var(--color-faint)]">Blocks</span> <span className="font-mono text-[var(--color-text)]">{nodes.length}</span></span>
+            <span className="text-[var(--color-border)]">·</span>
+            <span><span className="text-[var(--color-faint)]">Nets</span> <span className="font-mono text-[var(--color-text)]">{analysis.resolved.nets.length}</span></span>
             {worstRail && (
               <>
-                <span className="text-[#54607a]">·</span>
-                <span><span className="text-[#9aa3b5]">Top rail</span> <span className="font-mono" style={{ color: barColor(worstRail.usedPct) }}>{Math.round(worstRail.usedPct ?? 0)}%</span></span>
+                <span className="text-[var(--color-border)]">·</span>
+                <span><span className="text-[var(--color-faint)]">Top rail</span> <span className="font-mono" style={{ color: barColor(worstRail.usedPct) }}>{Math.round(worstRail.usedPct ?? 0)}%</span></span>
               </>
             )}
           </div>
           <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"
-            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[15px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">↶</button>
+            className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">↶</button>
           <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)"
-            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[15px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
+            className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
         </div>
         <ReactFlow
           nodes={nodes} edges={edges} nodeTypes={nodeTypes} connectionMode={ConnectionMode.Loose}
@@ -824,22 +824,22 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       </div>
 
       {/* real-time linting / debug pane */}
-      <div className="shrink-0 border-t border-[#54607a] bg-[#3f4860]">
+      <div className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="flex items-center gap-1 px-2">
-          <button onClick={() => setBottomOpen((o) => !o)} className="flex items-center gap-1.5 border-b-2 border-[#4c8dff] px-3 py-1.5 text-[11px] text-white">
+          <button onClick={() => setBottomOpen((o) => !o)} className="flex items-center gap-1.5 border-b-2 border-[#4c8dff] px-3 py-1.5 text-[11px] text-[var(--color-text)]">
             Problems
-            {(probCount.error + probCount.warn) > 0 && <span className="rounded-full bg-[#54607a] px-1.5 text-[9px] text-white">{probCount.error + probCount.warn}</span>}
+            {(probCount.error + probCount.warn) > 0 && <span className="rounded-full bg-[var(--color-border)] px-1.5 text-[9px] text-[var(--color-text)]">{probCount.error + probCount.warn}</span>}
           </button>
-          <div className="ml-auto flex items-center gap-3 px-2 font-mono text-[10px] text-[#9aa3b5]">
-            <span><span className="text-[#9aa3b5]">nets</span> <span className="text-white">{analysis.resolved.nets.length}</span></span>
-            <span><span className="text-[#9aa3b5]">parts</span> <span className="text-white">{analysis.bom.length}</span></span>
-            <span><span className="text-[#9aa3b5]">power</span> <span className="text-white">≈{round1(totalW)} W</span></span>
-            {worstRail && <span><span className="text-[#9aa3b5]">top rail</span> <span style={{ color: barColor(worstRail.usedPct) }}>{Math.round(worstRail.usedPct ?? 0)}%</span></span>}
-            <button onClick={() => setBottomOpen((o) => !o)} className="text-[#9aa3b5] hover:text-white" title={bottomOpen ? "Collapse" : "Expand"}>{bottomOpen ? "▾" : "▴"}</button>
+          <div className="ml-auto flex items-center gap-3 px-2 font-mono text-[10px] text-[var(--color-faint)]">
+            <span><span className="text-[var(--color-faint)]">nets</span> <span className="text-[var(--color-text)]">{analysis.resolved.nets.length}</span></span>
+            <span><span className="text-[var(--color-faint)]">parts</span> <span className="text-[var(--color-text)]">{analysis.bom.length}</span></span>
+            <span><span className="text-[var(--color-faint)]">power</span> <span className="text-[var(--color-text)]">≈{round1(totalW)} W</span></span>
+            {worstRail && <span><span className="text-[var(--color-faint)]">top rail</span> <span style={{ color: barColor(worstRail.usedPct) }}>{Math.round(worstRail.usedPct ?? 0)}%</span></span>}
+            <button onClick={() => setBottomOpen((o) => !o)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]" title={bottomOpen ? "Collapse" : "Expand"}>{bottomOpen ? "▾" : "▴"}</button>
           </div>
         </div>
         {bottomOpen && (
-          <div className="h-40 overflow-y-auto border-t border-[#54607a] bg-[#373f54] px-2 py-1.5 text-[12px]">
+          <div className="h-40 overflow-y-auto border-t border-[var(--color-border)] bg-[var(--color-bg2)] px-2 py-1.5 text-[12px]">
             {analysis.findings.length === 0 ? (
               <div className="flex items-center gap-2 px-1.5 py-1 text-[#46dca6]">● All clear — no lint findings.</div>
             ) : (
@@ -851,18 +851,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                   return (
                     <li key={i} className="group flex items-start gap-1">
                       <button onClick={() => blk && locateBlock(blk)} disabled={!blk}
-                        className={`flex min-w-0 flex-1 items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[#454e62] disabled:cursor-default ${ackd ? "opacity-50" : ""}`}>
+                        className={`flex min-w-0 flex-1 items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[var(--color-surface)] disabled:cursor-default ${ackd ? "opacity-50" : ""}`}>
                         <span style={{ color: ackd ? "#9aa3b5" : SEV_COLOR[f.severity] }}>{ackd ? "✓" : SEV_ICON[f.severity]}</span>
                         <span className="min-w-0 flex-1">
-                          <span className={ackd ? "text-[#9aa3b5] line-through" : "text-white"}>{f.message}</span>
+                          <span className={ackd ? "text-[var(--color-faint)] line-through" : "text-[var(--color-text)]"}>{f.message}</span>
                           {ackd && f.acknowledged?.note && <span className="ml-1.5 text-[10.5px] text-[#46dca6]">intended: {f.acknowledged.note}</span>}
-                          {!ackd && f.derivation && <span className="ml-1.5 font-mono text-[10.5px] text-[#9aa3b5]">— {f.derivation}</span>}
+                          {!ackd && f.derivation && <span className="ml-1.5 font-mono text-[10.5px] text-[var(--color-faint)]">— {f.derivation}</span>}
                         </span>
-                        {blk && <span className="ml-auto shrink-0 font-mono text-[10px] text-[#677494]">{blk} ↗</span>}
+                        {blk && <span className="ml-auto shrink-0 font-mono text-[10px] text-[var(--color-border-strong)]">{blk} ↗</span>}
                       </button>
                       {(canAck || ackd) && (
                         <button onClick={() => toggleAck(f)} title={ackd ? "Flag this again" : "Mark this finding as intended — mutes it"}
-                          className="shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] text-[#677494] opacity-0 hover:text-white group-hover:opacity-100">
+                          className="shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] text-[var(--color-border-strong)] opacity-0 hover:text-[var(--color-text)] group-hover:opacity-100">
                           {ackd ? "unmute" : "mark intended"}
                         </button>
                       )}
@@ -876,57 +876,57 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       </div>
       </div>
 
-      <aside className="w-80 shrink-0 overflow-auto border-l border-[#54607a] bg-[#454e62] p-4 text-[#ffffff]">
+      <aside className="w-80 shrink-0 overflow-auto border-l border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-[#ffffff]">
         {passportNet && (
-          <div className="mb-5 rounded-xl border border-[#4c8dff] bg-[#4e586f] p-3">
+          <div className="mb-5 rounded-xl border border-[#4c8dff] bg-[var(--color-surface-2)] p-3">
             <div className="flex items-center gap-2">
               <span style={{ color: NET_COLOR[passportNet.type] ?? "#4c8dff" }}>●</span>
               <div className="text-sm font-semibold">{passportNet.id}</div>
-              <span className="ml-auto text-[9px] uppercase tracking-wide text-[#9aa3b5]">{passportNet.type} net</span>
+              <span className="ml-auto text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{passportNet.type} net</span>
             </div>
-            <div className="mt-1.5 font-mono text-[11px] text-white">{passportNet.voltage ? `≈ ${fmtRange(passportNet.voltage)}` : "voltage not declared"}</div>
+            <div className="mt-1.5 font-mono text-[11px] text-[var(--color-text)]">{passportNet.voltage ? `≈ ${fmtRange(passportNet.voltage)}` : "voltage not declared"}</div>
             {passportBudget?.capacityA != null && (
               <div className="mt-2.5">
-                <div className="flex justify-between text-[11.5px]"><span className="text-[#9aa3b5]">Current</span><span className="font-mono text-white">{round1(passportBudget.drawA)} / {round1(passportBudget.capacityA)} A</span></div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded bg-[#3c4658]"><div className="h-full rounded" style={{ width: `${Math.min(100, passportBudget.usedPct ?? 0)}%`, background: barColor(passportBudget.usedPct) }} /></div>
+                <div className="flex justify-between text-[11.5px]"><span className="text-[var(--color-faint)]">Current</span><span className="font-mono text-[var(--color-text)]">{round1(passportBudget.drawA)} / {round1(passportBudget.capacityA)} A</span></div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded bg-[var(--color-bg)]"><div className="h-full rounded" style={{ width: `${Math.min(100, passportBudget.usedPct ?? 0)}%`, background: barColor(passportBudget.usedPct) }} /></div>
               </div>
             )}
-            <div className="mt-3 border-t border-[#54607a] pt-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Sources</div>
+            <div className="mt-3 border-t border-[var(--color-border)] pt-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Sources</div>
               {passportNet.sources.length
                 ? passportNet.sources.map((s) => (
-                  <div key={s.node} className="mt-1 flex justify-between text-[11.5px]"><span className="font-mono">{s.node}</span><span className="font-mono text-[#9aa3b5]">{fmtRange(s.def.v) || "—"}</span></div>
+                  <div key={s.node} className="mt-1 flex justify-between text-[11.5px]"><span className="font-mono">{s.node}</span><span className="font-mono text-[var(--color-faint)]">{fmtRange(s.def.v) || "—"}</span></div>
                 ))
                 : <div className="mt-1 text-[11px] text-[#fbbf24]">none — open net (nothing drives it)</div>}
             </div>
-            <div className="mt-3 border-t border-[#54607a] pt-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Loads</div>
+            <div className="mt-3 border-t border-[var(--color-border)] pt-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Loads</div>
               {passportNet.sinks.length
                 ? passportNet.sinks.map((s) => (
-                  <div key={s.pin.node} className="mt-1 flex justify-between text-[11.5px]"><span className="font-mono">{s.pin.node}</span><span className="font-mono text-[#9aa3b5]">{fmtRange(s.current) ? `${fmtRange(s.current)} draw` : "—"}</span></div>
+                  <div key={s.pin.node} className="mt-1 flex justify-between text-[11.5px]"><span className="font-mono">{s.pin.node}</span><span className="font-mono text-[var(--color-faint)]">{fmtRange(s.current) ? `${fmtRange(s.current)} draw` : "—"}</span></div>
                 ))
-                : <div className="mt-1 text-[11px] text-[#9aa3b5]">no declared loads</div>}
+                : <div className="mt-1 text-[11px] text-[var(--color-faint)]">no declared loads</div>}
             </div>
-            <div className="mt-2.5 text-[10px] text-[#677494]">{passportNet.members.length} terminals on this net · click a block instead to inspect it</div>
+            <div className="mt-2.5 text-[10px] text-[var(--color-border-strong)]">{passportNet.members.length} terminals on this net · click a block instead to inspect it</div>
           </div>
         )}
         {selectedBlock && (
-          <div className="mb-5 rounded-xl border border-[#4c8dff] bg-[#4e586f] p-3">
+          <div className="mb-5 rounded-xl border border-[#4c8dff] bg-[var(--color-surface-2)] p-3">
             <div className="flex items-center gap-2.5">
               <span className="grid h-8 w-8 place-items-center rounded-lg border" style={glyphChip(selectedBlock.glyphColor)}>{selectedBlock.glyph ?? "▦"}</span>
               <div>
                 <div className="text-sm font-semibold">{selectedBlock.name}</div>
-                <div className="font-mono text-[10px] text-[#9aa3b5]">{selectedId}</div>
+                <div className="font-mono text-[10px] text-[var(--color-faint)]">{selectedId}</div>
               </div>
             </div>
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {Object.entries(selectedBlock.spec ?? {}).map(([k, v]) => (
-                <span key={k} className="rounded border border-[#54607a] bg-[#454e62] px-2 py-0.5 font-mono text-[10px] text-white">{k} {fmtRange(v)}</span>
+                <span key={k} className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-text)]">{k} {fmtRange(v)}</span>
               ))}
             </div>
             {selectedBlock.terminals.some((t) => t.i?.max != null) && (
-              <div className="mt-3 border-t border-[#54607a] pt-2.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Edit current</div>
+              <div className="mt-3 border-t border-[var(--color-border)] pt-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Edit current</div>
                 {selectedBlock.terminals.filter((t) => t.i?.max != null).map((t) => (
                   <label key={t.id} className="mt-2 flex items-center justify-between gap-2 text-[11.5px]">
                     <span className="font-mono">{t.id} · {t.role === "out" ? "max out" : "draw"} (A)</span>
@@ -934,7 +934,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                       type="number" step="0.1" min="0"
                       value={selectedOverrides?.terminals?.[t.id]?.i?.max ?? t.i!.max!}
                       onChange={(e) => setTermCurrent(selectedId!, t.id, e.target.value)}
-                      className="w-20 rounded border border-[#54607a] bg-[#454e62] px-2 py-1 text-right font-mono text-[11.5px] text-white outline-none focus:border-[#4c8dff]"
+                      className="w-20 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-right font-mono text-[11.5px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]"
                     />
                   </label>
                 ))}
@@ -945,10 +945,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
 
         <Panel title={`Power budget · ≈${round1(totalW)} W`}>
           {budgets.length === 0
-            ? <p className="mt-2 text-xs text-[#9aa3b5]">No power rails yet.</p>
+            ? <p className="mt-2 text-xs text-[var(--color-faint)]">No power rails yet.</p>
             : budgets.map((b) => <BudgetBar key={b.net} b={b} />)}
           {Object.entries(analysis.power.transforms).map(([ref, p]) => (
-            <div key={ref} className="mt-2 font-mono text-[10px] text-[#9aa3b5]">↳ {ref} draws ~{p.iIn} A from {p.vIn} V ({p.pIn} W in)</div>
+            <div key={ref} className="mt-2 font-mono text-[10px] text-[var(--color-faint)]">↳ {ref} draws ~{p.iIn} A from {p.vIn} V ({p.pIn} W in)</div>
           ))}
         </Panel>
 
@@ -959,9 +959,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         </Panel>
 
         <Panel title={`BOM · ${analysis.bom.length}`}>
-          <div className="mt-2 space-y-1 font-mono text-[11px] text-white">
+          <div className="mt-2 space-y-1 font-mono text-[11px] text-[var(--color-text)]">
             {analysis.bom.map((r, i) => (
-              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[#6ea3ff]">pol</span>} <span className="text-[#9aa3b5]">{r.refs.join(", ")}</span></div>
+              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[#6ea3ff]">pol</span>} <span className="text-[var(--color-faint)]">{r.refs.join(", ")}</span></div>
             ))}
           </div>
         </Panel>
@@ -971,13 +971,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <div className="mt-2 space-y-2 text-[11.5px]">
               {consolidation.map((c) => (
                 <div key={c.label}>
-                  <div className="text-white">{c.label}: <span className="font-mono">{c.distinct}</span> distinct {c.distinct === 1 ? "value" : "values"} across {c.qty} parts</div>
+                  <div className="text-[var(--color-text)]">{c.label}: <span className="font-mono">{c.distinct}</span> distinct {c.distinct === 1 ? "value" : "values"} across {c.qty} parts</div>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {c.values.map((v) => <span key={v} className="rounded border border-[#54607a] bg-[#454e62] px-1.5 py-0.5 font-mono text-[10px] text-[#9aa3b5]">{v}</span>)}
+                    {c.values.map((v) => <span key={v} className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-faint)]">{v}</span>)}
                   </div>
                 </div>
               ))}
-              <p className="text-[10px] leading-relaxed text-[#677494]">Fewer distinct values = fewer reels and stocking mistakes. Consolidate where a block&apos;s declared envelope allows.</p>
+              <p className="text-[10px] leading-relaxed text-[var(--color-border-strong)]">Fewer distinct values = fewer reels and stocking mistakes. Consolidate where a block&apos;s declared envelope allows.</p>
             </div>
           </Panel>
         )}
@@ -985,11 +985,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         {stressLimits.length > 0 && (
           <Panel title="Stress test">
             <label className="mt-1 flex items-center justify-between gap-2 text-[11.5px]">
-              <span className="text-[#9aa3b5]">Input what-if</span>
+              <span className="text-[var(--color-faint)]">Input what-if</span>
               <span className="flex items-center gap-1">
                 <input type="number" step="1" min="0" value={stressV} onChange={(e) => setStressV(Math.max(0, Number(e.target.value) || 0))}
-                  className="w-16 rounded border border-[#54607a] bg-[#454e62] px-2 py-1 text-right font-mono text-[11.5px] text-white outline-none focus:border-[#4c8dff]" />
-                <span className="font-mono text-[#9aa3b5]">V</span>
+                  className="w-16 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-right font-mono text-[11.5px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" />
+                <span className="font-mono text-[var(--color-faint)]">V</span>
               </span>
             </label>
             {(() => {
@@ -1006,14 +1006,14 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <div className="mt-2 space-y-1">
               {stressLimits.map((l, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="font-mono text-white">{l.ref} · {l.field}</span>
+                  <span className="font-mono text-[var(--color-text)]">{l.ref} · {l.field}</span>
                   <span className="font-mono" style={{ color: l.margin < 0 ? "#f87171" : l.margin < 3 ? "#fbbf24" : "#9aa3b5" }}>
                     {l.value}{l.unit ?? "V"} · {l.margin < 0 ? "over" : `+${round1(l.margin)}`}
                   </span>
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-[#677494]">Reads authored limit notes against your what-if input — not a simulation. A guided tour of how the design dies.</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-border-strong)]">Reads authored limit notes against your what-if input — not a simulation. A guided tour of how the design dies.</p>
           </Panel>
         )}
       </aside>
@@ -1027,12 +1027,12 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
 
       {/* Block schematic editor — full-screen over the whole design editor while drilled in */}
       {drillRef && drilledBlock && (
-        <div className="absolute inset-0 z-30 flex flex-col overflow-hidden bg-[#3c4658]">
-          <div className="flex items-center gap-2 border-b border-[#54607a] px-4 py-2 text-sm">
-            <button onClick={() => setDrillRef(null)} className="text-[#9aa3b5] hover:text-white">← {designName}</button>
-            <span className="text-[#677494]">/</span>
+        <div className="absolute inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-bg)]">
+          <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2 text-sm">
+            <button onClick={() => setDrillRef(null)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]">← {designName}</button>
+            <span className="text-[var(--color-border-strong)]">/</span>
             <span className="font-semibold">{drillRef} — {drilledBlock.name}</span>
-            <span className="ml-2 text-[11px] text-[#9aa3b5]">internal schematic · drag symbols, wire pins</span>
+            <span className="ml-2 text-[11px] text-[var(--color-faint)]">internal schematic · drag symbols, wire pins</span>
           </div>
           <div className="min-h-0 flex-1">
             <BlockSchematic blockId={drilledBlock.id} initial={drilledBlock.layout} terminals={drilledBlock.terminals} block={drilledBlock} />
@@ -1043,35 +1043,35 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       {/* create a custom block */}
       {newBlock && (
         <div className="absolute inset-0 z-40 grid place-items-center bg-black/55 p-4" onClick={() => setNewBlock(null)}>
-          <div className="w-full max-w-md rounded-xl border border-[#54607a] bg-[#454e62] p-4 text-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-[var(--color-text)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-[14px] font-semibold">{newBlock.editKey ? "Edit block" : "New block"}</h3>
             <div className="mb-3 flex gap-2">
-              <label className="flex-1 text-[11px] text-[#9aa3b5]">Name
+              <label className="flex-1 text-[11px] text-[var(--color-faint)]">Name
                 <input autoFocus value={newBlock.name} onChange={(e) => setNewBlock({ ...newBlock, name: e.target.value })} placeholder="e.g. Sensor frontend"
-                  className="mt-1 w-full rounded-md border border-[#54607a] bg-[#3c4658] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#4c8dff]" />
+                  className="mt-1 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" />
               </label>
-              <label className="w-16 text-[11px] text-[#9aa3b5]">Glyph
+              <label className="w-16 text-[11px] text-[var(--color-faint)]">Glyph
                 <input value={newBlock.glyph} onChange={(e) => setNewBlock({ ...newBlock, glyph: e.target.value.slice(0, 2) })} placeholder="▦"
                   className="mt-1 w-full rounded-md border text-center text-[14px] outline-none focus:border-[#4c8dff]" style={{ ...glyphChip(newBlock.color), paddingTop: 6, paddingBottom: 6 }} />
               </label>
             </div>
-            <label className="mb-3 block text-[11px] text-[#9aa3b5]">Glyph color
+            <label className="mb-3 block text-[11px] text-[var(--color-faint)]">Glyph color
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {GLYPH_COLORS.map((c) => (
                   <button key={c} type="button" onClick={() => setNewBlock({ ...newBlock, color: c })} title={c}
-                    className={`h-6 w-6 rounded-full border-2 transition ${newBlock.color.toLowerCase() === c ? "border-white" : "border-transparent hover:border-[#9aa3b5]"}`}
+                    className={`h-6 w-6 rounded-full border-2 transition ${newBlock.color.toLowerCase() === c ? "border-white" : "border-transparent hover:border-[var(--color-faint)]"}`}
                     style={{ background: c }} />
                 ))}
-                <label className="relative ml-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full border border-[#54607a] text-[10px] text-[#9aa3b5] hover:border-[#4c8dff]" title="Custom color">
+                <label className="relative ml-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full border border-[var(--color-border)] text-[10px] text-[var(--color-faint)] hover:border-[#4c8dff]" title="Custom color">
                   <span style={{ color: newBlock.color }}>●</span>
                   <input type="color" value={newBlock.color} onChange={(e) => setNewBlock({ ...newBlock, color: e.target.value })} className="absolute h-0 w-0 opacity-0" />
                 </label>
               </div>
             </label>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#9aa3b5]">Terminals</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-faint)]">Terminals</span>
               <button onClick={() => setNewBlock({ ...newBlock, terminals: [...newBlock.terminals, { id: "", role: "in", type: "signal" }] })}
-                className="rounded border border-[#54607a] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ terminal</button>
+                className="rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ terminal</button>
             </div>
             <div className="max-h-52 space-y-1.5 overflow-y-auto">
               {newBlock.terminals.map((t, i) => {
@@ -1079,27 +1079,27 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                 return (
                   <div key={i} className="flex items-center gap-1.5">
                     <input value={t.id} onChange={(e) => set({ id: e.target.value })} placeholder="name"
-                      className="min-w-0 flex-1 rounded border border-[#54607a] bg-[#3c4658] px-2 py-1 font-mono text-[11px] text-white outline-none focus:border-[#4c8dff]" />
+                      className="min-w-0 flex-1 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 font-mono text-[11px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" />
                     <select value={t.role} onChange={(e) => set({ role: e.target.value as TerminalRole })} style={{ colorScheme: "dark" }}
-                      className="rounded border border-[#54607a] bg-[#3c4658] px-1 py-1 text-[11px] text-white outline-none">
+                      className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-1 text-[11px] text-[var(--color-text)] outline-none">
                       <option value="in">in</option><option value="out">out</option>
                     </select>
                     <select value={t.type} onChange={(e) => set({ type: e.target.value as NetType })} style={{ colorScheme: "dark" }}
-                      className="rounded border border-[#54607a] bg-[#3c4658] px-1 py-1 text-[11px] text-white outline-none">
+                      className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-1 text-[11px] text-[var(--color-text)] outline-none">
                       <option value="power">power</option><option value="rail">rail</option><option value="signal">signal</option><option value="gnd">gnd</option>
                     </select>
                     <button onClick={() => setNewBlock({ ...newBlock, terminals: newBlock.terminals.filter((_, j) => j !== i) })}
-                      className="grid h-6 w-6 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a1c20] hover:text-[#e2837e]">✕</button>
+                      className="grid h-6 w-6 place-items-center rounded text-[var(--color-faint)] hover:bg-[#3a1c20] hover:text-[#e2837e]">✕</button>
                   </div>
                 );
               })}
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setNewBlock(null)} className="rounded-md border border-[#54607a] px-3 py-1.5 text-[12px] text-white hover:border-[#4c8dff]">Cancel</button>
+              <button onClick={() => setNewBlock(null)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-[12px] text-[var(--color-text)] hover:border-[#4c8dff]">Cancel</button>
               <button onClick={createBlock} disabled={!newBlock.name.trim() || !newBlock.terminals.some((t) => t.id.trim())}
-                className="rounded-md bg-[#4c8dff] px-3 py-1.5 text-[12px] text-white disabled:opacity-40">{newBlock.editKey ? "Save changes" : "Create block"}</button>
+                className="rounded-md bg-[#4c8dff] px-3 py-1.5 text-[12px] text-[var(--color-text)] disabled:opacity-40">{newBlock.editKey ? "Save changes" : "Create block"}</button>
             </div>
-            <p className="mt-3 text-[10px] leading-snug text-[#9aa3b5]">{newBlock.editKey ? "Editing keeps the block's id and drawn schematic; renaming or removing a terminal may leave existing connections to it dangling." : "After creating, click it in the palette to drop it on the canvas, then double-click to draw its internal schematic."}</p>
+            <p className="mt-3 text-[10px] leading-snug text-[var(--color-faint)]">{newBlock.editKey ? "Editing keeps the block's id and drawn schematic; renaming or removing a terminal may leave existing connections to it dangling." : "After creating, click it in the palette to drop it on the canvas, then double-click to draw its internal schematic."}</p>
           </div>
         </div>
       )}
@@ -1112,7 +1112,7 @@ function CollapsibleSection({ title, action, defaultOpen = true, children }: { t
   return (
     <div className="mb-2">
       <div className="flex items-center justify-between px-1 pb-1.5">
-        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5] hover:text-white">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-faint)] hover:text-[var(--color-text)]">
           <span className="inline-block w-2 text-[8px]">{open ? "▾" : "▸"}</span>{title}
         </button>
         {action}
@@ -1125,7 +1125,7 @@ function CollapsibleSection({ title, action, defaultOpen = true, children }: { t
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-6">
-      <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5]">{title}</h2>
+      <h2 className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-faint)]">{title}</h2>
       {children}
     </section>
   );
@@ -1135,34 +1135,34 @@ function FindingCard({ f, onToggleAck }: { f: Finding; onToggleAck?: (f: Finding
   const ackd = !!f.acknowledged;
   const canAck = f.severity === "error" || f.severity === "warn";
   return (
-    <div className={`rounded-lg border border-[#54607a] bg-[#4e586f] p-3 text-xs ${ackd ? "opacity-60" : ""}`}>
+    <div className={`rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs ${ackd ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-2">
         <div className={`flex-1 font-semibold ${ackd ? "line-through" : ""}`} style={{ color: ackd ? "#9aa3b5" : SEV_COLOR[f.severity] }}>{ackd ? "✓" : SEV_ICON[f.severity]} {f.message}</div>
         {onToggleAck && (canAck || ackd) && (
           <button onClick={() => onToggleAck(f)} title={ackd ? "Flag this again" : "Mark intended — mutes it"}
-            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[#9aa3b5] hover:text-white">{ackd ? "unmute" : "intended?"}</button>
+            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--color-faint)] hover:text-[var(--color-text)]">{ackd ? "unmute" : "intended?"}</button>
         )}
       </div>
       {ackd && f.acknowledged?.note && <div className="mt-1 text-[11px] text-[#46dca6]">intended: {f.acknowledged.note}</div>}
-      {!ackd && f.derivation && <div className="mt-1 font-mono text-[11px] text-white">{f.derivation}</div>}
+      {!ackd && f.derivation && <div className="mt-1 font-mono text-[11px] text-[var(--color-text)]">{f.derivation}</div>}
     </div>
   );
 }
 
 function BudgetBar({ b }: { b: RailBudget }) {
   return (
-    <div className="mt-2 rounded-lg border border-[#54607a] bg-[#4e586f] p-2.5">
+    <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2.5">
       <div className="flex items-center justify-between text-[11.5px]">
         <span className="font-mono">{b.net}{b.voltage != null ? ` · ${b.voltage} V` : ""}</span>
-        <span className="text-white">{b.capacityA != null ? `${b.drawA} / ${b.capacityA} A` : `${b.drawA} A`}</span>
+        <span className="text-[var(--color-text)]">{b.capacityA != null ? `${b.drawA} / ${b.capacityA} A` : `${b.drawA} A`}</span>
       </div>
       {b.capacityA != null && (
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[#3c4658]">
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--color-bg)]">
           <div className="h-full rounded" style={{ width: `${Math.min(100, b.usedPct ?? 0)}%`, background: barColor(b.usedPct) }} />
         </div>
       )}
       {b.watts != null && (
-        <div className="mt-1 text-[10px] text-[#9aa3b5]">
+        <div className="mt-1 text-[10px] text-[var(--color-faint)]">
           {b.watts} W{b.headroomA != null ? ` · ${b.headroomA} A spare` : " · no source"}
         </div>
       )}

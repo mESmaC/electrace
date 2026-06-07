@@ -718,14 +718,14 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-[#54607a] bg-[#454e62] p-3">
+        <aside className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3">
         <div className="flex items-center justify-between px-1 pb-2">
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Symbols</h3>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Symbols</h3>
           <SymbolStyleToggle />
         </div>
         {SYMBOL_GROUPS.map((grp) => (
           <div key={grp.name} className="mb-3">
-            <h4 className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider text-[#677494]">{grp.name}</h4>
+            <h4 className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--color-border-strong)]">{grp.name}</h4>
             <div className="grid grid-cols-4 gap-1.5">
               {grp.types.map((type) => {
                 const s = SYMBOLS[type];
@@ -734,39 +734,39 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                   <button key={type} title={`${s.label} — drag onto the canvas or click to add`} draggable
                     onDragStart={(e) => { e.dataTransfer.setData("text/symbol", type); e.dataTransfer.effectAllowed = "copy"; }}
                     onClick={() => addSym(type)}
-                    className="group flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[#54607a] bg-[#4e586f] p-1 hover:border-[#4c8dff] active:cursor-grabbing">
+                    className="group flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-1 hover:border-[#4c8dff] active:cursor-grabbing">
                     <svg viewBox={`-6 -6 ${s.w + 12} ${s.h + 12}`} preserveAspectRatio="xMidYMid meet" width="100%" height="30" style={{ display: "block", pointerEvents: "none" }}>{s.draw(symStyle)}</svg>
-                    <span className="w-full truncate text-center text-[8px] leading-tight text-[#9aa3b5] group-hover:text-white">{s.label}</span>
+                    <span className="w-full truncate text-center text-[8px] leading-tight text-[var(--color-faint)] group-hover:text-[var(--color-text)]">{s.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
         ))}
-        <p className="mt-3 px-1 text-[10px] leading-relaxed text-[#9aa3b5]">Drag a symbol onto the canvas (or click to drop it center) · click a pin then another to wire (Enter ends in free space, Esc cancels) · drag a wire to bend it, corner handles reshape · drag empty space to box-select, Shift-click to add/remove · R rotates, Ctrl+D duplicates, arrows nudge · pinch to zoom, two-finger to pan · Delete removes.</p>
+        <p className="mt-3 px-1 text-[10px] leading-relaxed text-[var(--color-faint)]">Drag a symbol onto the canvas (or click to drop it center) · click a pin then another to wire (Enter ends in free space, Esc cancels) · drag a wire to bend it, corner handles reshape · drag empty space to box-select, Shift-click to add/remove · R rotates, Ctrl+D duplicates, arrows nudge · pinch to zoom, two-finger to pan · Delete removes.</p>
       </aside>
 
-      <div ref={wrapRef} className="relative flex-1 overflow-hidden bg-[#3c4658]" onDragOver={onCanvasDragOver} onDrop={onCanvasDrop}>
+      <div ref={wrapRef} className="relative flex-1 overflow-hidden bg-[var(--color-bg)]" onDragOver={onCanvasDragOver} onDrop={onCanvasDrop}>
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
           <button onClick={() => rotateSel(90)} disabled={selSymIdsArr.length === 0} title="Rotate (R · Shift+R reverses)"
-            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[14px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">⟳</button>
+            className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[14px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">⟳</button>
           <button onClick={() => { if (size.w) { const f = computeFit(model, size); setZoom(f.zoom); setPan(f.pan); } }} title="Fit to view"
-            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[13px] text-white hover:border-[#4c8dff]">⤢</button>
+            className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] text-[var(--color-text)] hover:border-[#4c8dff]">⤢</button>
           <button onClick={() => setModel((m) => ({ ...m, syms: m.syms.map((s) => { const o = anchorOrigin(s, s.x, s.y, GRID); return { ...s, x: o.x, y: o.y }; }) }))}
             title="Align — snap every part so its pins land on the grid (fixes wires not meeting pins)"
-            className="grid h-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] px-2 text-[11px] text-white hover:border-[#4c8dff]">Align</button>
+            className="grid h-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[11px] text-[var(--color-text)] hover:border-[#4c8dff]">Align</button>
           <button onClick={resetBlock} title="Revert to the authored schematic (discard your edits)"
-            className="grid h-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] px-2 text-[11px] text-white hover:border-[#4c8dff]">Reset</button>
+            className="grid h-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[11px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset</button>
           <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"
-            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[15px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">↶</button>
+            className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">↶</button>
           <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)"
-            className="grid h-8 w-8 place-items-center rounded-md border border-[#54607a] bg-[#454e62] text-[15px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
+            className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
         </div>
         {draw && <div className="absolute left-3 top-3 z-10 rounded-md border border-[#4c8dff80] bg-[#4c8dff26] px-3 py-1.5 text-[11px] text-[#6ea3ff]">Wiring — click a pin to finish · click empty to bend · Esc to cancel</div>}
         {!draw && hoverNet != null && nets.nets[hoverNet] && (
-          <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-md border border-[#54607a] bg-[#454e62ee] px-3 py-1.5 text-[11px] backdrop-blur">
+          <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[#454e62ee] px-3 py-1.5 text-[11px] backdrop-blur">
             <span className="font-mono font-semibold text-[#6ea3ff]">{netLabel.get(hoverNet) ?? `net ${hoverNet + 1}`}</span>
-            <span className="text-[#9aa3b5]">{nets.nets[hoverNet].pins.length} pins</span>
+            <span className="text-[var(--color-faint)]">{nets.nets[hoverNet].pins.length} pins</span>
             {nets.nets[hoverNet].shorts.length > 0 && <span className="text-[#ef5d6b]">short</span>}
           </div>
         )}
@@ -926,38 +926,38 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       </div>
 
         {/* RIGHT — inspector */}
-        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto border-l border-[#54607a] bg-[#454e62]">
-          <div className="shrink-0 border-b border-[#54607a] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Inspector</div>
+        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-surface)]">
+          <div className="shrink-0 border-b border-[var(--color-border)] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Inspector</div>
           <div className="flex-1 overflow-y-auto p-3">
             {block && (
-              <div className="mb-3 rounded-lg border border-[#54607a] bg-[#4e586f] p-2.5">
+              <div className="mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2.5">
                 <div className="flex items-center gap-2">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-[#4c8dff]">{block.glyph ?? "▦"}</span>
                   <div className="min-w-0">
-                    <div className="truncate text-[12px] font-semibold text-white">{block.name}</div>
-                    <div className="font-mono text-[9px] text-[#9aa3b5]">{block.topology ?? block.category ?? "block"}</div>
+                    <div className="truncate text-[12px] font-semibold text-[var(--color-text)]">{block.name}</div>
+                    <div className="font-mono text-[9px] text-[var(--color-faint)]">{block.topology ?? block.category ?? "block"}</div>
                   </div>
                 </div>
                 {block.spec && Object.keys(block.spec).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {Object.entries(block.spec).map(([k, v]) => (
-                      <span key={k} className="rounded border border-[#54607a] bg-[#454e62] px-1.5 py-0.5 font-mono text-[9px] text-white">{k} {fmtSpecVal(v)}</span>
+                      <span key={k} className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text)]">{k} {fmtSpecVal(v)}</span>
                     ))}
                   </div>
                 )}
               </div>
             )}
-            {!(sel.size > 1 || selSym) && <p className="text-[11px] text-[#677494]">Select a symbol or wire to inspect it.</p>}
+            {!(sel.size > 1 || selSym) && <p className="text-[11px] text-[var(--color-border-strong)]">Select a symbol or wire to inspect it.</p>}
             {sel.size > 1 && (
               <div>
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">{sel.size} selected</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">{sel.size} selected</h3>
                 <div className="mt-2 grid grid-cols-3 gap-1.5">
                   <button onClick={() => rotateSel(90)} disabled={!selSymIdsArr.length}
-                    className="rounded border border-[#54607a] bg-[#4e586f] py-1 text-[11px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">Rotate</button>
+                    className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] py-1 text-[11px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">Rotate</button>
                   <button onClick={duplicateSel} disabled={!selSymIdsArr.length}
-                    className="rounded border border-[#54607a] bg-[#4e586f] py-1 text-[11px] text-white disabled:opacity-40 enabled:hover:border-[#4c8dff]">Dup</button>
+                    className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] py-1 text-[11px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">Dup</button>
                   <button onClick={del}
-                    className="rounded border border-[#54607a] bg-[#4e586f] py-1 text-[11px] text-[#ef5d6b] hover:border-[#ef5d6b]">Delete</button>
+                    className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] py-1 text-[11px] text-[#ef5d6b] hover:border-[#ef5d6b]">Delete</button>
                 </div>
               </div>
             )}
@@ -965,11 +965,11 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
               const t = termOf(selSym.id);
               return (
                 <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Terminal</h3>
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Terminal</h3>
                   <div className="mt-1.5 flex items-center gap-1.5 text-[12px]">
                     <span style={{ color: NET_COLOR[t?.type ?? ""] ?? "#4c8dff" }}>●</span>
-                    <span className="font-mono text-white">{selSym.ref}</span>
-                    <span className="ml-auto text-[9px] uppercase text-[#9aa3b5]">{t?.role} · {t?.type}</span>
+                    <span className="font-mono text-[var(--color-text)]">{selSym.ref}</span>
+                    <span className="ml-auto text-[9px] uppercase text-[var(--color-faint)]">{t?.role} · {t?.type}</span>
                   </div>
                   <p className={`mt-2 text-[11px] ${portConnected(selSym.id) ? "text-[#46dca6]" : "text-[#f7b13c]"}`}>
                     {portConnected(selSym.id) ? "✓ wired into the circuit" : "⚠ not wired — connect it to a pin"}
@@ -979,27 +979,27 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
             })()}
             {selSym && selSym.chip && (
               <div>
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">Chip</h3>
-                <label className="mt-2 block text-[11px] text-white">Ref
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Chip</h3>
+                <label className="mt-2 block text-[11px] text-[var(--color-text)]">Ref
                   <input value={selSym.ref ?? ""} onChange={(e) => updateSel({ ref: e.target.value })}
-                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
-                <label className="mt-2 block text-[11px] text-white">Part number
+                    className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" /></label>
+                <label className="mt-2 block text-[11px] text-[var(--color-text)]">Part number
                   <input value={selSym.chip.mpn ?? ""} placeholder="e.g. MAX232" onChange={(e) => updateChip({ mpn: e.target.value })}
-                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none placeholder:text-[#677494] focus:border-[#4c8dff]" /></label>
+                    className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-border-strong)] focus:border-[#4c8dff]" /></label>
                 <div className="mt-2 flex gap-2">
-                  <label className="block flex-1 text-[11px] text-white">Package
+                  <label className="block flex-1 text-[11px] text-[var(--color-text)]">Package
                     <select value={selSym.chip.profile} onChange={(e) => updateChip({ profile: e.target.value })}
-                      className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 text-[12px] text-white outline-none focus:border-[#4c8dff]">
+                      className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]">
                       {PROFILES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select></label>
-                  <label className="block w-16 text-[11px] text-white">Pins
+                  <label className="block w-16 text-[11px] text-[var(--color-text)]">Pins
                     <input type="number" min={1} max={256} value={selSym.chip.pins}
                       onChange={(e) => updateChip({ pins: Math.max(1, Math.min(256, Math.floor(Number(e.target.value) || 1))) })}
-                      className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
+                      className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" /></label>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#677494]">Pin names</span>
-                  <span className="text-[9px] text-[#677494]">● = terminal</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-border-strong)]">Pin names</span>
+                  <span className="text-[9px] text-[var(--color-border-strong)]">● = terminal</span>
                 </div>
                 <div className="mt-1 max-h-44 space-y-1 overflow-y-auto pr-0.5">
                   {(symDims(selSym)?.pins ?? []).map((p) => {
@@ -1007,13 +1007,13 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                     const exp = !!nm && isExposed(nm);
                     return (
                       <div key={p.id} className="flex items-center gap-1.5">
-                        <span className="w-7 shrink-0 text-right font-mono text-[10px] text-[#9aa3b5]">{p.id}</span>
+                        <span className="w-7 shrink-0 text-right font-mono text-[10px] text-[var(--color-faint)]">{p.id}</span>
                         <input value={selSym!.chip!.names?.[p.id] ?? ""} placeholder="—" onChange={(e) => setPinName(p.id, e.target.value)}
-                          className="w-full rounded border border-[#54607a] bg-[#454e62] px-1.5 py-0.5 font-mono text-[11px] text-white outline-none placeholder:text-[#566177] focus:border-[#4c8dff]" />
+                          className="w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-surface-3)] focus:border-[#4c8dff]" />
                         {block && isUserBlock(block.id) && (
                           <button onClick={() => (exp ? unexposePin(nm) : exposePins(selSym!, [p.id]))} disabled={!nm}
                             title={exp ? `Exposed as terminal "${nm}" — click to remove` : "Expose this pin as a block terminal"}
-                            className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[11px] ${exp ? "bg-[#4c8dff] text-white" : "text-[#677494] hover:bg-[#454e62] hover:text-white"} disabled:opacity-30`}>{exp ? "●" : "○"}</button>
+                            className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[11px] ${exp ? "bg-[#4c8dff] text-[var(--color-text)]" : "text-[var(--color-border-strong)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"} disabled:opacity-30`}>{exp ? "●" : "○"}</button>
                         )}
                       </div>
                     );
@@ -1028,32 +1028,32 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                     </button>
                   );
                 })()}
-                <p className="mt-2 text-[10px] leading-relaxed text-[#677494]">Name pins by function (AI pinout mapping fills these), then click ○ to expose just the ones you need as block terminals — each gets a wired port and the block renders as a QFP chip.</p>
+                <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-border-strong)]">Name pins by function (AI pinout mapping fills these), then click ○ to expose just the ones you need as block terminals — each gets a wired port and the block renders as a QFP chip.</p>
               </div>
             )}
             {selSym && selSym.type !== "port" && !selSym.chip && (
               <div>
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">{SYMBOLS[selSym.type]?.label}</h3>
-                <label className="mt-2 block text-[11px] text-white">Ref
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">{SYMBOLS[selSym.type]?.label}</h3>
+                <label className="mt-2 block text-[11px] text-[var(--color-text)]">Ref
                   <input value={selSym.ref ?? ""} onChange={(e) => updateSel({ ref: e.target.value })}
-                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
-                <label className="mt-2 block text-[11px] text-white">Value
+                    className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" /></label>
+                <label className="mt-2 block text-[11px] text-[var(--color-text)]">Value
                   <input value={selSym.value ?? ""} onChange={(e) => updateSel({ value: e.target.value })}
-                    className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
+                    className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" /></label>
               </div>
             )}
             {terminals.length > 0 && (
-              <div className="mt-4 border-t border-[#54607a] pt-3">
-                <h3 className="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9aa3b5]">
+              <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+                <h3 className="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">
                   Terminals{unwiredTerms > 0 && <span className="ml-1 text-[#f7b13c]">· {unwiredTerms} unwired</span>}
                 </h3>
                 <div className="space-y-1 px-1">
                   {termStatus.map(({ t, portId, connected }) => (
                     <button key={t.id} onClick={() => portId && setSel(new Set([symKey(portId)]))}
-                      className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-[#4e586f]">
+                      className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-[var(--color-surface-2)]">
                       <span style={{ color: NET_COLOR[t.type] ?? "#4c8dff" }}>●</span>
-                      <span className="font-mono text-white">{t.id}</span>
-                      <span className="ml-auto text-[9px] uppercase text-[#9aa3b5]">{t.role}</span>
+                      <span className="font-mono text-[var(--color-text)]">{t.id}</span>
+                      <span className="ml-auto text-[9px] uppercase text-[var(--color-faint)]">{t.role}</span>
                       <span className={connected ? "text-[#46dca6]" : "text-[#f7b13c]"}>{connected ? "✓" : "⚠"}</span>
                     </button>
                   ))}
@@ -1065,21 +1065,21 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       </div>
 
       {/* BOTTOM — problems panel */}
-      <div className="shrink-0 border-t border-[#54607a] bg-[#3f4860]">
+      <div className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="flex items-center gap-1 px-2">
           <button onClick={() => setBottomOpen((o) => !o)}
-            className="flex items-center gap-1.5 border-b-2 border-[#4c8dff] px-3 py-1.5 text-[11px] text-white">
+            className="flex items-center gap-1.5 border-b-2 border-[#4c8dff] px-3 py-1.5 text-[11px] text-[var(--color-text)]">
             Problems
-            {(probCount.error + probCount.warn) > 0 && <span className="rounded-full bg-[#54607a] px-1.5 text-[9px] text-white">{probCount.error + probCount.warn}</span>}
+            {(probCount.error + probCount.warn) > 0 && <span className="rounded-full bg-[var(--color-border)] px-1.5 text-[9px] text-[var(--color-text)]">{probCount.error + probCount.warn}</span>}
           </button>
-          <div className="ml-auto flex items-center gap-3 px-2 text-[10px] text-[#9aa3b5]">
+          <div className="ml-auto flex items-center gap-3 px-2 text-[10px] text-[var(--color-faint)]">
             <span>{realNets} nets</span>
             {shortCount > 0 && <span className="text-[#ef5d6b]">{shortCount} short{shortCount > 1 ? "s" : ""}</span>}
-            <button onClick={() => setBottomOpen((o) => !o)} className="text-[#9aa3b5] hover:text-white" title={bottomOpen ? "Collapse" : "Expand"}>{bottomOpen ? "▾" : "▴"}</button>
+            <button onClick={() => setBottomOpen((o) => !o)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]" title={bottomOpen ? "Collapse" : "Expand"}>{bottomOpen ? "▾" : "▴"}</button>
           </div>
         </div>
         {bottomOpen && (
-          <div className="h-44 overflow-y-auto border-t border-[#54607a] bg-[#373f54] px-3 py-2 text-[12px]">
+          <div className="h-44 overflow-y-auto border-t border-[var(--color-border)] bg-[var(--color-bg2)] px-3 py-2 text-[12px]">
             {problems.length === 0 ? (
               <div className="flex items-center gap-2 text-[#46dca6]">✓ No problems — everything checks out.</div>
             ) : (
@@ -1087,10 +1087,10 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                 {problems.map((p, i) => (
                   <li key={i}>
                     <button onClick={() => locate(p.target)} disabled={!p.target}
-                      className="flex w-full items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[#454e62] disabled:cursor-default">
+                      className="flex w-full items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[var(--color-surface)] disabled:cursor-default">
                       <span style={{ color: p.sev === "error" ? "#ef5d6b" : p.sev === "warn" ? "#f7b13c" : "#9aa3b5" }}>{p.sev === "error" ? "✕" : p.sev === "warn" ? "▲" : "ℹ"}</span>
-                      <span className="text-white">{p.msg}</span>
-                      {p.target && <span className="ml-auto shrink-0 text-[10px] text-[#677494]">locate ↗</span>}
+                      <span className="text-[var(--color-text)]">{p.msg}</span>
+                      {p.target && <span className="ml-auto shrink-0 text-[10px] text-[var(--color-border-strong)]">locate ↗</span>}
                     </button>
                   </li>
                 ))}

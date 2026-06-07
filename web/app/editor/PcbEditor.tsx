@@ -510,12 +510,12 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       <circle cx={v.where.x} cy={v.where.y} r={0.3} fill={SEV[v.severity]} />
     </g>
   )), [drc]); // eslint-disable-line react-hooks/exhaustive-deps
-  const btn = (active: boolean) => `h-7 inline-flex items-center justify-center rounded-md px-2.5 text-[11.5px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[#9ec5ff] ring-1 ring-inset ring-[#356bb0]" : "bg-[#161f30] text-[#aeb8c8] hover:bg-[#1d2840] hover:text-white"}`;
-  const seg = (active: boolean) => `h-6 inline-flex items-center justify-center rounded px-2 text-[11px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[#9ec5ff]" : "text-[#9aa6bb] hover:bg-[#1d2840] hover:text-white"}`;
+  const btn = (active: boolean) => `h-7 inline-flex items-center justify-center rounded-md px-2.5 text-[11.5px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[#9ec5ff] ring-1 ring-inset ring-[#356bb0]" : "bg-[#161f30] text-[var(--color-dim)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
+  const seg = (active: boolean) => `h-6 inline-flex items-center justify-center rounded px-2 text-[11px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[#9ec5ff]" : "text-[var(--color-faint)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
   const SEGBOX = "flex items-center gap-0.5 rounded-md bg-[#11192699] p-0.5 ring-1 ring-inset ring-[#212c42]";
-  const DD = "h-7 rounded-md bg-[#161f30] pl-2 pr-1 text-[11.5px] text-[#cdd6e0] ring-1 ring-inset ring-[#27324a] outline-none hover:bg-[#1d2840] focus:ring-[#356bb0] cursor-pointer";
+  const DD = "h-7 rounded-md bg-[#161f30] pl-2 pr-1 text-[11.5px] text-[var(--color-dim)] ring-1 ring-inset ring-[#27324a] outline-none hover:bg-[#1d2840] focus:ring-[#356bb0] cursor-pointer";
   const SEP = <div className="mx-0.5 h-5 w-px bg-[#212c42]" />;
-  const lbl = "text-[10px] uppercase tracking-wide text-[#5b6a85]";
+  const lbl = "text-[10px] uppercase tracking-wide text-[var(--color-border-strong)]";
   const hint = tool === "route" ? "click a pad → another · empty to bend · V = via+flip · Esc cancels"
     : tool === "measure" ? "click two points to measure — snaps to pads · Esc clears"
     : "drag to place · R rotates · dbl-click a trace to add a bend, a handle to remove";
@@ -528,26 +528,26 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   const deleteTrace = (id: string) => { setTraces((ts) => { const next = ts.filter((t) => t.id !== id); persist(places, next); return next; }); setSel(null); };
   const setBoardV = (idx: number, patch: Partial<Pos>) => { const cur = board ?? bd, next = cur.map((p, i) => (i === idx ? { ...p, ...patch } : p)); setBoard(next); persist(placesRef.current, tracesRef.current, viasRef.current, next); };
 
-  const NUMCLS = "w-16 rounded bg-[#11192699] px-1.5 py-0.5 text-right font-mono text-[11px] text-[#cdd6e0] ring-1 ring-inset ring-[#212c42] outline-none focus:ring-[#356bb0]";
+  const NUMCLS = "w-16 rounded bg-[#11192699] px-1.5 py-0.5 text-right font-mono text-[11px] text-[var(--color-dim)] ring-1 ring-inset ring-[#212c42] outline-none focus:ring-[#356bb0]";
   const enterBlur = (e: React.KeyboardEvent) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); };
-  const field = (label: string, node: React.ReactNode) => (<div key={label} className="mb-1.5 flex items-center justify-between gap-2"><span className="text-[#7c89a0]">{label}</span>{node}</div>);
+  const field = (label: string, node: React.ReactNode) => (<div key={label} className="mb-1.5 flex items-center justify-between gap-2"><span className="text-[var(--color-faint)]">{label}</span>{node}</div>);
 
   const renderProps = () => {
     if (sel?.kind === "comp") {
       const c = project.components.find((x) => x.ref === sel.id); if (!c) return null;
       const p = curPlace(c.ref);
       return (<>
-        <div className="mb-2 font-mono text-[13px] text-[#cdd6e0]">{c.ref.split("/").pop()}</div>
-        {field("Footprint", <span className="font-mono text-[11px] text-[#9aa6bb]">{c.footprint}</span>)}
-        {c.value ? field("Value", <span className="text-[#cdd6e0]">{c.value}</span>) : null}
+        <div className="mb-2 font-mono text-[13px] text-[var(--color-dim)]">{c.ref.split("/").pop()}</div>
+        {field("Footprint", <span className="font-mono text-[11px] text-[var(--color-faint)]">{c.footprint}</span>)}
+        {c.value ? field("Value", <span className="text-[var(--color-dim)]">{c.value}</span>) : null}
         {field("X", <input key={`x${sel.id}`} type="number" step={grid || 0.1} defaultValue={+p.x.toFixed(3)} onBlur={(e) => setComp(c.ref, { x: parseFloat(e.target.value) || 0 })} onKeyDown={enterBlur} className={NUMCLS} />)}
         {field("Y", <input key={`y${sel.id}`} type="number" step={grid || 0.1} defaultValue={+p.y.toFixed(3)} onBlur={(e) => setComp(c.ref, { y: parseFloat(e.target.value) || 0 })} onKeyDown={enterBlur} className={NUMCLS} />)}
         {field("Rotation", <div className="flex items-center gap-1">
           <button onClick={() => rotateComp(c.ref, -90)} className={`${btn(false)} w-6 px-0`}>↺</button>
-          <span className="w-9 text-center font-mono text-[11px] text-[#cdd6e0]">{p.rot}°</span>
+          <span className="w-9 text-center font-mono text-[11px] text-[var(--color-dim)]">{p.rot}°</span>
           <button onClick={() => rotateComp(c.ref, 90)} className={`${btn(false)} w-6 px-0`}>↻</button>
         </div>)}
-        {field("Pads", <span className="text-[#9aa6bb]">{c.pads.length}</span>)}
+        {field("Pads", <span className="text-[var(--color-faint)]">{c.pads.length}</span>)}
       </>);
     }
     if (sel?.kind === "pad") {
@@ -556,12 +556,12 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       if (!c || !pad) return null;
       const p = padPos.get(sel.id), net = padNet.get(sel.id);
       return (<>
-        <div className="mb-2 font-mono text-[13px] text-[#cdd6e0]">{ref.split("/").pop()} · pad {pad.id}</div>
+        <div className="mb-2 font-mono text-[13px] text-[var(--color-dim)]">{ref.split("/").pop()} · pad {pad.id}</div>
         {field("Pin", <span className="font-mono text-[11px]" style={{ color: COL.silk }}>{pad.pin ?? "—"}</span>)}
         {field("Net", <span className="max-w-[110px] truncate font-mono text-[11px]" style={{ color: net ? NETCOL : "#6b7790" }}>{net ?? "unconnected"}</span>)}
-        {field("Type", <span className="text-[#9aa6bb]">{pad.drill ? "through-hole" : "SMD"}</span>)}
-        {field("Size", <span className="font-mono text-[11px] text-[#9aa6bb]">{+pad.w.toFixed(2)}×{+pad.h.toFixed(2)} mm</span>)}
-        {p && field("Position", <span className="font-mono text-[11px] text-[#9aa6bb]">{p.x.toFixed(2)}, {p.y.toFixed(2)}</span>)}
+        {field("Type", <span className="text-[var(--color-faint)]">{pad.drill ? "through-hole" : "SMD"}</span>)}
+        {field("Size", <span className="font-mono text-[11px] text-[var(--color-faint)]">{+pad.w.toFixed(2)}×{+pad.h.toFixed(2)} mm</span>)}
+        {p && field("Position", <span className="font-mono text-[11px] text-[var(--color-faint)]">{p.x.toFixed(2)}, {p.y.toFixed(2)}</span>)}
         <button onClick={() => setSel({ kind: "comp", id: ref })} className={`${btn(false)} mt-1 w-full`}>Select footprint</button>
       </>);
     }
@@ -576,27 +576,27 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
           {COPPER.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
         </select>)}
         {field("Width", <div className={SEGBOX}>{WIDTHS.map((w) => <button key={w} onClick={() => patchTrace(t.id, { width: w })} className={seg(t.width === w)}>{w}</button>)}</div>)}
-        {field("Length", <span className="font-mono text-[11px] text-[#9aa6bb]">{len.toFixed(2)} mm</span>)}
-        {field("Corners", <span className="text-[#9aa6bb]">{t.points.length}</span>)}
+        {field("Length", <span className="font-mono text-[11px] text-[var(--color-faint)]">{len.toFixed(2)} mm</span>)}
+        {field("Corners", <span className="text-[var(--color-faint)]">{t.points.length}</span>)}
         <button onClick={() => deleteTrace(t.id)} className="mt-1 w-full rounded-md bg-[#3a1c20] py-1 text-[11px] text-[#e2837e] hover:bg-[#4a2228]">Delete trace</button>
       </>);
     }
     if (sel?.kind === "boardv") {
       const idx = Number(sel.id), p = bd[idx]; if (!p) return null;
       return (<>
-        <div className="mb-2 text-[13px] text-[#cdd6e0]">Board corner {idx + 1}</div>
+        <div className="mb-2 text-[13px] text-[var(--color-dim)]">Board corner {idx + 1}</div>
         {field("X", <input key={`bx${idx}`} type="number" step={grid || 0.1} defaultValue={+p.x.toFixed(3)} onBlur={(e) => setBoardV(idx, { x: parseFloat(e.target.value) || 0 })} onKeyDown={enterBlur} className={NUMCLS} />)}
         {field("Y", <input key={`by${idx}`} type="number" step={grid || 0.1} defaultValue={+p.y.toFixed(3)} onBlur={(e) => setBoardV(idx, { y: parseFloat(e.target.value) || 0 })} onKeyDown={enterBlur} className={NUMCLS} />)}
-        <div className="mt-1 text-[10px] leading-snug text-[#5b6a85]">Double-click a board edge to add a corner; Delete removes this one.</div>
+        <div className="mt-1 text-[10px] leading-snug text-[var(--color-border-strong)]">Double-click a board edge to add a corner; Delete removes this one.</div>
       </>);
     }
     const b = bbox(bd);
-    return (<div className="text-[#7c89a0]">
-      <div className="mb-2 text-[11px] text-[#5b6a85]">Nothing selected</div>
-      {field("Board", <span className="font-mono text-[11px] text-[#9aa6bb]">{+b.w.toFixed(1)}×{+b.h.toFixed(1)} mm</span>)}
-      {field("Parts", <span className="text-[#9aa6bb]">{project.components.length}</span>)}
-      {field("Nets", <span className="text-[#9aa6bb]">{project.ratsnest.length}</span>)}
-      {field("Traces", <span className="text-[#9aa6bb]">{traces.length}</span>)}
+    return (<div className="text-[var(--color-faint)]">
+      <div className="mb-2 text-[11px] text-[var(--color-border-strong)]">Nothing selected</div>
+      {field("Board", <span className="font-mono text-[11px] text-[var(--color-faint)]">{+b.w.toFixed(1)}×{+b.h.toFixed(1)} mm</span>)}
+      {field("Parts", <span className="text-[var(--color-faint)]">{project.components.length}</span>)}
+      {field("Nets", <span className="text-[var(--color-faint)]">{project.ratsnest.length}</span>)}
+      {field("Traces", <span className="text-[var(--color-faint)]">{traces.length}</span>)}
     </div>);
   };
 
@@ -628,7 +628,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-1.5 border-b border-[#1c2740] bg-[#0e1521] px-3 py-1.5 text-sm">
-        <button onClick={onClose} className="mr-0.5 flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] text-[#8b97aa] hover:bg-[#161f30] hover:text-white" title="Back to design">
+        <button onClick={onClose} className="mr-0.5 flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] text-[var(--color-faint)] hover:bg-[#161f30] hover:text-[var(--color-text)]" title="Back to design">
           <span className="text-[14px] leading-none">←</span><span className="max-w-[150px] truncate">{design.name}</span>
         </button>
         {SEP}
@@ -672,7 +672,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
         )}
         {/* right cluster */}
         <div className="ml-auto flex items-center gap-1.5">
-          <span className="rounded-md bg-[#11192699] px-2 py-1 font-mono text-[10.5px] text-[#7c89a0] ring-1 ring-inset ring-[#212c42]" title="Board size">{(() => { const b = bbox(bd); return `${+b.w.toFixed(1)}×${+b.h.toFixed(1)}`; })()} mm</span>
+          <span className="rounded-md bg-[#11192699] px-2 py-1 font-mono text-[10.5px] text-[var(--color-faint)] ring-1 ring-inset ring-[#212c42]" title="Board size">{(() => { const b = bbox(bd); return `${+b.w.toFixed(1)}×${+b.h.toFixed(1)}`; })()} mm</span>
           <button onClick={fitBoard} className={btn(false)} title="Resize board to fit parts">Fit board</button>
           <button onClick={runDrc} className={btn(drc !== null)} title="Run design-rule check">DRC</button>
           <button onClick={exportKicad} className={btn(false)} title="Export KiCad .kicad_pcb">Export ↧</button>
@@ -834,20 +834,20 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
         </div>
         <aside className="flex w-52 shrink-0 flex-col border-l border-[#1c2740] bg-[#0e1521] text-[12px]">
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-[#5b6a85]">Properties</div>
+            <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-border-strong)]">Properties</div>
             {renderProps()}
           </div>
           <div className="border-t border-[#1c2740] p-2">
-            <div className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-[#5b6a85]">Layers</div>
+            <div className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-border-strong)]">Layers</div>
             {LAYER_ROWS.map((L) => {
               const on = vis[L.id] !== false, active = L.copper && layer === L.id;
               return (
                 <div key={L.id} onClick={() => L.copper && setLayer(L.id)}
                   className={`mb-0.5 flex items-center gap-2 rounded px-1.5 py-1 ${L.copper ? "cursor-pointer" : ""} ${active ? "bg-[#1c2740]" : "hover:bg-[#141d2e]"}`}>
-                  <button onClick={(e) => { e.stopPropagation(); setVis((v) => ({ ...v, [L.id]: !on })); }} className="w-3 text-center text-[10px] text-[#7c89a0] hover:text-white" title="Toggle visibility">{on ? "◉" : "○"}</button>
+                  <button onClick={(e) => { e.stopPropagation(); setVis((v) => ({ ...v, [L.id]: !on })); }} className="w-3 text-center text-[10px] text-[var(--color-faint)] hover:text-[var(--color-text)]" title="Toggle visibility">{on ? "◉" : "○"}</button>
                   <span className="h-3 w-3 rounded-sm" style={{ background: L.color, opacity: on ? 1 : 0.3 }} />
                   <span className="flex-1" style={{ color: on ? "#cdd6e0" : "#5b6a85" }}>{L.label}</span>
-                  {active && <span className="text-[9px] uppercase text-[#8b97aa]">act</span>}
+                  {active && <span className="text-[9px] uppercase text-[var(--color-faint)]">act</span>}
                 </div>
               );
             })}
@@ -859,7 +859,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       {drc !== null && (
         <div className="flex h-44 min-h-0 flex-col border-t border-[#1c2740] bg-[#0b1320] text-[12px]">
           <div className="flex items-center gap-2 border-b border-[#1c2740] px-3 py-1.5">
-            <span className="font-semibold text-[#cdd6e0]">Problems</span>
+            <span className="font-semibold text-[var(--color-dim)]">Problems</span>
             {drc.length === 0
               ? <span className="text-[#5fc27e]">✓ no violations</span>
               : <>
@@ -867,32 +867,32 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
                   <span className="rounded bg-[#39321488] px-1.5 py-0.5 text-[10.5px] text-[#e0c060]">{drc.filter((v) => v.severity === "warn").length} warnings</span>
                 </>}
             <button onClick={runDrc} className={`${btn(false)} ml-2 h-6`} title="Re-run DRC">Re-run</button>
-            <button onClick={() => setDrc(null)} className="ml-auto rounded px-1.5 text-[14px] text-[#7c89a0] hover:bg-[#161f30] hover:text-white" title="Close panel">✕</button>
+            <button onClick={() => setDrc(null)} className="ml-auto rounded px-1.5 text-[14px] text-[var(--color-faint)] hover:bg-[#161f30] hover:text-[var(--color-text)]" title="Close panel">✕</button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {drc.length === 0 && <div className="px-3 py-3 text-[#6b7790]">Board passes all design-rule checks.</div>}
+            {drc.length === 0 && <div className="px-3 py-3 text-[var(--color-faint)]">Board passes all design-rule checks.</div>}
             {drc.map((v, i) => (
               <button key={i} onClick={() => panTo(v.where)} className="flex w-full items-center gap-2.5 border-b border-[#10192866] px-3 py-1.5 text-left hover:bg-[#141d2e]">
                 <span className="text-[13px] leading-none" style={{ color: SEV[v.severity] }}>{v.severity === "error" ? "●" : "▲"}</span>
-                <span className="text-[#c5cdda]">{v.msg}</span>
-                {v.net && <span className="ml-auto font-mono text-[10.5px] text-[#6b7790]">{v.net}</span>}
+                <span className="text-[var(--color-dim)]">{v.msg}</span>
+                {v.net && <span className="ml-auto font-mono text-[10.5px] text-[var(--color-faint)]">{v.net}</span>}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      <div className="flex items-center gap-4 border-t border-[#1c2740] bg-[#0e1521] px-4 py-1 font-mono text-[11px] text-[#8b97aa]">
-        <span>X <span ref={xReadout} className="text-[#cdd6e0]">{cursorRef.current.x.toFixed(2)}</span></span>
-        <span>Y <span ref={yReadout} className="text-[#cdd6e0]">{cursorRef.current.y.toFixed(2)}</span></span>
-        <span className="text-[#5b6a85]">mm</span>
+      <div className="flex items-center gap-4 border-t border-[#1c2740] bg-[#0e1521] px-4 py-1 font-mono text-[11px] text-[var(--color-faint)]">
+        <span>X <span ref={xReadout} className="text-[var(--color-dim)]">{cursorRef.current.x.toFixed(2)}</span></span>
+        <span>Y <span ref={yReadout} className="text-[var(--color-dim)]">{cursorRef.current.y.toFixed(2)}</span></span>
+        <span className="text-[var(--color-border-strong)]">mm</span>
         <span>grid {grid === 0 ? "free" : grid}</span>
         <span>layer <span style={{ color: layerColor(layer) }}>{layer}</span></span>
         {hoverNet && <span>net <span style={{ color: COL.sel }}>{hoverNet}</span></span>}
         {tool === "measure" && measure && (() => { const B = measure.b ?? snapPoint(cursor); const dx = B.x - measure.a.x, dy = B.y - measure.a.y; return (
           <span style={{ color: COL.sel }}>⟺ {Math.hypot(dx, dy).toFixed(2)} mm · dx {dx.toFixed(2)} · dy {dy.toFixed(2)} · {(Math.atan2(-dy, dx) * 180 / Math.PI).toFixed(1)}°</span>
         ); })()}
-        <span className="ml-3 hidden truncate font-sans text-[#6b7790] lg:inline">{hint}</span>
+        <span className="ml-3 hidden truncate font-sans text-[var(--color-faint)] lg:inline">{hint}</span>
         <span className="ml-auto">{traces.length} traces · {vias.length} vias</span>
         {drc && <span style={{ color: drc.some((v) => v.severity === "error") ? SEV.error : "#5fc27e" }}>{drc.filter((v) => v.severity === "error").length ? `${drc.filter((v) => v.severity === "error").length} DRC errors` : "DRC clean"}</span>}
       </div>

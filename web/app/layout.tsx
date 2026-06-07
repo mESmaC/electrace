@@ -4,8 +4,8 @@ import "./globals.css";
 import ServerSync from "./ServerSync";
 import ThemeToggle from "./ThemeToggle";
 
-// Set the theme before first paint so there's no light/dark flash on load.
-const NO_FLASH = `try{var t=localStorage.getItem('electrace:theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`;
+// Set the theme before first paint so there's no flash on load. Defaults to Mid.
+const NO_FLASH = `try{var t=localStorage.getItem('electrace:theme');document.documentElement.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');}catch(e){}`;
 
 export const metadata: Metadata = {
   title: "Electrace — see inside every circuit",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="h-full antialiased" data-theme="dark">
+    <html lang="en" className="h-full antialiased" data-theme="mid">
       <head><script dangerouslySetInnerHTML={{ __html: NO_FLASH }} /></head>
       <body className="min-h-full flex flex-col">
         <ServerSync />

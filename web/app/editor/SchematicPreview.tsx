@@ -23,7 +23,7 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
 
   if (!model.syms.length) {
     return (
-      <div className="grid place-items-center rounded-md border border-dashed border-[#54607a] bg-[#3c4658] text-[10px] text-[#9aa3b5]" style={{ height }}>
+      <div className="grid place-items-center rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] text-[10px] text-[var(--color-faint)]" style={{ height }}>
         no schematic yet
       </div>
     );
@@ -46,7 +46,7 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
 
   return (
     <svg viewBox={vb} preserveAspectRatio="xMidYMid meet" width="100%" height={height}
-      className="rounded-md border border-[#54607a] bg-[#3c4658]" style={{ display: "block" }}>
+      className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)]" style={{ display: "block" }}>
       {model.wires.map((w) => {
         const a = endAbs(model.syms, w.a), b2 = endAbs(model.syms, w.b);
         if (!a || !b2) return null;

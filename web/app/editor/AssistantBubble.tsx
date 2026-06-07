@@ -10,11 +10,11 @@ const MD = [
   "[&_strong]:font-semibold [&_em]:italic",
   "[&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5",
   "[&_h1]:text-[13px] [&_h1]:font-bold [&_h1]:mt-2 [&_h2]:text-[12.5px] [&_h2]:font-bold [&_h2]:mt-2 [&_h3]:font-semibold [&_h3]:mt-1.5",
-  "[&_code]:rounded [&_code]:bg-[#3c4658] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[11px]",
-  "[&_pre]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-[#3c4658] [&_pre]:p-2 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
+  "[&_code]:rounded [&_code]:bg-[var(--color-bg)] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[11px]",
+  "[&_pre]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-[var(--color-bg)] [&_pre]:p-2 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
   "[&_table]:my-1.5 [&_table]:block [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-[11px]",
-  "[&_th]:border [&_th]:border-[#54607a] [&_th]:bg-[#3f485b] [&_th]:px-1.5 [&_th]:py-0.5 [&_th]:text-left [&_td]:border [&_td]:border-[#54607a] [&_td]:px-1.5 [&_td]:py-0.5",
-  "[&_blockquote]:border-l-2 [&_blockquote]:border-[#54607a] [&_blockquote]:pl-2 [&_blockquote]:text-[#c5ccdb] [&_hr]:my-2 [&_hr]:border-[#54607a]",
+  "[&_th]:border [&_th]:border-[var(--color-border)] [&_th]:bg-[var(--color-bg2)] [&_th]:px-1.5 [&_th]:py-0.5 [&_th]:text-left [&_td]:border [&_td]:border-[var(--color-border)] [&_td]:px-1.5 [&_td]:py-0.5",
+  "[&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-border)] [&_blockquote]:pl-2 [&_blockquote]:text-[var(--color-dim)] [&_hr]:my-2 [&_hr]:border-[var(--color-border)]",
 ].join(" ");
 const renderMd = (text: string) => marked.parse(text, { async: false, gfm: true, breaks: true }) as string;
 
@@ -66,20 +66,20 @@ export default function AssistantBubble() {
     sendMessage(text).finally(() => setBusy(false));
   };
 
-  const iconBtn = "grid h-7 w-7 place-items-center rounded-md text-[#9aa3b5] hover:bg-[#4e586f] hover:text-white";
+  const iconBtn = "grid h-7 w-7 place-items-center rounded-md text-[var(--color-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]";
 
   return (
     <>
       {/* Side pane — slides in over the canvas, collapses back to the bubble */}
       <div
-        className={`absolute inset-y-0 right-0 z-30 flex w-[400px] max-w-[90vw] transform flex-col border-l border-[#54607a] bg-[#454e62] shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
+        className={`absolute inset-y-0 right-0 z-30 flex w-[400px] max-w-[90vw] transform flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
         aria-hidden={!open}
       >
-        <div className="flex items-center gap-1.5 border-b border-[#54607a] px-3 py-2">
+        <div className="flex items-center gap-1.5 border-b border-[var(--color-border)] px-3 py-2">
           <span className="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-[#8b6cff] to-[#4c8dff] text-[13px]">✨</span>
-          <span className="text-[12px] font-semibold text-white">Sparky</span>
+          <span className="text-[12px] font-semibold text-[var(--color-text)]">Sparky</span>
           <div className="ml-auto flex items-center gap-0.5">
-            <button onClick={() => setHistOpen((o) => !o)} className={`${iconBtn} ${histOpen ? "bg-[#4e586f] text-white" : ""}`} title="Chats">☰</button>
+            <button onClick={() => setHistOpen((o) => !o)} className={`${iconBtn} ${histOpen ? "bg-[var(--color-surface-2)] text-[var(--color-text)]" : ""}`} title="Chats">☰</button>
             <button onClick={() => { newConversation(); setHistOpen(false); setInput(""); }} className={iconBtn} title="New chat">＋</button>
             <button onClick={() => setOpen(false)} className={iconBtn} title="Collapse to bubble">⟩</button>
           </div>
@@ -87,15 +87,15 @@ export default function AssistantBubble() {
 
         {/* Conversation switcher */}
         {histOpen && (
-          <div className="max-h-52 overflow-y-auto border-b border-[#54607a] bg-[#3f485b] py-1 text-[11.5px]">
-            {conversations.length === 0 && <div className="px-3 py-2 text-[#677494]">No chats yet.</div>}
+          <div className="max-h-52 overflow-y-auto border-b border-[var(--color-border)] bg-[var(--color-bg2)] py-1 text-[11.5px]">
+            {conversations.length === 0 && <div className="px-3 py-2 text-[var(--color-border-strong)]">No chats yet.</div>}
             {conversations.map((c) => (
               <div key={c.id} onClick={() => { switchConversation(c.id); setHistOpen(false); }}
-                className={`group flex cursor-pointer items-center gap-2 px-3 py-1.5 ${c.id === activeId ? "bg-[#4c8dff]/15 text-white" : "text-[#c5ccdb] hover:bg-[#4e586f]"}`}>
-                <span className="text-[10px] text-[#677494]">💬</span>
+                className={`group flex cursor-pointer items-center gap-2 px-3 py-1.5 ${c.id === activeId ? "bg-[#4c8dff]/15 text-[var(--color-text)]" : "text-[var(--color-dim)] hover:bg-[var(--color-surface-2)]"}`}>
+                <span className="text-[10px] text-[var(--color-border-strong)]">💬</span>
                 <span className="flex-1 truncate">{c.title || "New chat"}</span>
                 <button onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }}
-                  className="text-[#677494] opacity-0 hover:text-white group-hover:opacity-100" title="Delete chat">✕</button>
+                  className="text-[var(--color-border-strong)] opacity-0 hover:text-[var(--color-text)] group-hover:opacity-100" title="Delete chat">✕</button>
               </div>
             ))}
           </div>
@@ -103,9 +103,9 @@ export default function AssistantBubble() {
 
         <div ref={scroller} className="flex-1 space-y-2 overflow-y-auto p-3 text-[12px]">
           {messages.length === 0 ? (
-            <div className="rounded-lg rounded-tl-sm bg-[#4e586f] p-2.5 leading-relaxed text-white">
+            <div className="rounded-lg rounded-tl-sm bg-[var(--color-surface-2)] p-2.5 leading-relaxed text-[var(--color-text)]">
 Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add the support parts a block needs, and explain what&apos;s on a net.
-              <span className="mt-1 block text-[10px] text-[#9aa3b5]">I can see your current design / PCB context.</span>
+              <span className="mt-1 block text-[10px] text-[var(--color-faint)]">I can see your current design / PCB context.</span>
             </div>
           ) : (
             messages.map((m) => {
@@ -113,7 +113,7 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
               const asMarkdown = m.role === "assistant" && !isTyping && m.text.length > 0;
               return (
                 <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`${m.role === "user" ? "max-w-[85%]" : "max-w-[94%]"} rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[#4e586f] text-white"} ${asMarkdown ? MD : "whitespace-pre-wrap"}`}>
+                  <div className={`${m.role === "user" ? "max-w-[85%]" : "max-w-[94%]"} rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-[var(--color-text)]" : "rounded-tl-sm bg-[var(--color-surface-2)] text-[var(--color-text)]"} ${asMarkdown ? MD : "whitespace-pre-wrap"}`}>
                     {asMarkdown
                       ? <div dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
                       : <>{shown(m)}{isTyping && <span className="ml-px inline-block w-1.5 animate-pulse">▍</span>}</>}
@@ -124,21 +124,21 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
           )}
           {busy && !typing && (
             <div className="flex justify-start">
-              <div className="flex items-center gap-1 rounded-lg rounded-tl-sm bg-[#4e586f] px-3 py-2.5 text-[#9aa3b5]">
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#9aa3b5] [animation-delay:-0.3s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#9aa3b5] [animation-delay:-0.15s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#9aa3b5]" />
+              <div className="flex items-center gap-1 rounded-lg rounded-tl-sm bg-[var(--color-surface-2)] px-3 py-2.5 text-[var(--color-faint)]">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-faint)] [animation-delay:-0.3s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-faint)] [animation-delay:-0.15s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-faint)]" />
               </div>
             </div>
           )}
         </div>
 
-        <form onSubmit={submit} className="flex items-center gap-1.5 border-t border-[#54607a] p-2">
-          {messages.length > 0 && <button type="button" onClick={clearChat} className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[#9aa3b5] hover:text-white" title="Clear this chat">clear</button>}
+        <form onSubmit={submit} className="flex items-center gap-1.5 border-t border-[var(--color-border)] p-2">
+          {messages.length > 0 && <button type="button" onClick={clearChat} className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--color-faint)] hover:text-[var(--color-text)]" title="Clear this chat">clear</button>}
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your design…" disabled={busy}
-            className="flex-1 rounded-md border border-[#54607a] bg-[#3c4658] px-2.5 py-2 text-[12px] text-white outline-none placeholder:text-[#677494] focus:border-[#4c8dff] disabled:opacity-60" />
+            className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-2 text-[12px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-border-strong)] focus:border-[#4c8dff] disabled:opacity-60" />
           <button type="submit" disabled={!input.trim() || busy} title="Send"
-            className="grid w-9 place-items-center rounded-md bg-[#4c8dff] py-2 text-white disabled:opacity-40">→</button>
+            className="grid w-9 place-items-center rounded-md bg-[#4c8dff] py-2 text-[var(--color-text)] disabled:opacity-40">→</button>
         </form>
       </div>
 
