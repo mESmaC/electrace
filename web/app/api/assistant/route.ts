@@ -53,8 +53,9 @@ block, several parts — that's the path of least resistance and the only one th
 own value.
 
 Authoring re-derives a block's terminals from its schematic, which can RENAME pins (a placeholder "xin"
-becomes the chip's "XTAL1"). The tool result will warn you when that orphans existing wires — read it
-and reconnect/clean up; don't assume authoring left your connections intact. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
+becomes the chip's "XIN"). Case/format renames are auto-reconnected for you and the tool result says so;
+only a genuine semantic rename (sw→A) with live wires is flagged as open — read the result and reconnect
+just those. To merely ADD more exposed pins to an authored chip, use expose_pins, not a re-author. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
 (chip.names) and the pins to expose — that drops the actual chip into the block's schematic (BOM +
 footprint) and makes those pins terminals (no need to add the whole pinout as terminals by hand).
 
@@ -85,18 +86,45 @@ interface Payload { context?: ContextItem[]; history?: Pick<ChatMessage, "role" 
 const refPrefix = (b?: Block) => ((b?.name ?? "B").split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 3) || "B");
 function freshRef(design: Design, b?: Block) { const p = refPrefix(b); let i = 1; while (design.blocks.some((x) => x.ref === `${p}${i}`)) i++; return `${p}${i}`; }
 const termList = (b?: Block) => (b?.terminals ?? []).map((t) => `${t.id} (${t.role}, ${t.type})`).join(", ");
-// Authoring re-derives a block's terminals from the schematic, which can leave PRIOR terminals (e.g. a
-// placeholder "xin" replaced by the chip's "XTAL1") unwired and silently open every connection that
-// referenced them. Surface that loudly instead — the agent expects authoring to populate, not rewire.
-function orphanWarning(prevIds: string[], authoredIds: string[], blockKey: string, design: Design): string {
-  const authored = new Set(authoredIds);
-  const orphaned = prevIds.filter((id) => !authored.has(id));
-  if (!orphaned.length) return "";
-  const refs = design.blocks.filter((bi) => bi.block === blockKey).map((bi) => bi.ref);
-  const broken: string[] = [];
-  for (const ref of refs) for (const o of orphaned) { const ep = `${ref}.${o}`; if (design.connections.some((c) => c.from === ep || c.to === ep)) broken.push(ep); }
-  return ` ⚠ Heads up: prior terminal(s) the new schematic doesn't wire, now dangling: ${orphaned.join(", ")}.` +
-    (broken.length ? ` ${broken.length} existing connection(s) are now OPEN: ${broken.join(", ")} — reconnect them to the new terminals [${authoredIds.join(", ")}] or drop the stale ones via update_block.` : ` Drop them via update_block if unused.`);
+// Authoring re-derives a block's terminals from the schematic, which can rename PRIOR terminals (a
+// placeholder "xin" becomes the chip's "XIN") and silently orphan every connection that referenced
+// them. Reconcile instead of just warning: most "renames" are case/format variants we can auto-remap
+// (and rewrite the design's wires to match); unused placeholders are dropped; only a genuine semantic
+// rename (sw→A) with live wires is flagged for the agent to fix by hand. Mutates design.connections.
+const normTerm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+function reconcileAuthoredTerminals(b: Block, authored: Block["terminals"], blockKey: string, design: Design): { terminals: Block["terminals"]; message: string } {
+  const newIds = authored.map((t) => t.id);
+  const newSet = new Set(newIds);
+  const newByNorm = new Map<string, string>();
+  for (const id of newIds) if (!newByNorm.has(normTerm(id))) newByNorm.set(normTerm(id), id);
+  const refs = new Set(design.blocks.filter((bi) => bi.block === blockKey).map((bi) => bi.ref));
+
+  // 1) auto-remap old terminals that match a new one only by case/format (xin↔XIN, gnd↔GND)
+  const remap: Record<string, string> = {};
+  for (const t of b.terminals) if (!newSet.has(t.id)) { const m = newByNorm.get(normTerm(t.id)); if (m) remap[t.id] = m; }
+  const remapped: string[] = [];
+  if (Object.keys(remap).length) {
+    design.connections = design.connections.map((c) => {
+      const fix = (ep: string) => { const d = ep.indexOf("."); if (d < 0) return ep; const r = ep.slice(0, d), t = ep.slice(d + 1); if (refs.has(r) && remap[t]) { remapped.push(`${t}→${remap[t]}`); return `${r}.${remap[t]}`; } return ep; };
+      return { from: fix(c.from), to: fix(c.to) };
+    });
+  }
+
+  // 2) the authored set is the new truth; keep an old terminal only if it has NO match and is still
+  //    wired (so we don't break a live connection); drop unwired placeholders; flag the kept ones.
+  const merged = [...authored];
+  const mergedIds = new Set(newIds);
+  const orphaned: string[] = [];
+  for (const t of b.terminals) {
+    if (mergedIds.has(t.id) || remap[t.id]) continue;
+    const wired = [...refs].some((r) => design.connections.some((c) => c.from === `${r}.${t.id}` || c.to === `${r}.${t.id}`));
+    if (wired) { merged.push(t); mergedIds.add(t.id); orphaned.push(t.id); }
+  }
+
+  const parts: string[] = [];
+  if (remapped.length) parts.push(` Auto-reconnected ${remapped.length} wire(s) to renamed terminals (${[...new Set(remapped)].join(", ")}).`);
+  if (orphaned.length) parts.push(` ⚠ ${orphaned.length} terminal(s) couldn't be matched and their wires are now open: ${orphaned.join(", ")} — reconnect to the new terminals [${newIds.join(", ")}] or drop via update_block.`);
+  return { terminals: merged, message: parts.join("") };
 }
 const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "block";
 const ROLES = new Set(["in", "out"]), NETTYPES = new Set(["power", "rail", "signal", "gnd"]);
@@ -152,16 +180,13 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const ref = typeof input.ref === "string" && input.ref.trim() ? input.ref.trim() : "U1";
       const expose = Array.isArray(input.expose) ? input.expose.map(String) : [];
       const { layout, terminals } = authorChipLayout(ref, chip, expose);
-      const have = new Set(b!.terminals.map((t) => t.id));
-      const merged = [...b!.terminals];
-      for (const t of terminals) if (!have.has(t.id)) { merged.push(t); have.add(t.id); }
       // Derive the schematic NOW so analyze/bom/the empty-block rule see the chip this same turn
       // (they all read def.schematic.parts — layout alone is invisible to them = "no components yet").
       const schematic = deriveBlockSchematic(layout);
-      const nb: Block = { ...b!, terminals: merged, layout, schematic };
+      const rec = reconcileAuthoredTerminals(b!, terminals, key, design);
+      const nb: Block = { ...b!, terminals: rec.terminals, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      const warn = orphanWarning(b!.terminals.map((t) => t.id), terminals.map((t) => t.id), key, design);
-      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals.${warn}`, changed: true };
+      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals.${rec.message}`, changed: true };
     }
     case "author_schematic": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -194,13 +219,10 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const authored = parts.filter((p) => p.mpn || p.chip?.mpn).map((p) => ({ ref: p.ref, part: (p.mpn ?? p.chip?.mpn)! }));
       const schematic = deriveBlockSchematic(layout, authored);
       if (!schematic.parts.length) return { text: "No parts were produced — check the part types/refs.", changed: false };
-      const have = new Set(b!.terminals.map((t) => t.id));
-      const merged = [...b!.terminals];
-      for (const t of terminals) if (!have.has(t.id)) { merged.push(t); have.add(t.id); }
-      const nb: Block = { ...b!, terminals: merged, layout, schematic };
+      const rec = reconcileAuthoredTerminals(b!, terminals, key, design);
+      const nb: Block = { ...b!, terminals: rec.terminals, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      const warn = orphanWarning(b!.terminals.map((t) => t.id), terminals.map((t) => t.id), key, design);
-      return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.${warn}`, changed: true };
+      return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.${rec.message}`, changed: true };
     }
     case "expose_pins": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
