@@ -768,7 +768,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Drag (or click) onto the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="relative min-h-0 flex-1" onDrop={onCanvasDrop} onDragOver={onCanvasDragOver}>
+      <div className="relative min-h-0 flex-1 overflow-hidden" onDrop={onCanvasDrop} onDragOver={onCanvasDragOver}>
         <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
           <button onClick={resetSample} className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">New</button>
           <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">Import</button>
