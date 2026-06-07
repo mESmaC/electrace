@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   ReactFlow, Background, Controls, Handle, Position, addEdge, ConnectionMode, useNodes, useEdges,
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
@@ -60,11 +60,69 @@ function BlockNode(props: NodeProps) {
   const free = terminals.filter((t) => !docked.has(t.id));
   const dockedTerms = terminals.filter((t) => docked.has(t.id));
   const undock = (terminal: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal } }));
+  const shadow = sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)";
+
+  // docked terminals collapse to chips; their handles stay in the DOM (hidden) so the hidden
+  // dock-edges remain valid. Click a chip to undock.
+  const dockedSection = dockedTerms.length > 0 ? (
+    <div className="border-t border-dashed border-[#54607a] px-3 py-1.5">
+      <div className="mb-1 text-[8px] uppercase tracking-wide text-[#9aa3b5]">{dockedTerms.length} docked</div>
+      <div className="flex flex-wrap gap-1">
+        {dockedTerms.map((t) => (
+          <button key={t.id} onClick={() => undock(t.id)} title={`${t.id} → ${docked.get(t.id)} · click to undock`}
+            className="rounded bg-[#3a4458] px-1 font-mono text-[9px] text-[#9ec5ff] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
+        ))}
+      </div>
+      <div style={{ height: 0, overflow: "hidden" }} aria-hidden>
+        {dockedTerms.map((t) => (
+          <Handle key={t.id} id={t.id} type={t.role === "out" ? "source" : "target"}
+            position={t.role === "out" ? Position.Right : Position.Left} style={{ width: 1, height: 1, opacity: 0 }} />
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  // Many pins → render as a QFP-style chip: terminals split across all four edges (declutters a
+  // 30-pin MCU instead of a tall list). Small blocks keep the readable vertical list.
+  if (free.length > 10) {
+    const order = ["left", "bottom", "right", "top"] as const;
+    const sides: Record<(typeof order)[number], typeof free> = { left: [], bottom: [], right: [], top: [] };
+    const per = Math.ceil(free.length / 4);
+    free.forEach((t, i) => sides[order[Math.min(3, Math.floor(i / per))]].push(t));
+    const dim = Math.max(sides.left.length, sides.right.length, sides.top.length, sides.bottom.length, 1) * 22 + 64;
+    const vertical = (s: string) => s === "left" || s === "right";
+    const posOf = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
+    return (
+      <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow }}
+        className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#454e62] text-white`}>
+        <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center text-center">
+          <span className="text-base">{block.glyph ?? "▦"}</span>
+          <span className="text-[11px] font-semibold leading-tight">{block.name}</span>
+          <span className="text-[9px] uppercase tracking-wide text-[#9aa3b5]">{instanceRef}</span>
+        </div>
+        {order.map((side) => sides[side].map((t, i, arr) => {
+          const pct = `${((i + 1) / (arr.length + 1)) * 100}%`;
+          const lblBase = "pointer-events-none absolute font-mono text-[8px] text-white whitespace-nowrap";
+          const lbl = side === "left" ? { left: 7, top: pct, transform: "translateY(-50%)" }
+            : side === "right" ? { right: 7, top: pct, transform: "translateY(-50%)" }
+            : side === "top" ? { top: 8, left: pct, transform: "translate(-50%) rotate(-90deg)", transformOrigin: "left center" }
+            : { bottom: 8, left: pct, transform: "translate(-50%) rotate(-90deg)", transformOrigin: "left center" };
+          return (
+            <Fragment key={t.id}>
+              <Handle id={t.id} type={t.role === "out" ? "source" : "target"} position={posOf[side]}
+                style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 9, height: 9, background: "#454e62", border: `2px solid ${NET_COLOR[t.type]}` }} />
+              <div className={lblBase} style={lbl}>{t.id}</div>
+            </Fragment>
+          );
+        }))}
+        {dockedSection && <div className="absolute left-0 right-0 rounded-b-lg bg-[#4e586f]" style={{ top: dim }}>{dockedSection}</div>}
+      </div>
+    );
+  }
+
   return (
-    <div
-      style={{ width: 210, boxShadow: sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)" }}
-      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#4e586f] text-[#ffffff]`}
-    >
+    <div style={{ width: 210, boxShadow: shadow }}
+      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#4e586f] text-[#ffffff]`}>
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
         <span className="grid h-6 w-6 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
@@ -95,25 +153,7 @@ function BlockNode(props: NodeProps) {
             </div>
           );
         })}
-        {/* docked terminals collapse to compact chips (declutter); their handles stay in the DOM
-            (hidden) so the hidden dock-edges remain valid. Click a chip to undock. */}
-        {dockedTerms.length > 0 && (
-          <div className="mt-1 border-t border-dashed border-[#54607a] px-3 pt-1.5">
-            <div className="mb-1 text-[8px] uppercase tracking-wide text-[#9aa3b5]">{dockedTerms.length} docked</div>
-            <div className="flex flex-wrap gap-1">
-              {dockedTerms.map((t) => (
-                <button key={t.id} onClick={() => undock(t.id)} title={`${t.id} → ${docked.get(t.id)} · click to undock`}
-                  className="rounded bg-[#3a4458] px-1 font-mono text-[9px] text-[#9ec5ff] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
-              ))}
-            </div>
-            <div style={{ height: 0, overflow: "hidden" }} aria-hidden>
-              {dockedTerms.map((t) => (
-                <Handle key={t.id} id={t.id} type={t.role === "out" ? "source" : "target"}
-                  position={t.role === "out" ? Position.Right : Position.Left} style={{ width: 1, height: 1, opacity: 0 }} />
-              ))}
-            </div>
-          </div>
-        )}
+        {dockedSection}
       </div>
     </div>
   );
