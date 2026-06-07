@@ -20,10 +20,12 @@ provided Workspace context and general EE knowledge; don't change anything.
 You also have a web_search tool — use it to look up real datasheets and pinouts when the user asks
 about a specific part number (don't guess pin maps from memory; search, then cite the source).
 
-Read the real state instead of guessing: call list_nets to see the actual net graph and
-analyze_design to read all findings — including notes like "block has no part yet". If a block you
-created is an empty interface shell, populate it so it reaches the BOM; don't leave the design as
-hollow boxes. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
+Read the real state instead of guessing: call list_nets to see the actual net graph,
+analyze_design to read all findings — including notes like "block has no part yet" — and get_block to
+inspect one block (its terminals, whether it's authored, and the parts/values on its BOM). After you
+author or edit a block, call get_block to CONFIRM the change landed rather than assuming it did; if a
+finding seems stale, get_block is the source of truth. If a block you created is an empty interface
+shell, populate it so it reaches the BOM; don't leave the design as hollow boxes. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
 (chip.names) and the pins to expose — that drops the actual chip into the block's schematic (BOM +
 footprint) and makes those pins terminals (no need to add the whole pinout as terminals by hand).
 
@@ -128,6 +130,21 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
     }
     case "list_blocks":
       return { text: Object.entries(blocks).map(([k, b]) => `${k} — ${b.name}: [${termList(b)}]`).join("\n") || "(no blocks)", changed: false };
+    case "get_block": {
+      const key = String(input.block ?? ""), b = blocks[key];
+      if (!b) return { text: `No block "${key}". Call list_blocks for valid keys.`, changed: false };
+      const parts = b.schematic?.parts ?? [];
+      const chipSym = b.layout?.symbols.find((s) => s.type === "chip");
+      const lines = [
+        `${b.name} (${key})${b.id.startsWith("@user/") ? "" : " — library block"}`,
+        `terminals: ${termList(b)}`,
+        chipSym?.chip ? `chip: ${chipSym.chip.mpn ?? chipSym.chip.profile} (${chipSym.chip.profile}, ${chipSym.chip.pins} pins)` : null,
+        parts.length
+          ? `parts (${parts.length} → BOM): ${parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}${p.part ? ` [${p.part}]` : ""}`).join(", ")}`
+          : `parts: none — this block is a hollow shell (won't appear in the BOM). Use author_block to drop in a real chip.`,
+      ].filter(Boolean);
+      return { text: lines.join("\n"), changed: false };
+    }
     case "list_instances":
       return { text: design.blocks.map((bi) => `${bi.ref} = ${bi.block} [${termList(blocks[bi.block])}]`).join("\n") || "(empty design)", changed: false };
     case "add_block": {
@@ -196,6 +213,7 @@ const TOOLS = [
   { name: "list_blocks", description: "List the block types available to place, with their terminals. Library blocks plus any you've created.", input_schema: { type: "object", properties: {} } },
   { name: "create_block", description: "Create a new custom (user) block with named terminals/pins. It appears in the palette and can be placed with add_block.", input_schema: { type: "object", properties: { name: { type: "string" }, glyph: { type: "string", description: "1–2 char icon (optional)" }, category: { type: "string", description: "optional, e.g. power/signal/custom" }, terminals: TERMS_SCHEMA }, required: ["name", "terminals"] } },
   { name: "update_block", description: "Edit a custom block you created — rename it, change its glyph/category, or relabel its terminals (pins). Library blocks can't be edited.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, name: { type: "string" }, glyph: { type: "string" }, category: { type: "string" }, terminals: TERMS_SCHEMA }, required: ["block"] } },
+  { name: "get_block", description: "Inspect ONE block's current state: its terminals, whether it's been authored with a real chip (and which), and the parts in its internal schematic with their values (what's on the BOM). Use this to verify ground truth after authoring/editing instead of assuming — read-after-write.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "author_block", description: "Populate a custom block's INTERNAL schematic with a real chip: places the IC with its full pinout as an actual part (so it hits the BOM + gets a PCB footprint), and exposes the chosen pins as the block's terminals. This is how you make a block real instead of a hollow shell — use it for MCUs/ICs.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, ref: { type: "string", description: "chip reference designator, e.g. U1 (default U1)" }, chip: { type: "object", properties: { profile: { type: "string", description: "package: soic | qfp | qfn | dip | sot | bga" }, pins: { type: "number" }, mpn: { type: "string", description: "manufacturer part number, e.g. ATmega328P-AU" }, names: { type: "object", description: 'pin map { "1": "PD3", "4": "VCC", "7": "PB6_XTAL1", ... } — pin number → function name' } }, required: ["names"] }, expose: { type: "array", items: { type: "string" }, description: 'function names to expose as block terminals, e.g. ["VCC","GND","PD0_RXD","PC6_RESET"]' } }, required: ["block", "chip"] } },
   { name: "delete_block", description: "Delete a custom block you created (also removes any placed instances). Library blocks can't be deleted.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "list_instances", description: "List the blocks already placed in the current design.", input_schema: { type: "object", properties: {} } },
