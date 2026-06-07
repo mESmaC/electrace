@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as RDragEvent } from "react";
 import {
   ReactFlow, Background, Controls, Handle, Position, addEdge, ConnectionMode, useNodes, useEdges,
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
@@ -459,10 +459,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   );
 
   // place a connector on the canvas
-  const addConnector = useCallback((connId: string) => {
+  const addConnector = useCallback((connId: string, pos?: { x: number; y: number }) => {
     setNodes((nds) => {
       let n = 1; while (nds.some((x) => x.id === `J${n}`)) n++;
-      return [...nds, { id: `J${n}`, type: "connector", position: { x: 80 + (nds.length % 6) * 40, y: 70 + (nds.length % 6) * 40 }, data: { connectorId: connId, ref: `J${n}` } }];
+      return [...nds, { id: `J${n}`, type: "connector", position: pos ?? { x: 80 + (nds.length % 6) * 40, y: 70 + (nds.length % 6) * 40 }, data: { connectorId: connId, ref: `J${n}` } }];
     });
     track({ kind: "block.add", block: `connector:${connId}` });
   }, [setNodes]);
@@ -478,7 +478,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   }, [setEdges]);
 
   const addBlock = useCallback(
-    (key: string) => {
+    (key: string, pos?: { x: number; y: number }) => {
       const block = blockMap.get(key);
       if (!block) return;
       setNodes((nds) => {
@@ -490,7 +490,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           ...nds,
           {
             id: ref, type: "block",
-            position: { x: 60 + (nds.length % 6) * 36, y: 50 + (nds.length % 6) * 36 },
+            position: pos ?? { x: 60 + (nds.length % 6) * 36, y: 50 + (nds.length % 6) * 36 },
             data: { block, instanceRef: ref, blockKey: key },
           },
         ];
@@ -499,6 +499,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     },
     [blockMap, setNodes],
   );
+
+  // drag-from-palette: drop a block/connector onto the canvas at the cursor (click still works too)
+  const onCanvasDragOver = useCallback((e: RDragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }, []);
+  const onCanvasDrop = useCallback((e: RDragEvent) => {
+    e.preventDefault();
+    const blockKey = e.dataTransfer.getData("application/electrace-block");
+    const connId = e.dataTransfer.getData("application/electrace-connector");
+    if (!blockKey && !connId) return;
+    const pos = rfRef.current?.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    if (blockKey) addBlock(blockKey, pos); else addConnector(connId, pos);
+  }, [addBlock, addConnector]);
 
   // ── undo / redo: debounced snapshots of (nodes, edges) ────────────────────
   type Snap = { nodes: Node[]; edges: Edge[] };
@@ -697,7 +708,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <div key={key} className="group relative">
               <button
                 onClick={() => addBlock(key)}
-                className="flex w-full items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#4e586f] px-2.5 py-2 text-left hover:border-[#4c8dff]"
+                draggable
+                onDragStart={(e) => { e.dataTransfer.setData("application/electrace-block", key); e.dataTransfer.effectAllowed = "copy"; }}
+                className="flex w-full cursor-grab items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#4e586f] px-2.5 py-2 text-left hover:border-[#4c8dff] active:cursor-grabbing"
               >
                 <span className="grid h-7 w-7 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">{b.glyph ?? "▦"}</span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] text-white">{b.name}</span>
@@ -719,17 +732,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         <div className="space-y-1.5">
           {Object.values(CONNECTOR_CATALOG).map((c) => (
             <button key={c.id} onClick={() => addConnector(c.id)} title={`${c.pins.length} pins`}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#3c4658] px-2.5 py-2 text-left hover:border-[#4c8dff]">
+              draggable onDragStart={(e) => { e.dataTransfer.setData("application/electrace-connector", c.id); e.dataTransfer.effectAllowed = "copy"; }}
+              className="flex w-full cursor-grab items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#3c4658] px-2.5 py-2 text-left hover:border-[#4c8dff] active:cursor-grabbing">
               <span className="grid h-7 w-7 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">⊟</span>
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-white">{c.name}</span>
               <span className="shrink-0 font-mono text-[9px] text-[#9aa3b5]">{c.pins.length}p</span>
             </button>
           ))}
         </div>
-        <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Click to add to the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
+        <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Drag (or click) onto the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1" onDrop={onCanvasDrop} onDragOver={onCanvasDragOver}>
         <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
           <button onClick={resetSample} className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">New</button>
           <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[#54607a] bg-[#454e62] px-2.5 py-1 text-[11.5px] text-white hover:border-[#4c8dff]">Import</button>
