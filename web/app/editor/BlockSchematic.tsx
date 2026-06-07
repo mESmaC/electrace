@@ -39,10 +39,17 @@ function fmtSpecVal(v: unknown): string {
 /** Ensure the schematic carries a port symbol for every declared terminal (inputs on the
  *  left, outputs on the right). The port's `ref` holds the terminal id, mapping net → terminal. */
 function seedPorts(model: Model, terminals: Terminal[]): Model {
-  const have = new Set(model.syms.filter((s) => s.type === "port").map((s) => s.ref));
+  const termIds = new Set(terminals.map((t) => t.id));
+  // prune orphan ports — a port whose terminal was removed — and any wires touching them, so a
+  // removed terminal doesn't leave its port behind in the schematic.
+  const orphans = new Set(model.syms.filter((s) => s.type === "port" && (!s.ref || !termIds.has(s.ref))).map((s) => s.id));
+  let syms = orphans.size ? model.syms.filter((s) => !orphans.has(s.id)) : model.syms;
+  const wires = orphans.size ? model.wires.filter((w) => !((isPin(w.a) && orphans.has(w.a.sym)) || (isPin(w.b) && orphans.has(w.b.sym)))) : model.wires;
+
+  const have = new Set(syms.filter((s) => s.type === "port").map((s) => s.ref));
   const missing = terminals.filter((t) => !have.has(t.id));
-  if (!missing.length) return model;
-  const b = modelBounds(model);
+  if (!missing.length && !orphans.size) return model;
+  const b = modelBounds({ syms, wires });
   let li = 0, ri = 0;
   const ports: Sym[] = missing.map((t) => {
     const left = t.role === "in";
@@ -52,7 +59,7 @@ function seedPorts(model: Model, terminals: Terminal[]): Model {
       y: snap(b.y + (left ? li++ : ri++) * 48),
     };
   });
-  return { ...model, syms: [...model.syms, ...ports] };
+  return { ...model, syms: [...syms, ...ports], wires };
 }
 
 /** Pan/zoom that fits the model's content (with padding) centred in a `sz` viewport. */

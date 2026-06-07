@@ -554,6 +554,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const loadedRef = useRef(false);
+  const [restored, setRestored] = useState(false); // gates autosave until the saved design is loaded
 
   const loadDesign = useCallback((d: Design, mapOverride?: Map<string, Block>) => {
     const flow = buildFlow(d, mapOverride ?? blockMap);
@@ -603,15 +604,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     setDraftV((v) => v + 1);
   }, []);
 
-  // restore from localStorage once, post-hydration (avoids SSR mismatch)
+  // restore from localStorage once — but only after `mounted`, so user blocks are loaded into
+  // blockMap. Restoring earlier would filter out user-block instances (not yet in the map), and the
+  // autosave below would then persist that lossy design — silently dropping blocks on refresh.
   useEffect(() => {
-    if (loadedRef.current) return;
+    if (!mounted || loadedRef.current) return;
     loadedRef.current = true;
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) { const d = JSON.parse(raw) as Design; if (Array.isArray(d?.blocks)) loadDesign(d); }
     } catch { /* ignore */ }
-  }, [LS_KEY, loadDesign]);
+    setRestored(true);
+  }, [mounted, LS_KEY, loadDesign]);
 
   // If localStorage was empty on load (fresh browser / cleared cache) and the server hydrates this
   // design afterwards, restore it — but only while the canvas is still the empty initial stub, so we
@@ -625,8 +629,25 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     } catch { /* ignore */ }
   }), [LS_KEY]);
 
-  // autosave (debounced)
+  // keep placed blocks visually in sync with their (edited) definition. Without this, editing a
+  // block's terminals doesn't refresh its node (node data holds a stale block) until you delete +
+  // re-add it. blockMap is memoized, so once synced it stays stable — no churn.
   useEffect(() => {
+    setNodes((nds) => {
+      let changed = false;
+      const next = nds.map((n) => {
+        if (n.type !== "block") return n;
+        const b = blockMap.get((n.data as BlockNodeData).blockKey);
+        if (b && b !== (n.data as BlockNodeData).block) { changed = true; return { ...n, data: { ...n.data, block: b } }; }
+        return n;
+      });
+      return changed ? next : nds;
+    });
+  }, [blockMap, setNodes]);
+
+  // autosave (debounced) — gated on `restored` so the empty SSR stub never overwrites the saved design
+  useEffect(() => {
+    if (!restored) return;
     const id = setTimeout(() => {
       try {
         localStorage.setItem(LS_KEY, JSON.stringify(designLive));
@@ -635,7 +656,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       } catch { /* ignore */ }
     }, 800);
     return () => clearTimeout(id);
-  }, [LS_KEY, designLive, projectId, designName]);
+  }, [restored, LS_KEY, designLive, projectId, designName]);
 
   const exportDesign = useCallback(() => {
     const blob = new Blob([JSON.stringify(designLive, null, 2)], { type: "application/json" });
