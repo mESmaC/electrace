@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
+import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
@@ -389,6 +389,21 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         return { text, changed: false };
       } catch (e) { return { text: `Could not derive nets: ${String(e).slice(0, 160)}`, changed: false }; }
     }
+    case "power_budget": {
+      try {
+        const a = analyze(design, blockMap);
+        const budgets = railBudgets(a.resolved);
+        if (!budgets.length) return { text: "(no power/rail nets with a current budget yet)", changed: false };
+        const text = budgets.map((b) => {
+          const cap = typeof b.capacityA === "number" ? `${b.capacityA}A` : "?";
+          const pct = typeof b.usedPct === "number" ? ` (${Math.round(b.usedPct)}%${b.usedPct > 100 ? " — OVER" : ""})` : "";
+          const head = typeof b.headroomA === "number" ? `, headroom ${b.headroomA}A` : "";
+          const w = typeof b.watts === "number" ? `, ~${b.watts}W` : "";
+          return `${b.net}${typeof b.voltage === "number" ? ` ${b.voltage}V` : ""}: draw ${b.drawA}A / ${cap}${pct}${head}${w}`;
+        }).join("\n");
+        return { text, changed: false };
+      } catch (e) { return { text: `Could not compute budgets: ${String(e).slice(0, 160)}`, changed: false }; }
+    }
     default:
       return { text: `Unknown tool ${name}.`, changed: false };
   }
@@ -412,6 +427,7 @@ const TOOLS = [
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
   { name: "analyze_design", description: "Run the deterministic checks on the current design — returns all findings (errors, warnings, and notes like 'block has no part yet').", input_schema: { type: "object", properties: {} } },
   { name: "list_nets", description: "List the actual derived net graph — each net's type, voltage, drivers (outputs) and loads (inputs). Read this instead of guessing connectivity.", input_schema: { type: "object", properties: {} } },
+  { name: "power_budget", description: "Per-rail current/power budget: each power/rail net's total load draw vs the source's capacity, headroom, %-used (flags over-budget), and watts. The load math — read this to reason about whether a regulator/source can actually supply its rail, not just whether it's wired.", input_schema: { type: "object", properties: {} } },
   { name: "acknowledge", description: "Mark a specific finding as INTENDED so it's muted and stops counting as a warning/error — for a correct-but-noisy check, e.g. an intentional diode-OR where two sources (USB 5V + regulator) legitimately share a rail. Use the rule + at from analyze_design. Only acknowledge findings that are genuinely correct; never silence a real problem. Always note WHY.", input_schema: { type: "object", properties: { rule: { type: "string", description: "the finding's rule, e.g. connectivity/multiple-drivers" }, at: { type: "array", items: { type: "string" }, description: "the finding's subjects (net ids/refs), e.g. [\"VCC\"]" }, note: { type: "string", description: "why it's intended (shown to the user)" } }, required: ["rule", "at"] } },
   { name: "unacknowledge", description: "Remove an acknowledgement so the finding is flagged again.", input_schema: { type: "object", properties: { rule: { type: "string" }, at: { type: "array", items: { type: "string" } } }, required: ["rule", "at"] } },
 ];
