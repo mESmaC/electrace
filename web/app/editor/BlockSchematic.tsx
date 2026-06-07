@@ -7,8 +7,8 @@ import { SYMBOLS, SYMBOL_GROUPS, renderChip, useSymbolStyle } from "./symbols";
 import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import { track } from "@/lib/telemetry";
-import { saveUserBlock, isUserBlock } from "@/lib/userBlocks";
-import { deriveSchematicNets, schematicInsights, type InsightComponent, type SchematicLayout, type Terminal, type Block } from "@electrace/core";
+import { saveUserBlock, isUserBlock, getUserBlocks } from "@/lib/userBlocks";
+import { deriveSchematicNets, schematicInsights, type InsightComponent, type SchematicLayout, type Terminal, type Block, type NetType } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
   isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin,
@@ -513,6 +513,57 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     setModel((m) => ({ ...m, syms: m.syms.map((s) => (s.id === selSym?.id && s.chip ? { ...s, chip: { ...s.chip, names: { ...s.chip.names, [pinId]: name } } } : s)) }));
   };
 
+  // Expose a chip pin as a block terminal (hierarchical port): add the terminal to the block + drop a
+  // port wired straight to that pin, so it's actually connected internally. Expose only as needed.
+  const POWER_RE = /^(vdd|vcc|vbat|vin|vsys|avdd|avcc|vref|vddio|[+]?\d*v\d*|3v3|5v|1v8)$/i;
+  const GND_RE = /^(gnd|vss|avss|agnd|dgnd|v-|0v|gnd\d+)$/i;
+  const roleType = (name: string): { role: "in" | "out"; type: NetType } => {
+    const isGnd = GND_RE.test(name), isPwr = POWER_RE.test(name);
+    return { role: isGnd || isPwr ? "in" : "out", type: isGnd ? "gnd" : isPwr ? "power" : "signal" };
+  };
+  // the live persisted block — the drilled-in `block` prop can go stale after a save (it's React-Flow
+  // node data), so terminal mutations base off this to avoid clobbering earlier exposes.
+  const liveBlock = (): Block | undefined => (block ? getUserBlocks()[`${block.id}@${block.version}`] ?? block : undefined);
+  const exposedTermIds = useMemo(() => new Set((liveBlock()?.terminals ?? []).map((t) => t.id)), [block, model]); // eslint-disable-line react-hooks/exhaustive-deps
+  const isExposed = (name: string) => exposedTermIds.has(name);
+  const exposePins = (sym: Sym, pinIds: string[]) => {
+    const b = liveBlock();
+    if (!b || !isUserBlock(b.id)) return;
+    const have = new Set(b.terminals.map((t) => t.id));
+    const adds: { pinId: string; name: string }[] = [];
+    for (const pinId of pinIds) {
+      const name = (sym.chip?.names?.[pinId] || "").trim();
+      if (name && !have.has(name) && !adds.some((a) => a.name === name)) adds.push({ pinId, name });
+    }
+    if (!adds.length) return;
+    saveUserBlock({ ...b, terminals: [...b.terminals, ...adds.map((a) => ({ id: a.name, ...roleType(a.name) }))] });
+    window.dispatchEvent(new CustomEvent("electrace:userblocks"));
+    setModel((m) => {
+      const d = symDims(sym);
+      const newSyms: Sym[] = [], newWires: Wire[] = [];
+      adds.forEach(({ pinId, name }, k) => {
+        if (m.syms.some((s) => s.type === "port" && s.ref === name)) return;
+        const pin = d?.pins.find((p) => p.id === pinId);
+        const ap = pin && d ? symPoint(sym, pin.x, pin.y, d.w, d.h) : { x: sym.x, y: sym.y + k * 20 };
+        const portId = `port-${name}-${Math.floor(performance.now())}-${k}`;
+        newSyms.push({ id: portId, type: "port", ref: name, x: snap(ap.x - 70), y: snap(ap.y - 10) });
+        newWires.push({ id: `w-${Math.floor(performance.now())}-${k}`, a: { sym: portId, pin: "1" }, b: { sym: sym.id, pin: pinId }, mid: [] });
+      });
+      return { ...m, syms: [...m.syms, ...newSyms], wires: [...m.wires, ...newWires] };
+    });
+  };
+  const unexposePin = (name: string) => {
+    const b = liveBlock();
+    if (!b || !isUserBlock(b.id)) return;
+    saveUserBlock({ ...b, terminals: b.terminals.filter((t) => t.id !== name) });
+    window.dispatchEvent(new CustomEvent("electrace:userblocks"));
+    setModel((m) => {
+      const port = m.syms.find((s) => s.type === "port" && s.ref === name);
+      if (!port) return m;
+      return { ...m, syms: m.syms.filter((s) => s.id !== port.id), wires: m.wires.filter((w) => !((isPin(w.a) && w.a.sym === port.id) || (isPin(w.b) && w.b.sym === port.id))) };
+    });
+  };
+
   const vw = size.w / zoom, vh = size.h / zoom;
   const hs = 5 / zoom; // half-size of waypoint handles (constant screen size)
 
@@ -939,17 +990,38 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                       onChange={(e) => updateChip({ pins: Math.max(1, Math.min(256, Math.floor(Number(e.target.value) || 1))) })}
                       className="mt-1 w-full rounded border border-[#54607a] bg-[#454e62] px-2 py-1 font-mono text-[12px] text-white outline-none focus:border-[#4c8dff]" /></label>
                 </div>
-                <div className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-[#677494]">Pin names</div>
-                <div className="mt-1 max-h-44 space-y-1 overflow-y-auto pr-0.5">
-                  {(symDims(selSym)?.pins ?? []).map((p) => (
-                    <div key={p.id} className="flex items-center gap-1.5">
-                      <span className="w-7 shrink-0 text-right font-mono text-[10px] text-[#9aa3b5]">{p.id}</span>
-                      <input value={selSym!.chip!.names?.[p.id] ?? ""} placeholder="—" onChange={(e) => setPinName(p.id, e.target.value)}
-                        className="w-full rounded border border-[#54607a] bg-[#454e62] px-1.5 py-0.5 font-mono text-[11px] text-white outline-none placeholder:text-[#566177] focus:border-[#4c8dff]" />
-                    </div>
-                  ))}
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#677494]">Pin names</span>
+                  <span className="text-[9px] text-[#677494]">● = terminal</span>
                 </div>
-                <p className="mt-2 text-[10px] leading-relaxed text-[#677494]">Name pins to wire by function. AI auto-fill from the part number is coming.</p>
+                <div className="mt-1 max-h-44 space-y-1 overflow-y-auto pr-0.5">
+                  {(symDims(selSym)?.pins ?? []).map((p) => {
+                    const nm = (selSym!.chip!.names?.[p.id] ?? "").trim();
+                    const exp = !!nm && isExposed(nm);
+                    return (
+                      <div key={p.id} className="flex items-center gap-1.5">
+                        <span className="w-7 shrink-0 text-right font-mono text-[10px] text-[#9aa3b5]">{p.id}</span>
+                        <input value={selSym!.chip!.names?.[p.id] ?? ""} placeholder="—" onChange={(e) => setPinName(p.id, e.target.value)}
+                          className="w-full rounded border border-[#54607a] bg-[#454e62] px-1.5 py-0.5 font-mono text-[11px] text-white outline-none placeholder:text-[#566177] focus:border-[#4c8dff]" />
+                        {block && isUserBlock(block.id) && (
+                          <button onClick={() => (exp ? unexposePin(nm) : exposePins(selSym!, [p.id]))} disabled={!nm}
+                            title={exp ? `Exposed as terminal "${nm}" — click to remove` : "Expose this pin as a block terminal"}
+                            className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[11px] ${exp ? "bg-[#4c8dff] text-white" : "text-[#677494] hover:bg-[#454e62] hover:text-white"} disabled:opacity-30`}>{exp ? "●" : "○"}</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {block && isUserBlock(block.id) && (() => {
+                  const todo = (symDims(selSym)?.pins ?? []).filter((p) => { const n = (selSym!.chip!.names?.[p.id] ?? "").trim(); return n && !isExposed(n); });
+                  return (
+                    <button onClick={() => exposePins(selSym!, todo.map((p) => p.id))} disabled={!todo.length}
+                      className="mt-2 w-full rounded border border-[#4c8dff66] bg-[#4c8dff26] py-1 text-[11px] text-[#9ec5ff] hover:border-[#4c8dff] disabled:opacity-40">
+                      {todo.length ? `Expose all ${todo.length} named pin${todo.length === 1 ? "" : "s"} →` : "All named pins exposed"}
+                    </button>
+                  );
+                })()}
+                <p className="mt-2 text-[10px] leading-relaxed text-[#677494]">Name pins by function (AI pinout mapping fills these), then click ○ to expose just the ones you need as block terminals — each gets a wired port and the block renders as a QFP chip.</p>
               </div>
             )}
             {selSym && selSym.type !== "port" && !selSym.chip && (
