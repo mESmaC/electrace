@@ -696,50 +696,55 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     file.text().then((txt) => { try { const d = JSON.parse(txt) as Design; if (Array.isArray(d?.blocks)) loadDesign(d); } catch { /* ignore */ } });
   }, [loadDesign]);
 
+  // palette: split user-created from the standard library
+  const libEntries = Object.entries(allBlocks).filter(([k]) => !isUserBlock(k));
+  const myEntries = Object.entries(allBlocks).filter(([k]) => isUserBlock(k));
+  const blockTile = (key: string, b: Block) => (
+    <div key={key} className="group relative">
+      <button onClick={() => addBlock(key)} draggable title={b.name}
+        onDragStart={(e) => { e.dataTransfer.setData("application/electrace-block", key); e.dataTransfer.effectAllowed = "copy"; }}
+        className="flex h-full w-full cursor-grab flex-col items-center gap-1 rounded-lg border border-[#54607a] bg-[#4e586f] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
+        <span className="grid h-8 w-8 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-base text-[#4c8dff]">{b.glyph ?? "▦"}</span>
+        <span className="text-[10px] leading-tight text-white" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.name}</span>
+      </button>
+      {isUserBlock(key) && (
+        <div className="absolute right-0.5 top-0.5 hidden gap-0.5 group-hover:flex">
+          <button onClick={() => startEditBlock(key)} title="Edit this block's name & terminals"
+            className="grid h-4 w-4 place-items-center rounded bg-[#3a4458] text-[9px] text-[#9aa3b5] hover:text-white">✎</button>
+          <button onClick={() => removeUserBlock(key)} title="Delete this custom block"
+            className="grid h-4 w-4 place-items-center rounded bg-[#3a4458] text-[9px] text-[#9aa3b5] hover:text-[#e2837e]">✕</button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="relative flex" style={{ height: "calc(100vh - 56px)" }}>
-      <aside className="w-56 shrink-0 overflow-auto border-r border-[#54607a] bg-[#454e62] p-3">
-        <div className="flex items-center justify-between px-1 pb-2">
-          <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5]">Blocks</h2>
-          <button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ New</button>
-        </div>
-        <div className="space-y-1.5">
-          {Object.entries(allBlocks).map(([key, b]) => (
-            <div key={key} className="group relative">
-              <button
-                onClick={() => addBlock(key)}
-                draggable
-                onDragStart={(e) => { e.dataTransfer.setData("application/electrace-block", key); e.dataTransfer.effectAllowed = "copy"; }}
-                className="flex w-full cursor-grab items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#4e586f] px-2.5 py-2 text-left hover:border-[#4c8dff] active:cursor-grabbing"
-              >
-                <span className="grid h-7 w-7 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">{b.glyph ?? "▦"}</span>
-                <span className="min-w-0 flex-1 truncate text-[12.5px] text-white">{b.name}</span>
-                {isUserBlock(key) && <span className="shrink-0 rounded bg-[#3a4458] px-1 text-[8px] uppercase tracking-wide text-[#9aa3b5]">mine</span>}
-              </button>
-              {isUserBlock(key) && (
-                <>
-                  <button onClick={() => startEditBlock(key)} title="Edit this block's name & terminals"
-                    className="absolute right-7 top-1 hidden h-5 w-5 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a4458] hover:text-white group-hover:grid">✎</button>
-                  <button onClick={() => removeUserBlock(key)} title="Delete this custom block"
-                    className="absolute right-1 top-1 hidden h-5 w-5 place-items-center rounded text-[#9aa3b5] hover:bg-[#3a1c20] hover:text-[#e2837e] group-hover:grid">✕</button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+      <aside className="w-60 shrink-0 overflow-auto border-r border-[#54607a] bg-[#454e62] p-3">
+        <CollapsibleSection title={`My blocks${myEntries.length ? ` (${myEntries.length})` : ""}`}
+          action={<button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ New</button>}>
+          {myEntries.length
+            ? <div className="grid grid-cols-2 gap-1.5">{myEntries.map(([k, b]) => blockTile(k, b))}</div>
+            : <p className="px-1 pb-1 text-[10px] text-[#677494]">None yet — <button onClick={startNewBlock} className="text-[#9ec5ff] hover:underline">create one</button>.</p>}
+        </CollapsibleSection>
 
-        <h2 className="mt-4 px-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5]">Connectors</h2>
-        <div className="space-y-1.5">
-          {Object.values(CONNECTOR_CATALOG).map((c) => (
-            <button key={c.id} onClick={() => addConnector(c.id)} title={`${c.pins.length} pins`}
-              draggable onDragStart={(e) => { e.dataTransfer.setData("application/electrace-connector", c.id); e.dataTransfer.effectAllowed = "copy"; }}
-              className="flex w-full cursor-grab items-center gap-2.5 rounded-lg border border-[#54607a] bg-[#3c4658] px-2.5 py-2 text-left hover:border-[#4c8dff] active:cursor-grabbing">
-              <span className="grid h-7 w-7 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">⊟</span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-white">{c.name}</span>
-              <span className="shrink-0 font-mono text-[9px] text-[#9aa3b5]">{c.pins.length}p</span>
-            </button>
-          ))}
-        </div>
+        <CollapsibleSection title={`Library (${libEntries.length})`}>
+          <div className="grid grid-cols-2 gap-1.5">{libEntries.map(([k, b]) => blockTile(k, b))}</div>
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Connectors">
+          <div className="grid grid-cols-2 gap-1.5">
+            {Object.values(CONNECTOR_CATALOG).map((c) => (
+              <button key={c.id} onClick={() => addConnector(c.id)} title={`${c.name} · ${c.pins.length} pins`}
+                draggable onDragStart={(e) => { e.dataTransfer.setData("application/electrace-connector", c.id); e.dataTransfer.effectAllowed = "copy"; }}
+                className="flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[#54607a] bg-[#3c4658] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
+                <span className="grid h-8 w-8 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-base text-[#4c8dff]">⊟</span>
+                <span className="text-[10px] leading-tight text-white" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.name}</span>
+                <span className="font-mono text-[8px] text-[#9aa3b5]">{c.pins.length}p</span>
+              </button>
+            ))}
+          </div>
+        </CollapsibleSection>
         <p className="mt-3 px-1 text-[10px] text-[#9aa3b5]">Drag (or click) onto the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1053,6 +1058,21 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CollapsibleSection({ title, action, defaultOpen = true, children }: { title: string; action?: React.ReactNode; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-2">
+      <div className="flex items-center justify-between px-1 pb-1.5">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#9aa3b5] hover:text-white">
+          <span className="inline-block w-2 text-[8px]">{open ? "▾" : "▸"}</span>{title}
+        </button>
+        {action}
+      </div>
+      {open && children}
     </div>
   );
 }
