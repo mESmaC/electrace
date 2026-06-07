@@ -32,7 +32,7 @@ function PartNode({ data }: NodeProps) {
 function NetNode({ data }: NodeProps) {
   const d = data as unknown as { label: string };
   return (
-    <div className="relative rounded-full border border-[#4c8dff80] bg-[#4c8dff26] px-2.5 py-1 font-mono text-[10px] text-[#6ea3ff]">
+    <div className="relative rounded-full border border-[#4c8dff80] bg-[#4c8dff26] px-2.5 py-1 font-mono text-[10px] text-[var(--color-link)]">
       <Ports />{d.label}
     </div>
   );

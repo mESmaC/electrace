@@ -16,6 +16,7 @@
   --color-faint: var(--c-faint);
   --color-accent: #4c8dff;
   --color-accent-hi: #6ea3ff;
+  --color-link: var(--c-link);
   --color-amber: #f7b13c;
   --color-green: #46dca6;
   --color-gray: #9aa6b6;
@@ -27,18 +28,18 @@
 /* Mid — the primary slate-blue dusk palette. */
 :root, [data-theme="mid"] {
   --c-bg: #3c4658; --c-bg2: #36404f; --c-surface: #454e62; --c-surface-2: #4e586f; --c-surface-3: #59647d;
-  --c-border: #54607a; --c-border-strong: #677494; --c-text: #ffffff; --c-dim: #d4dae6; --c-faint: #9aa3b5;
+  --c-border: #54607a; --c-border-strong: #677494; --c-text: #ffffff; --c-dim: #d4dae6; --c-faint: #9aa3b5; --c-link: #9ec5ff;
 }
 /* Dark — starker, deeper than Mid (same blue accent). */
 [data-theme="dark"] {
   --c-bg: #161b22; --c-bg2: #11151b; --c-surface: #1e242d; --c-surface-2: #283039; --c-surface-3: #353f4b;
-  --c-border: #303a46; --c-border-strong: #46515f; --c-text: #f3f6fb; --c-dim: #c2cad6; --c-faint: #828c9c;
+  --c-border: #303a46; --c-border-strong: #46515f; --c-text: #f3f6fb; --c-dim: #c2cad6; --c-faint: #828c9c; --c-link: #9ec5ff;
   color-scheme: dark;
 }
 /* Light — cream-tinted paper, same blue accent. */
 [data-theme="light"] {
   --c-bg: #f1ede4; --c-bg2: #e7e2d6; --c-surface: #ffffff; --c-surface-2: #f6f3ec; --c-surface-3: #ece7db;
-  --c-border: #ded8c9; --c-border-strong: #b6ae9c; --c-text: #1e242e; --c-dim: #3c4350; --c-faint: #6a7180;
+  --c-border: #ded8c9; --c-border-strong: #b6ae9c; --c-text: #1e242e; --c-dim: #3c4350; --c-faint: #6a7180; --c-link: #2f6fd0;
   color-scheme: light;
 }
 

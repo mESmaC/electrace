@@ -8,7 +8,7 @@ export default function SymbolStyleToggle() {
     <div className="flex overflow-hidden rounded-md border border-[var(--color-border)] text-[10px]" title="Schematic symbol standard — applies everywhere">
       {(["ansi", "iec"] as SymStyle[]).map((st) => (
         <button key={st} onClick={() => setSymbolStyle(st)}
-          className={`px-2 py-1 uppercase ${style === st ? "bg-[#4c8dff] text-[var(--color-text)]" : "text-[var(--color-faint)] hover:text-[var(--color-text)]"}`}>{st}</button>
+          className={`px-2 py-1 uppercase ${style === st ? "bg-[#4c8dff] text-white" : "text-[var(--color-faint)] hover:text-[var(--color-text)]"}`}>{st}</button>
       ))}
     </div>
   );

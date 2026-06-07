@@ -510,8 +510,8 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       <circle cx={v.where.x} cy={v.where.y} r={0.3} fill={SEV[v.severity]} />
     </g>
   )), [drc]); // eslint-disable-line react-hooks/exhaustive-deps
-  const btn = (active: boolean) => `h-7 inline-flex items-center justify-center rounded-md px-2.5 text-[11.5px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[#9ec5ff] ring-1 ring-inset ring-[#356bb0]" : "bg-[#161f30] text-[var(--color-dim)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
-  const seg = (active: boolean) => `h-6 inline-flex items-center justify-center rounded px-2 text-[11px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[#9ec5ff]" : "text-[var(--color-faint)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
+  const btn = (active: boolean) => `h-7 inline-flex items-center justify-center rounded-md px-2.5 text-[11.5px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[var(--color-link)] ring-1 ring-inset ring-[#356bb0]" : "bg-[#161f30] text-[var(--color-dim)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
+  const seg = (active: boolean) => `h-6 inline-flex items-center justify-center rounded px-2 text-[11px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[var(--color-link)]" : "text-[var(--color-faint)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
   const SEGBOX = "flex items-center gap-0.5 rounded-md bg-[#11192699] p-0.5 ring-1 ring-inset ring-[#212c42]";
   const DD = "h-7 rounded-md bg-[#161f30] pl-2 pr-1 text-[11.5px] text-[var(--color-dim)] ring-1 ring-inset ring-[#27324a] outline-none hover:bg-[#1d2840] focus:ring-[#356bb0] cursor-pointer";
   const SEP = <div className="mx-0.5 h-5 w-px bg-[#212c42]" />;

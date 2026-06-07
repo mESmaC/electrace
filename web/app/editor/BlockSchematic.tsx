@@ -762,10 +762,10 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
           <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)"
             className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
         </div>
-        {draw && <div className="absolute left-3 top-3 z-10 rounded-md border border-[#4c8dff80] bg-[#4c8dff26] px-3 py-1.5 text-[11px] text-[#6ea3ff]">Wiring — click a pin to finish · click empty to bend · Esc to cancel</div>}
+        {draw && <div className="absolute left-3 top-3 z-10 rounded-md border border-[#4c8dff80] bg-[#4c8dff26] px-3 py-1.5 text-[11px] text-[var(--color-link)]">Wiring — click a pin to finish · click empty to bend · Esc to cancel</div>}
         {!draw && hoverNet != null && nets.nets[hoverNet] && (
           <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[#454e62ee] px-3 py-1.5 text-[11px] backdrop-blur">
-            <span className="font-mono font-semibold text-[#6ea3ff]">{netLabel.get(hoverNet) ?? `net ${hoverNet + 1}`}</span>
+            <span className="font-mono font-semibold text-[var(--color-link)]">{netLabel.get(hoverNet) ?? `net ${hoverNet + 1}`}</span>
             <span className="text-[var(--color-faint)]">{nets.nets[hoverNet].pins.length} pins</span>
             {nets.nets[hoverNet].shorts.length > 0 && <span className="text-[#ef5d6b]">short</span>}
           </div>
@@ -1013,7 +1013,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                         {block && isUserBlock(block.id) && (
                           <button onClick={() => (exp ? unexposePin(nm) : exposePins(selSym!, [p.id]))} disabled={!nm}
                             title={exp ? `Exposed as terminal "${nm}" — click to remove` : "Expose this pin as a block terminal"}
-                            className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[11px] ${exp ? "bg-[#4c8dff] text-[var(--color-text)]" : "text-[var(--color-border-strong)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"} disabled:opacity-30`}>{exp ? "●" : "○"}</button>
+                            className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[11px] ${exp ? "bg-[#4c8dff] text-white" : "text-[var(--color-border-strong)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"} disabled:opacity-30`}>{exp ? "●" : "○"}</button>
                         )}
                       </div>
                     );
@@ -1023,7 +1023,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                   const todo = (symDims(selSym)?.pins ?? []).filter((p) => { const n = (selSym!.chip!.names?.[p.id] ?? "").trim(); return n && !isExposed(n); });
                   return (
                     <button onClick={() => exposePins(selSym!, todo.map((p) => p.id))} disabled={!todo.length}
-                      className="mt-2 w-full rounded border border-[#4c8dff66] bg-[#4c8dff26] py-1 text-[11px] text-[#9ec5ff] hover:border-[#4c8dff] disabled:opacity-40">
+                      className="mt-2 w-full rounded border border-[#4c8dff66] bg-[#4c8dff26] py-1 text-[11px] text-[var(--color-link)] hover:border-[#4c8dff] disabled:opacity-40">
                       {todo.length ? `Expose all ${todo.length} named pin${todo.length === 1 ? "" : "s"} →` : "All named pins exposed"}
                     </button>
                   );

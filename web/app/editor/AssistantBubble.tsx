@@ -6,7 +6,7 @@ import { useAssistant, sendMessage, clearChat, newConversation, switchConversati
 // Markdown styling for assistant replies (tables, lists, code, etc.), scoped to the chat bubble via
 // arbitrary child variants — no global stylesheet or typography plugin needed.
 const MD = [
-  "[&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-[#8db4ff] [&_a]:underline",
+  "[&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-[var(--color-link)] [&_a]:underline",
   "[&_strong]:font-semibold [&_em]:italic",
   "[&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5",
   "[&_h1]:text-[13px] [&_h1]:font-bold [&_h1]:mt-2 [&_h2]:text-[12.5px] [&_h2]:font-bold [&_h2]:mt-2 [&_h3]:font-semibold [&_h3]:mt-1.5",
@@ -113,7 +113,7 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
               const asMarkdown = m.role === "assistant" && !isTyping && m.text.length > 0;
               return (
                 <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`${m.role === "user" ? "max-w-[85%]" : "max-w-[94%]"} rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-[var(--color-text)]" : "rounded-tl-sm bg-[var(--color-surface-2)] text-[var(--color-text)]"} ${asMarkdown ? MD : "whitespace-pre-wrap"}`}>
+                  <div className={`${m.role === "user" ? "max-w-[85%]" : "max-w-[94%]"} rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[var(--color-surface-2)] text-[var(--color-text)]"} ${asMarkdown ? MD : "whitespace-pre-wrap"}`}>
                     {asMarkdown
                       ? <div dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
                       : <>{shown(m)}{isTyping && <span className="ml-px inline-block w-1.5 animate-pulse">▍</span>}</>}
@@ -138,7 +138,7 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your design…" disabled={busy}
             className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-2 text-[12px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-border-strong)] focus:border-[#4c8dff] disabled:opacity-60" />
           <button type="submit" disabled={!input.trim() || busy} title="Send"
-            className="grid w-9 place-items-center rounded-md bg-[#4c8dff] py-2 text-[var(--color-text)] disabled:opacity-40">→</button>
+            className="grid w-9 place-items-center rounded-md bg-[#4c8dff] py-2 text-white disabled:opacity-40">→</button>
         </form>
       </div>
 

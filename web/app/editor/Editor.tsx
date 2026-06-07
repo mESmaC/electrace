@@ -73,7 +73,7 @@ function BlockNode(props: NodeProps) {
       <div className="flex flex-wrap gap-1">
         {dockedTerms.map((t) => (
           <button key={t.id} onClick={() => undock(t.id)} title={`${t.id} → ${docked.get(t.id)} · click to undock`}
-            className="rounded bg-[var(--color-bg2)] px-1 font-mono text-[9px] text-[#9ec5ff] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
+            className="rounded bg-[var(--color-bg2)] px-1 font-mono text-[9px] text-[var(--color-link)] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
         ))}
       </div>
       <div style={{ height: 0, overflow: "hidden" }} aria-hidden>
@@ -745,10 +745,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     <div className="relative flex" style={{ height: "calc(100vh - 56px)" }}>
       <aside className="w-60 shrink-0 overflow-auto border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3">
         <CollapsibleSection title={`My blocks${myEntries.length ? ` (${myEntries.length})` : ""}`}
-          action={<button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ New</button>}>
+          action={<button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[var(--color-link)] hover:border-[#4c8dff]">+ New</button>}>
           {myEntries.length
             ? <div className="grid grid-cols-2 gap-1.5">{myEntries.map(([k, b]) => blockTile(k, b))}</div>
-            : <p className="px-1 pb-1 text-[10px] text-[var(--color-border-strong)]">None yet — <button onClick={startNewBlock} className="text-[#9ec5ff] hover:underline">create one</button>.</p>}
+            : <p className="px-1 pb-1 text-[10px] text-[var(--color-border-strong)]">None yet — <button onClick={startNewBlock} className="text-[var(--color-link)] hover:underline">create one</button>.</p>}
         </CollapsibleSection>
 
         <CollapsibleSection title={`Library (${libEntries.length})`}>
@@ -768,7 +768,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             ))}
           </div>
         </CollapsibleSection>
-        <p className="mt-3 px-1 text-[10px] text-[var(--color-faint)]">Drag (or click) onto the canvas · <span className="text-[#9ec5ff]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
+        <p className="mt-3 px-1 text-[10px] text-[var(--color-faint)]">Drag (or click) onto the canvas · <span className="text-[var(--color-link)]">+ New</span> defines your own block · double-click a block to draw its schematic. Drag a terminal onto a connector pin to dock it (it leaves the block; click its chip to undock).</p>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1 overflow-hidden" onDrop={onCanvasDrop} onDragOver={onCanvasDragOver}>
@@ -961,7 +961,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         <Panel title={`BOM · ${analysis.bom.length}`}>
           <div className="mt-2 space-y-1 font-mono text-[11px] text-[var(--color-text)]">
             {analysis.bom.map((r, i) => (
-              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[#6ea3ff]">pol</span>} <span className="text-[var(--color-faint)]">{r.refs.join(", ")}</span></div>
+              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[var(--color-link)]">pol</span>} <span className="text-[var(--color-faint)]">{r.refs.join(", ")}</span></div>
             ))}
           </div>
         </Panel>
@@ -1071,7 +1071,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-faint)]">Terminals</span>
               <button onClick={() => setNewBlock({ ...newBlock, terminals: [...newBlock.terminals, { id: "", role: "in", type: "signal" }] })}
-                className="rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] text-[#9ec5ff] hover:border-[#4c8dff]">+ terminal</button>
+                className="rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-link)] hover:border-[#4c8dff]">+ terminal</button>
             </div>
             <div className="max-h-52 space-y-1.5 overflow-y-auto">
               {newBlock.terminals.map((t, i) => {
@@ -1097,7 +1097,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setNewBlock(null)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-[12px] text-[var(--color-text)] hover:border-[#4c8dff]">Cancel</button>
               <button onClick={createBlock} disabled={!newBlock.name.trim() || !newBlock.terminals.some((t) => t.id.trim())}
-                className="rounded-md bg-[#4c8dff] px-3 py-1.5 text-[12px] text-[var(--color-text)] disabled:opacity-40">{newBlock.editKey ? "Save changes" : "Create block"}</button>
+                className="rounded-md bg-[#4c8dff] px-3 py-1.5 text-[12px] text-white disabled:opacity-40">{newBlock.editKey ? "Save changes" : "Create block"}</button>
             </div>
             <p className="mt-3 text-[10px] leading-snug text-[var(--color-faint)]">{newBlock.editKey ? "Editing keeps the block's id and drawn schematic; renaming or removing a terminal may leave existing connections to it dangling." : "After creating, click it in the palette to drop it on the canvas, then double-click to draw its internal schematic."}</p>
           </div>
