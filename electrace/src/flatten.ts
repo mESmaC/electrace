@@ -31,7 +31,7 @@ export function flatten(rd: ResolvedDesign): FlatSchematic {
       parts.push({
         ref: `${inst.ref}/${p.ref}`, instance: inst.ref, type: p.type,
         value: p.value, part: p.part, footprint: p.footprint, why: p.why,
-        polarized: p.polarized, shielded: p.shielded,
+        polarized: p.polarized, shielded: p.shielded, chip: p.chip,
       });
     }
 

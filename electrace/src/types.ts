@@ -55,6 +55,7 @@ export interface Part {
   why?: string;              // authored reason → hover/explainer content
   polarized?: boolean;
   shielded?: boolean;
+  chip?: ChipSpec;           // for an IC: its package + pinout → real PCB land pattern (all pins, named→pad)
 }
 
 /** A net inside a block's schematic. `connect` lists pins ("U1.VIN") and
@@ -232,6 +233,7 @@ export interface FlatPart {
   why?: string;
   polarized?: boolean;
   shielded?: boolean;
+  chip?: ChipSpec;           // IC package + pinout → PCB land pattern
 }
 
 export interface FlatNet {

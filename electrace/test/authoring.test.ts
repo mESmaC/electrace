@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorChipLayout, authorPartLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic } from "../src/index.js";
+import { authorChipLayout, authorPartLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, pcbProject } from "../src/index.js";
 
 test("authorChipLayout: chip becomes a part, exposed pins become wired terminals", () => {
   const { layout, terminals } = authorChipLayout(
@@ -123,4 +123,23 @@ test("exposeChipPins: bulk-exposes more chip pins without re-authoring (adds, ne
   assert.ok(sch.nets.some((n) => n.connect.includes("@PD0") && n.connect.includes("U1.PD0")));
   assert.ok(sch.nets.some((n) => n.connect.includes("@VCC") && n.connect.includes("U1.VCC"))); // VCC still there
   assert.equal(sch.nets.length, before + 3);
+});
+
+test("an authored chip lands its REAL package on the PCB (QFP-32, 32 pads, named pins → right pad)", () => {
+  const { layout, terminals } = authorChipLayout("U1",
+    { profile: "qfp", pins: 32, mpn: "ATmega328P-AU", names: { "4": "VCC", "3": "GND", "30": "PD0", "9": "PB5" } },
+    ["VCC", "GND", "PD0", "PB5"]);
+  const schematic = deriveBlockSchematic(layout);
+  // the chip part carries its package so the PCB doesn't size it from just the wired pins
+  assert.equal(schematic.parts[0].footprint, "QFP-32");
+
+  const block = { id: "@user/mcu", name: "MCU", version: "1.0.0", terminals, layout, schematic };
+  const load = { id: "@t/l", name: "l", version: "1.0.0", terminals: [{ id: "g", role: "in" as const, type: "gnd" as const }] };
+  const design = { id: "d", name: "t", blocks: [{ ref: "M", block: "@user/mcu@1.0.0" }, { ref: "L", block: "@t/l@1.0.0" }], connections: [{ from: "M.GND", to: "L.g" }] };
+  const pcb = pcbProject(design, new Map([["@user/mcu@1.0.0", block], ["@t/l@1.0.0", load]]));
+  const u = pcb.components.find((c) => c.ref === "M/U1")!;
+  assert.ok(u, "the chip populates on the PCB");
+  assert.equal(u.footprint, "QFP-32");
+  assert.equal(u.pads.length, 32);                                   // ALL pins, not just the 4 wired
+  assert.equal(u.pads.find((p) => p.pin === "VCC")!.id, "4");        // VCC → physical pad 4
 });

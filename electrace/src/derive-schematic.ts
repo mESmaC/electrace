@@ -6,6 +6,7 @@
 // and authored `schematic` blocks no longer have to be hand-kept in sync with the picture.
 import { UnionFind } from "./uf.js";
 import { SYMBOL_CATALOG } from "./catalog.js";
+import { chipPackageCode } from "./footprints.js";
 import type { SchematicLayout, PlacedSymbol, Part, SchematicNet, Schematic } from "./types.js";
 
 const symId = (key: string) => key.slice(0, key.indexOf("."));
@@ -66,6 +67,9 @@ export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Arr
     if (a?.why) part.why = a.why;
     if (a?.polarized ?? s.type === "cap-pol") part.polarized = true; // a polarized-cap symbol is polarized
     if (a?.shielded) part.shielded = a.shielded;
+    // a chip carries its full package + pinout so the PCB lands a real footprint (all pins, named→pad),
+    // not a tiny package sized from just the wired pins.
+    if (s.chip) { part.chip = s.chip; part.footprint = a?.footprint ?? chipPackageCode(s.chip); }
     return part;
   });
 

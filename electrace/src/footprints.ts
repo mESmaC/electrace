@@ -129,6 +129,17 @@ function knownMap(pins: string[]): Record<string, string> | null {
   return null;
 }
 
+const QUAD_PROFILES = new Set(["qfp", "lqfp", "tqfp", "qfn"]);
+const DUAL_PROFILES = new Set(["soic", "sop", "ssop", "tssop", "msop"]);
+/** A package code (→ fromCode) from a chip's profile + pin count, e.g. qfp/32 → "QFP-32". */
+export function chipPackageCode(chip: { profile: string; pins: number }): string {
+  const p = (chip.profile || "").toLowerCase(), n = chip.pins || 0;
+  if (QUAD_PROFILES.has(p) || DUAL_PROFILES.has(p)) return `${p.toUpperCase()}-${n}`;
+  if (p === "dip") return `DIP-${n}`;
+  if (p === "sot") return n <= 3 ? "SOT-23" : "SOT-23-5";
+  return `SOIC-${n}`; // sensible dual default for unknown profiles
+}
+
 /** Infer a footprint when the part has no usable `footprint` code, from its type + pin count. */
 function infer(type: string, n: number): Footprint {
   switch (type) {
@@ -148,6 +159,17 @@ function infer(type: string, n: number): Footprint {
 
 /** Resolve a part to a physical footprint + the map from its schematic pins to pad numbers. */
 export function resolveFootprint(part: FlatPart, pins: string[]): { footprint: Footprint; pinToPad: Record<string, string> } {
+  // An authored chip lands its REAL package: all pins as pads (not just the wired ones), with its
+  // function-named pins (VCC, PD0…) mapped onto the correct physical pad via the chip's map (pad = pin number).
+  if (part.chip) {
+    const footprint = fromCode(chipPackageCode(part.chip), part.chip.pins) ?? infer("ic", part.chip.pins);
+    const padSet = new Set(footprint.pads.map((p) => p.num));
+    const fnToNum: Record<string, string> = {};
+    for (const [num, fn] of Object.entries(part.chip.names ?? {})) if (fn && !(fn in fnToNum)) fnToNum[fn] = num;
+    const pinToPad: Record<string, string> = {};
+    for (const pin of pins) { const pad = fnToNum[pin] ?? pin; if (padSet.has(pad)) pinToPad[pin] = pad; }
+    return { footprint, pinToPad };
+  }
   const code = (part.footprint ?? "").toUpperCase();
   // pull a known chip size out of "C0805" / "R0603", etc.
   const chipKey = Object.keys(CHIP).find((k) => code.includes(k));
