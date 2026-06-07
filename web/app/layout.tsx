@@ -20,6 +20,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </Link>
             <Link href="/projects" className="text-sm text-dim hover:text-text">Projects</Link>
             <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
+            <Link href="/help" className="text-sm text-dim hover:text-text">Help</Link>
           </div>
         </nav>
         <div className="flex-1">{children}</div>

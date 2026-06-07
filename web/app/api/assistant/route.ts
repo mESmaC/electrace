@@ -3,6 +3,7 @@
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
 import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, CONNECTOR_CATALOG, connectorPart, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
+import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
@@ -29,6 +30,11 @@ complete and a summary — not with a question dangling the rest of the work.
 
 You also have a web_search tool — use it to look up real datasheets and pinouts when the user asks
 about a specific part number (don't guess pin maps from memory; search, then cite the source).
+
+You can also help users with ELECTRACE ITSELF — how a feature works, where something is, or what's new —
+not just their circuit. When they ask "how do I…?", "can Electrace…?", or "what changed?", call
+electrace_help to get the current feature reference + changelog, then answer from it (don't guess about
+the app). There's also a full Help & Changelog page at /help you can point them to.
 
 Read the real state instead of guessing: call list_nets to see the actual net graph,
 analyze_design to read all findings — including notes like "block has no part yet" — and get_block to
@@ -308,6 +314,8 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
     }
     case "list_connectors":
       return { text: Object.values(CONNECTOR_CATALOG).map((c) => `${c.id} — ${c.name}: [${c.pins.join(", ")}]`).join("\n"), changed: false };
+    case "electrace_help":
+      return { text: electraceHelpText(), changed: false };
     case "add_connector": {
       const cid = String(input.connector ?? "");
       const part = connectorPart(cid);
@@ -461,6 +469,7 @@ const TOOLS = [
   { name: "add_block", description: "Place a block instance. Returns the new ref + its terminals.", input_schema: { type: "object", properties: { block: { type: "string", description: "exact block key (id@version) from list_blocks" }, ref: { type: "string", description: "optional instance ref; auto-generated if omitted" } }, required: ["block"] } },
   { name: "remove_block", description: "Remove a placed block (and its connections).", input_schema: { type: "object", properties: { ref: { type: "string" } }, required: ["ref"] } },
   { name: "connect", description: "Wire two terminals together (e.g. PWR1.vout ↔ REG1.vin). An endpoint may be REF.terminal, a connector pin (J1.D+), or an existing net name (e.g. GND, VCC) — a net name is resolved to a member of that net, so you can wire straight onto a net without naming a specific terminal on it.", input_schema: { type: "object", properties: { from: { type: "string", description: "REF.terminal, a connector pin (J1.VBUS), or a net name like GND" }, to: { type: "string", description: "REF.terminal, a connector pin (J1.VBUS), or a net name like GND" } }, required: ["from", "to"] } },
+  { name: "electrace_help", description: "Get the current Electrace feature reference + recent changelog — what the app can do, how features work, and what's new. Call this to answer 'how do I…?', 'can Electrace…?', or 'what changed?' about the APP itself (not the user's circuit), so you answer from fact instead of guessing.", input_schema: { type: "object", properties: {} } },
   { name: "list_connectors", description: "List the physical connectors you can place on the board (USB, headers, barrel jack, screw terminals, RJ45…), with their pins. Connectors are the board-edge home for off-board nets — e.g. a USB jack for the data lines.", input_schema: { type: "object", properties: {} } },
   { name: "add_connector", description: "Place a physical connector on the board (e.g. usb-mini-b for the Nano's USB, barrel for DC power). Then wire block terminals to its pins with connect (FT232.USBDP ↔ J1.D+). Use this so board I/O (USB data, power input) lands on a real connector instead of dangling as exposed terminals.", input_schema: { type: "object", properties: { connector: { type: "string", description: "connector id from list_connectors, e.g. usb-mini-b, usb-c, barrel, hdr-2x5" }, ref: { type: "string", description: "reference designator, e.g. J1 (optional)" } }, required: ["connector"] } },
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
