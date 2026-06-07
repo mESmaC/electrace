@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, authorChipLayout, type Design, type Block, type SchematicLayout } from "@electrace/core";
+import { analyze, authorChipLayout, deriveBlockSchematic, type Design, type Block, type SchematicLayout } from "@electrace/core";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
@@ -109,9 +109,12 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const have = new Set(b!.terminals.map((t) => t.id));
       const merged = [...b!.terminals];
       for (const t of terminals) if (!have.has(t.id)) { merged.push(t); have.add(t.id); }
-      const nb: Block = { ...b!, terminals: merged, layout };
+      // Derive the schematic NOW so analyze/bom/the empty-block rule see the chip this same turn
+      // (they all read def.schematic.parts — layout alone is invisible to them = "no components yet").
+      const schematic = deriveBlockSchematic(layout);
+      const nb: Block = { ...b!, terminals: merged, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (BOM + footprint); exposed ${terminals.length} pin(s) as terminals.`, changed: true };
+      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals.`, changed: true };
     }
     case "delete_block": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -231,7 +234,7 @@ export async function POST(req: Request) {
   const post = (tools: unknown[]) => fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1500, system, messages, ...(tools.length ? { tools } : {}) }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 4096, system, messages, ...(tools.length ? { tools } : {}) }),
   });
   const call = async () => {
     let r = await post([WEB_SEARCH, ...baseTools]);
