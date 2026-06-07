@@ -22,7 +22,7 @@ const NET = "#4c8dff";
 function PartNode({ data }: NodeProps) {
   const d = data as unknown as { label: string; sub?: string; why?: string };
   return (
-    <div title={d.why} className="relative rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] px-3 py-2 text-center text-[#ffffff] shadow">
+    <div title={d.why} className="relative rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] px-3 py-2 text-center text-[var(--color-text)] shadow">
       <Ports />
       <div className="font-mono text-[12px] font-bold">{d.label}</div>
       {d.sub && <div className="font-mono text-[10px] text-[var(--color-faint)]">{d.sub}</div>}

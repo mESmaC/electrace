@@ -125,7 +125,7 @@ function BlockNode(props: NodeProps) {
 
   return (
     <div style={{ width: 210, boxShadow: shadow }}
-      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface-2)] text-[#ffffff]`}>
+      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface-2)] text-[var(--color-text)]`}>
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
         <span className="grid h-6 w-6 place-items-center rounded-md border text-sm" style={glyphChip(block.glyphColor)}>{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
@@ -876,7 +876,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       </div>
       </div>
 
-      <aside className="w-80 shrink-0 overflow-auto border-l border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-[#ffffff]">
+      <aside className="w-80 shrink-0 overflow-auto border-l border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-[var(--color-text)]">
         {passportNet && (
           <div className="mb-5 rounded-xl border border-[#4c8dff] bg-[var(--color-surface-2)] p-3">
             <div className="flex items-center gap-2">

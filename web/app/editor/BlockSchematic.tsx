@@ -735,7 +735,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                     onDragStart={(e) => { e.dataTransfer.setData("text/symbol", type); e.dataTransfer.effectAllowed = "copy"; }}
                     onClick={() => addSym(type)}
                     className="group flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-1 hover:border-[#4c8dff] active:cursor-grabbing">
-                    <svg viewBox={`-6 -6 ${s.w + 12} ${s.h + 12}`} preserveAspectRatio="xMidYMid meet" width="100%" height="30" style={{ display: "block", pointerEvents: "none" }}>{s.draw(symStyle)}</svg>
+                    <svg viewBox={`-6 -6 ${s.w + 12} ${s.h + 12}`} preserveAspectRatio="xMidYMid meet" width="100%" height="30" style={{ display: "block", pointerEvents: "none", color: "var(--color-text)" }}>{s.draw(symStyle)}</svg>
                     <span className="w-full truncate text-center text-[8px] leading-tight text-[var(--color-faint)] group-hover:text-[var(--color-text)]">{s.label}</span>
                   </button>
                 );
@@ -774,7 +774,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
         <svg ref={svgRef} width="100%" height="100%" viewBox={`${pan.x} ${pan.y} ${vw} ${vh}`}
           onPointerDown={onSvgDown} onPointerMove={onMove} onPointerUp={onUp}
           onAuxClick={(e) => e.preventDefault()} onContextMenu={(e) => e.preventDefault()}
-          style={{ display: "block", touchAction: "none", cursor: draw ? "crosshair" : "default" }}>
+          style={{ display: "block", touchAction: "none", cursor: draw ? "crosshair" : "default", color: "var(--color-text)" }}>
           <defs>
             <pattern id="bsgrid" width={GRID * 2} height={GRID * 2} patternUnits="userSpaceOnUse">
               <circle cx="1" cy="1" r="0.9" fill="#56617d" />
@@ -800,10 +800,10 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                   onPointerLeave={() => setHoverNet(null)}
                   style={{ cursor: draw ? "crosshair" : "move" }} />
                 {selected && w.mid.map((pt, i) => (
-                  <rect key={i} x={pt.x - hs} y={pt.y - hs} width={hs * 2} height={hs * 2} fill="#fff" stroke="#4c8dff" strokeWidth={1.5 / zoom}
+                  <rect key={i} x={pt.x - hs} y={pt.y - hs} width={hs * 2} height={hs * 2} stroke="#4c8dff" strokeWidth={1.5 / zoom}
                     onPointerDown={(e) => onWaypointDown(e, w, i)}
                     onDoubleClick={(e) => { e.stopPropagation(); setModel((m) => ({ ...m, wires: m.wires.map((x) => (x.id === w.id ? { ...x, mid: x.mid.filter((_, j) => j !== i) } : x)) })); }}
-                    style={{ cursor: "move" }} />
+                    style={{ cursor: "move", fill: "var(--color-surface)" }} />
                 ))}
               </g>
             );
@@ -833,7 +833,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
             if (!d) return null;
             const selected = isSelSym(s.id);
             const isPort = s.type === "port";
-            const labelFill = isPort ? (NET_COLOR[termOf(s.id)?.type ?? ""] ?? "#4c8dff") : "#ffffff";
+            const labelFill = isPort ? (NET_COLOR[termOf(s.id)?.type ?? ""] ?? "#4c8dff") : "currentColor";
             const rot = normRot(s.rot ?? 0);
             const bb = symBounds(s, d.w, d.h); // for upright label placement
             const glyph = s.chip ? renderChip(d, s.chip) : SYMBOLS[s.type]?.draw(symStyle);

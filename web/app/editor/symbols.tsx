@@ -16,8 +16,8 @@ export interface SymbolDef {
   draw: (style?: SymStyle) => React.ReactNode; // SVG content sized to viewBox 0 0 w h
 }
 
-const W = "#ffffff"; // symbol body
-const A = "#4c8dff"; // leads / pins
+const W = "currentColor"; // symbol body — themed (inherits the text color), so symbols read on any theme
+const A = "#4c8dff";      // leads / pins — accent, constant across themes
 
 export const SYMBOLS: Record<string, SymbolDef> = {
   resistor: {
@@ -836,7 +836,7 @@ export function SymbolNode(props: NodeProps) {
   const sel = props.selected;
   return (
     <div style={{ width: sym.w, height: sym.h, position: "relative" }}>
-      <svg width={sym.w} height={sym.h} viewBox={`0 0 ${sym.w} ${sym.h}`} style={{ overflow: "visible" }}>
+      <svg width={sym.w} height={sym.h} viewBox={`0 0 ${sym.w} ${sym.h}`} style={{ overflow: "visible", color: "var(--color-text)" }}>
         {sym.draw()}
       </svg>
       {(d.ref || d.value) && (
