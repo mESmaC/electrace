@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
+import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, CONNECTOR_CATALOG, connectorPart, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
@@ -40,7 +40,12 @@ pull-ups, series resistors) INTO the functional block they belong to — do not 
 blocks on the canvas. So when the Nano needs 22pF load caps and a 10k reset pull-up, they go inside the
 oscillator/MCU block, not as standalone "C1" and "R1" blocks.
 
-Build these with author_schematic: pass all the parts and the nets that join them in one call, exposing
+Board I/O (USB, power input, headers) belongs on a physical CONNECTOR, not dangling as exposed
+terminals. Place one with add_connector (e.g. usb-mini-b for a Nano's USB, barrel for DC) and wire the
+relevant block terminals to its pins (connect FT232.USBDP ↔ J1.D+). list_connectors shows what's
+available. A connector pin is the home for an off-board net.
+
+Build blocks with author_schematic: pass all the parts and the nets that join them in one call, exposing
 only the pins the rest of the design connects to. Use author_block as a shortcut only when a block
 genuinely is just one chip with nothing around it; otherwise prefer author_schematic so the support
 parts live with it.
@@ -286,8 +291,24 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       ].filter(Boolean);
       return { text: lines.join("\n"), changed: false };
     }
-    case "list_instances":
-      return { text: design.blocks.map((bi) => `${bi.ref} = ${bi.block} [${termList(blocks[bi.block])}]`).join("\n") || "(empty design)", changed: false };
+    case "list_instances": {
+      const bl = design.blocks.map((bi) => `${bi.ref} = ${bi.block} [${termList(blocks[bi.block])}]`);
+      const cn = (design.connectors ?? []).map((ci) => `${ci.ref} = connector ${ci.connector} [${connectorPart(ci.connector)?.pins.join(", ") ?? "?"}]`);
+      return { text: [...bl, ...cn].join("\n") || "(empty design)", changed: false };
+    }
+    case "list_connectors":
+      return { text: Object.values(CONNECTOR_CATALOG).map((c) => `${c.id} — ${c.name}: [${c.pins.join(", ")}]`).join("\n"), changed: false };
+    case "add_connector": {
+      const cid = String(input.connector ?? "");
+      const part = connectorPart(cid);
+      if (!part) return { text: `No connector "${cid}". Call list_connectors for valid ids (e.g. usb-mini-b, barrel, hdr-2x5).`, changed: false };
+      const used = new Set((design.connectors ?? []).map((c) => c.ref));
+      let ref = (typeof input.ref === "string" && input.ref.trim()) ? input.ref.trim() : "J1";
+      if (used.has(ref) || design.blocks.some((b) => b.ref === ref)) { let i = 1; while (used.has(`J${i}`) || design.blocks.some((b) => b.ref === `J${i}`)) i++; ref = `J${i}`; }
+      const n = (design.connectors ?? []).length;
+      design.connectors = [...(design.connectors ?? []), { ref, connector: cid, pos: [40 + (n % 4) * 200, 600] }];
+      return { text: `Added ${ref} (${part.name}). Pins: ${part.pins.join(", ")}. Wire a block terminal to a pin with connect, e.g. connect FT232.USBDP ↔ ${ref}.D+.`, changed: true };
+    }
     case "add_block": {
       const key = String(input.block ?? "");
       const b = blocks[key]; if (!b) return { text: `No such block "${key}". Call list_blocks for valid keys.`, changed: false };
@@ -311,7 +332,13 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
     }
     case "connect": {
       const fromIn = String(input.from ?? ""), toIn = String(input.to ?? "");
-      const valid = (e: string) => { const [r, t] = e.split("."); const bi = design.blocks.find((x) => x.ref === r); return !!bi && !!blocks[bi.block]?.terminals.some((x) => x.id === t); };
+      const valid = (e: string) => {
+        const [r, t] = e.split(".");
+        const bi = design.blocks.find((x) => x.ref === r);
+        if (bi && blocks[bi.block]?.terminals.some((x) => x.id === t)) return true;
+        const ci = (design.connectors ?? []).find((x) => x.ref === r); // a connector pin is a valid endpoint too
+        return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
+      };
       // An endpoint can be REF.terminal OR an existing net name (e.g. "GND") — resolve a net name to one
       // of its member pins so you can wire straight to a net without hunting for a specific terminal on it.
       const asNetMember = (name: string): string | null => {
@@ -423,7 +450,9 @@ const TOOLS = [
   { name: "list_instances", description: "List the blocks already placed in the current design.", input_schema: { type: "object", properties: {} } },
   { name: "add_block", description: "Place a block instance. Returns the new ref + its terminals.", input_schema: { type: "object", properties: { block: { type: "string", description: "exact block key (id@version) from list_blocks" }, ref: { type: "string", description: "optional instance ref; auto-generated if omitted" } }, required: ["block"] } },
   { name: "remove_block", description: "Remove a placed block (and its connections).", input_schema: { type: "object", properties: { ref: { type: "string" } }, required: ["ref"] } },
-  { name: "connect", description: "Wire two terminals together (e.g. PWR1.vout ↔ REG1.vin). Either endpoint may instead be an existing net name (e.g. GND, VCC) — it's resolved to a member of that net, so you can wire straight onto a net without naming a specific terminal on it.", input_schema: { type: "object", properties: { from: { type: "string", description: "REF.terminal, or an existing net name like GND" }, to: { type: "string", description: "REF.terminal, or an existing net name like GND" } }, required: ["from", "to"] } },
+  { name: "connect", description: "Wire two terminals together (e.g. PWR1.vout ↔ REG1.vin). An endpoint may be REF.terminal, a connector pin (J1.D+), or an existing net name (e.g. GND, VCC) — a net name is resolved to a member of that net, so you can wire straight onto a net without naming a specific terminal on it.", input_schema: { type: "object", properties: { from: { type: "string", description: "REF.terminal, a connector pin (J1.VBUS), or a net name like GND" }, to: { type: "string", description: "REF.terminal, a connector pin (J1.VBUS), or a net name like GND" } }, required: ["from", "to"] } },
+  { name: "list_connectors", description: "List the physical connectors you can place on the board (USB, headers, barrel jack, screw terminals, RJ45…), with their pins. Connectors are the board-edge home for off-board nets — e.g. a USB jack for the data lines.", input_schema: { type: "object", properties: {} } },
+  { name: "add_connector", description: "Place a physical connector on the board (e.g. usb-mini-b for the Nano's USB, barrel for DC power). Then wire block terminals to its pins with connect (FT232.USBDP ↔ J1.D+). Use this so board I/O (USB data, power input) lands on a real connector instead of dangling as exposed terminals.", input_schema: { type: "object", properties: { connector: { type: "string", description: "connector id from list_connectors, e.g. usb-mini-b, usb-c, barrel, hdr-2x5" }, ref: { type: "string", description: "reference designator, e.g. J1 (optional)" } }, required: ["connector"] } },
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
   { name: "analyze_design", description: "Run the deterministic checks on the current design — returns all findings (errors, warnings, and notes like 'block has no part yet').", input_schema: { type: "object", properties: {} } },
   { name: "list_nets", description: "List the actual derived net graph — each net's type, voltage, drivers (outputs) and loads (inputs). Read this instead of guessing connectivity.", input_schema: { type: "object", properties: {} } },

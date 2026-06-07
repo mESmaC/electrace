@@ -25,6 +25,8 @@ export const CONNECTOR_CATALOG: Record<string, ConnectorPart> = {
   "barrel":   { id: "barrel",   name: "Barrel jack 2.1mm", pins: ["+", "-"], footprint: "BarrelJack_Horizontal" },
   "usb-c":    { id: "usb-c",    name: "USB-C receptacle", pins: ["VBUS", "GND", "D+", "D-", "CC1", "CC2", "SBU1", "SBU2"], footprint: "USB_C_Receptacle" },
   "usb-a":    { id: "usb-a",    name: "USB-A receptacle", pins: ["VBUS", "D-", "D+", "GND"], footprint: "USB_A" },
+  "usb-mini-b":  { id: "usb-mini-b",  name: "USB Mini-B",  pins: ["VBUS", "D-", "D+", "ID", "GND", "SHIELD"], footprint: "USB_Mini-B" },
+  "usb-micro-b": { id: "usb-micro-b", name: "USB Micro-B", pins: ["VBUS", "D-", "D+", "ID", "GND", "SHIELD"], footprint: "USB_Micro-B" },
   "rj45":     { id: "rj45",     name: "RJ45", pins: numbered(8), footprint: "RJ45" },
 };
 
