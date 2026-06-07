@@ -6,7 +6,7 @@ import { analyze, type Design, type Block } from "@electrace/core";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
-const MAX_TURNS = 12;
+const MAX_TURNS = 24; // big ports (e.g. an Arduino Nano: many blocks + wires) need more tool turns
 
 const SYSTEM = `You are the Electrace assistant, embedded in a transparent, block-based EE IDE
 (schematic + PCB design). Help the user reason about and BUILD their design.
@@ -24,6 +24,11 @@ Read the real state instead of guessing: call list_nets to see the actual net gr
 analyze_design to read all findings — including notes like "block has no part yet". If a block you
 created is an empty interface shell, populate it (or tell the user the real part it stands for) so it
 reaches the BOM; don't leave the design as hollow boxes.
+
+Terminal directions matter for the driver checks: a passive part (crystal/resonator, ferrite,
+resistor, the second pad of a 2-terminal part) and a header/breakout pin are LOADS — declare them
+role "in", not "out". Only something that actively drives a net (a regulator output, an MCU output
+pin, a source) is role "out". Getting this right avoids false "two drivers on a net" warnings.
 
 A block's TERMINALS are only the pins it exposes to the rest of the design — NOT a chip's full
 pinout. An IC's pinout (all 32 pins of an ATmega, etc.) belongs on the chip symbol inside the block's
