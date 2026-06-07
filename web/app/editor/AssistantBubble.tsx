@@ -18,8 +18,8 @@ const MD = [
 ].join(" ");
 const renderMd = (text: string) => marked.parse(text, { async: false, gfm: true, breaks: true }) as string;
 
-/** Floating AI assistant. Collapsed it's a robot bubble; opening slides a side pane in over the canvas
- *  (collapsible back into the bubble). Conversations are switchable like any chat app and persist. */
+/** Sparky — the floating assistant. Collapsed it's a sparkle bubble; opening slides a side pane in over
+ *  the canvas (collapsible back into the bubble). Conversations are switchable like any chat app. */
 export default function AssistantBubble() {
   const [open, setOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
@@ -76,8 +76,8 @@ export default function AssistantBubble() {
         aria-hidden={!open}
       >
         <div className="flex items-center gap-1.5 border-b border-[#54607a] px-3 py-2">
-          <span className="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-[#8b6cff] to-[#4c8dff] text-[13px]">🤖</span>
-          <span className="text-[12px] font-semibold text-white">AI Assistant</span>
+          <span className="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-[#8b6cff] to-[#4c8dff] text-[13px]">✨</span>
+          <span className="text-[12px] font-semibold text-white">Sparky</span>
           <div className="ml-auto flex items-center gap-0.5">
             <button onClick={() => setHistOpen((o) => !o)} className={`${iconBtn} ${histOpen ? "bg-[#4e586f] text-white" : ""}`} title="Chats">☰</button>
             <button onClick={() => { newConversation(); setHistOpen(false); setInput(""); }} className={iconBtn} title="New chat">＋</button>
@@ -104,7 +104,7 @@ export default function AssistantBubble() {
         <div ref={scroller} className="flex-1 space-y-2 overflow-y-auto p-3 text-[12px]">
           {messages.length === 0 ? (
             <div className="rounded-lg rounded-tl-sm bg-[#4e586f] p-2.5 leading-relaxed text-white">
-              Hi — I&apos;ll help wire a chip from its part number, add the support parts a block needs, and explain what&apos;s on a net.
+Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add the support parts a block needs, and explain what&apos;s on a net.
               <span className="mt-1 block text-[10px] text-[#9aa3b5]">I can see your current design / PCB context.</span>
             </div>
           ) : (
@@ -143,10 +143,10 @@ export default function AssistantBubble() {
       </div>
 
       {/* Collapsed bubble — hidden while the pane is open */}
-      <button onClick={() => setOpen(true)} title="AI assistant"
+      <button onClick={() => setOpen(true)} title="Sparky — your design assistant"
         className={`absolute bottom-4 right-4 z-20 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#8b6cff] to-[#4c8dff] text-[22px] ring-2 ring-[#a98bff55] transition-all duration-200 hover:brightness-110 ${open ? "pointer-events-none scale-0 opacity-0" : "scale-100 opacity-100"}`}
         style={{ boxShadow: "0 6px 22px rgba(124,108,255,.55)" }}>
-        🤖
+        ✨
       </button>
     </>
   );
