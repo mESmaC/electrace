@@ -39,7 +39,7 @@ export function deleteUserBlock(key: string): void {
 export const isUserBlock = (key: string): boolean => key.startsWith("@user/");
 
 /** Build a fresh user block from the create form, with a unique slugged id. */
-export function makeUserBlock(input: { name: string; glyph?: string; category?: string; terminals: Terminal[] }): Block {
+export function makeUserBlock(input: { name: string; glyph?: string; glyphColor?: string; category?: string; terminals: Terminal[] }): Block {
   const base = input.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "block";
   const taken = new Set(Object.values(getUserBlocks()).map((b) => b.id));
   let slug = base, n = 2;
@@ -50,6 +50,7 @@ export function makeUserBlock(input: { name: string; glyph?: string; category?: 
     version: "1.0.0",
     category: input.category?.trim() || "custom",
     glyph: input.glyph?.trim() || "▦",
+    ...(input.glyphColor?.trim() ? { glyphColor: input.glyphColor.trim() } : {}),
     terminals: uniqTerminals(input.terminals),
   };
 }

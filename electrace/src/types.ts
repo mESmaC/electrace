@@ -85,6 +85,7 @@ export interface Block {
   author?: string;
   license?: string;
   glyph?: string;
+  glyphColor?: string;       // user-assigned accent for the block's glyph (hex); falls back to the theme accent
   topology?: "linear" | "switching";
   noisy?: boolean;
   spec?: Record<string, Range | number | string>;

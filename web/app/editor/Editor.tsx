@@ -28,6 +28,9 @@ const SEV_COLOR: Record<Severity, string> = {
 const SEV_ICON: Record<Severity, string> = {
   error: "✕", warn: "▲", recommendation: "💡", info: "ℹ", unknown: "○",
 };
+// User-assignable glyph colors for blocks; first = the default theme accent.
+const GLYPH_COLORS = ["#4c8dff", "#8b6cff", "#46dca6", "#f7b13c", "#ff6c9c", "#f87171", "#38bdf8", "#9aa3b5"];
+const glyphChip = (color?: string): React.CSSProperties => { const c = color || "#4c8dff"; return { color: c, borderColor: `${c}55`, background: `${c}26` }; };
 
 interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; [k: string]: unknown }
 interface ConnectorNodeData { connectorId: string; ref: string; [k: string]: unknown }
@@ -96,7 +99,7 @@ function BlockNode(props: NodeProps) {
       <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow }}
         className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#454e62] text-white`}>
         <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center text-center">
-          <span className="text-base">{block.glyph ?? "▦"}</span>
+          <span className="text-base" style={block.glyphColor ? { color: block.glyphColor } : undefined}>{block.glyph ?? "▦"}</span>
           <span className="text-[11px] font-semibold leading-tight">{block.name}</span>
           <span className="text-[9px] uppercase tracking-wide text-[#9aa3b5]">{instanceRef}</span>
         </div>
@@ -124,7 +127,7 @@ function BlockNode(props: NodeProps) {
     <div style={{ width: 210, boxShadow: shadow }}
       className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[#677494]"} bg-[#4e586f] text-[#ffffff]`}>
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        <span className="grid h-6 w-6 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-sm text-[#4c8dff]">{block.glyph ?? "▦"}</span>
+        <span className="grid h-6 w-6 place-items-center rounded-md border text-sm" style={glyphChip(block.glyphColor)}>{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
         <span className="text-[9px] uppercase tracking-wide text-[#9aa3b5]">{instanceRef}</span>
       </div>
@@ -424,7 +427,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [drillRef, setDrillRef] = useState<string | null>(null);
   const [bottomOpen, setBottomOpen] = useState(true);
   type FormTerm = { id: string; role: TerminalRole; type: NetType };
-  const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; category: string; terminals: FormTerm[]; editKey?: string } | null>(null);
+  const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; color: string; category: string; terminals: FormTerm[]; editKey?: string } | null>(null);
   const rfRef = useRef<ReactFlowInstance | null>(null);
 
   // strongly highlight a block: select it (blue ring), clear other selection, and animate-centre it
@@ -603,13 +606,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const resetSample = useCallback(() => loadDesign(design), [loadDesign, design]);
   // wipe every saved block-schematic draft so the blocks revert to their authored versions
   // --- user-defined blocks ---
-  const startNewBlock = () => setNewBlock({ name: "", glyph: "", category: "", terminals: [{ id: "vin", role: "in", type: "power" }, { id: "gnd", role: "in", type: "gnd" }] });
+  const startNewBlock = () => setNewBlock({ name: "", glyph: "", color: GLYPH_COLORS[0], category: "", terminals: [{ id: "vin", role: "in", type: "power" }, { id: "gnd", role: "in", type: "gnd" }] });
   // Edit a block you made: re-open the same form pre-filled. Saving keeps the block's id (and its
   // drawn internal schematic) so existing instances keep resolving — only its definition changes.
   const startEditBlock = (key: string) => {
     const b = allBlocks[key];
     if (!b) return;
-    setNewBlock({ name: b.name, glyph: b.glyph ?? "", category: b.category ?? "", editKey: key, terminals: b.terminals.map((t) => ({ id: t.id, role: t.role, type: t.type })) });
+    setNewBlock({ name: b.name, glyph: b.glyph ?? "", color: b.glyphColor ?? GLYPH_COLORS[0], category: b.category ?? "", editKey: key, terminals: b.terminals.map((t) => ({ id: t.id, role: t.role, type: t.type })) });
   };
   const createBlock = () => {
     if (!newBlock || !newBlock.name.trim()) return;
@@ -617,9 +620,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     if (!terms.length) return;
     if (newBlock.editKey && allBlocks[newBlock.editKey]) {
       const existing = allBlocks[newBlock.editKey];                  // preserve id/version/layout/schematic
-      saveUserBlock({ ...existing, name: newBlock.name.trim(), glyph: newBlock.glyph.trim() || existing.glyph, category: newBlock.category.trim() || existing.category, terminals: terms });
+      saveUserBlock({ ...existing, name: newBlock.name.trim(), glyph: newBlock.glyph.trim() || existing.glyph, glyphColor: newBlock.color, category: newBlock.category.trim() || existing.category, terminals: terms });
     } else {
-      saveUserBlock(makeUserBlock({ name: newBlock.name, glyph: newBlock.glyph, category: newBlock.category, terminals: terms }));
+      saveUserBlock(makeUserBlock({ name: newBlock.name, glyph: newBlock.glyph, glyphColor: newBlock.color, category: newBlock.category, terminals: terms }));
     }
     setNewBlock(null); setUserV((v) => v + 1);
   };
@@ -724,7 +727,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       <button onClick={() => addBlock(key)} draggable title={b.name}
         onDragStart={(e) => { e.dataTransfer.setData("application/electrace-block", key); e.dataTransfer.effectAllowed = "copy"; }}
         className="flex h-full w-full cursor-grab flex-col items-center gap-1 rounded-lg border border-[#54607a] bg-[#4e586f] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
-        <span className="grid h-8 w-8 place-items-center rounded-md border border-[#4c8dff55] bg-[#4c8dff26] text-base text-[#4c8dff]">{b.glyph ?? "▦"}</span>
+        <span className="grid h-8 w-8 place-items-center rounded-md border text-base" style={glyphChip(b.glyphColor)}>{b.glyph ?? "▦"}</span>
         <span className="text-[10px] leading-tight text-white" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.name}</span>
       </button>
       {isUserBlock(key) && (
@@ -910,7 +913,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         {selectedBlock && (
           <div className="mb-5 rounded-xl border border-[#4c8dff] bg-[#4e586f] p-3">
             <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-lg border border-[#4c8dff55] bg-[#4c8dff26] text-[#4c8dff]">{selectedBlock.glyph ?? "▦"}</span>
+              <span className="grid h-8 w-8 place-items-center rounded-lg border" style={glyphChip(selectedBlock.glyphColor)}>{selectedBlock.glyph ?? "▦"}</span>
               <div>
                 <div className="text-sm font-semibold">{selectedBlock.name}</div>
                 <div className="font-mono text-[10px] text-[#9aa3b5]">{selectedId}</div>
@@ -1049,9 +1052,22 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
               </label>
               <label className="w-16 text-[11px] text-[#9aa3b5]">Glyph
                 <input value={newBlock.glyph} onChange={(e) => setNewBlock({ ...newBlock, glyph: e.target.value.slice(0, 2) })} placeholder="▦"
-                  className="mt-1 w-full rounded-md border border-[#54607a] bg-[#3c4658] px-2 py-1.5 text-center text-[14px] outline-none focus:border-[#4c8dff]" />
+                  className="mt-1 w-full rounded-md border text-center text-[14px] outline-none focus:border-[#4c8dff]" style={{ ...glyphChip(newBlock.color), paddingTop: 6, paddingBottom: 6 }} />
               </label>
             </div>
+            <label className="mb-3 block text-[11px] text-[#9aa3b5]">Glyph color
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {GLYPH_COLORS.map((c) => (
+                  <button key={c} type="button" onClick={() => setNewBlock({ ...newBlock, color: c })} title={c}
+                    className={`h-6 w-6 rounded-full border-2 transition ${newBlock.color.toLowerCase() === c ? "border-white" : "border-transparent hover:border-[#9aa3b5]"}`}
+                    style={{ background: c }} />
+                ))}
+                <label className="relative ml-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full border border-[#54607a] text-[10px] text-[#9aa3b5] hover:border-[#4c8dff]" title="Custom color">
+                  <span style={{ color: newBlock.color }}>●</span>
+                  <input type="color" value={newBlock.color} onChange={(e) => setNewBlock({ ...newBlock, color: e.target.value })} className="absolute h-0 w-0 opacity-0" />
+                </label>
+              </div>
+            </label>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-[#9aa3b5]">Terminals</span>
               <button onClick={() => setNewBlock({ ...newBlock, terminals: [...newBlock.terminals, { id: "", role: "in", type: "signal" }] })}
