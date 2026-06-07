@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authorChipLayout, authorPartLayout, deriveBlockSchematic } from "../src/index.js";
+import { authorChipLayout, authorPartLayout, buildBlockLayout, deriveBlockSchematic } from "../src/index.js";
 
 test("authorChipLayout: chip becomes a part, exposed pins become wired terminals", () => {
   const { layout, terminals } = authorChipLayout(
@@ -46,4 +46,36 @@ test("authorPartLayout: explicit pinMap wires named pins (regulator IN/OUT/GND)"
   const sch = deriveBlockSchematic(layout);
   assert.ok(sch.parts.some((p) => p.ref === "U1" && p.value === "LM1117-5.0"));
   assert.ok(sch.nets.some((n) => n.connect.includes("@vout") && n.connect.includes("U1.OUT")));
+});
+
+test("buildBlockLayout: a real subcircuit — crystal oscillator block (crystal + 2 load caps + chip)", () => {
+  const { layout, terminals } = buildBlockLayout(
+    [
+      { ref: "Y1", type: "crystal", value: "16MHz" },
+      { ref: "C1", type: "capacitor", value: "22pF" },
+      { ref: "C2", type: "capacitor", value: "22pF" },
+      { ref: "U1", chip: { profile: "qfp", pins: 32, mpn: "ATmega328P-AU", names: { "7": "XTAL1", "8": "XTAL2", "3": "GND" } } },
+    ],
+    [
+      { connect: ["U1.XTAL1", "Y1.1", "C1.1"], expose: "XTAL1" },
+      { connect: ["U1.XTAL2", "Y1.2", "C2.1"], expose: "XTAL2" },
+      { connect: ["C1.2", "C2.2", "U1.GND"], expose: "GND" },
+    ],
+  );
+  const sch = deriveBlockSchematic(layout);
+
+  // FOUR real parts in ONE block — not four blocks
+  assert.deepEqual(sch.parts.map((p) => p.ref).sort(), ["C1", "C2", "U1", "Y1"]);
+  assert.equal(sch.parts.find((p) => p.ref === "C1")!.value, "22pF");
+  assert.equal(sch.parts.find((p) => p.ref === "Y1")!.type, "crystal");
+
+  // the XTAL1 net actually joins the chip pin, the crystal, and its load cap
+  const xtal1 = sch.nets.find((n) => n.connect.includes("@XTAL1"))!;
+  assert.ok(xtal1.connect.includes("U1.XTAL1") && xtal1.connect.includes("Y1.1") && xtal1.connect.includes("C1.1"));
+  // both cap bottoms tie to the exposed GND terminal
+  const gnd = sch.nets.find((n) => n.connect.includes("@GND"))!;
+  assert.ok(gnd.connect.includes("C1.2") && gnd.connect.includes("C2.2"));
+  // exposes exactly the 3 external pins, GND typed as gnd
+  assert.deepEqual(terminals.map((t) => t.id).sort(), ["GND", "XTAL1", "XTAL2"]);
+  assert.equal(terminals.find((t) => t.id === "GND")!.type, "gnd");
 });

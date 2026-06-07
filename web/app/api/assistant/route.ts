@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, authorChipLayout, authorPartLayout, deriveBlockSchematic, type Design, type Block, type SchematicLayout } from "@electrace/core";
+import { analyze, authorChipLayout, buildBlockLayout, deriveBlockSchematic, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
@@ -27,13 +27,23 @@ author or edit a block, call get_block to CONFIRM the change landed rather than 
 finding seems stale, get_block is the source of truth. If a block you created is an empty interface
 shell, populate it so it reaches the BOM; don't leave the design as hollow boxes.
 
-The library is a STARTING POINT, not a ceiling. If the right part doesn't exist — a 22pF crystal
-load cap, a 10k pull-up, a 5V regulator instead of the generic 3.3V one — don't give up ("the library
-has no cap block, so I'll leave this open"), and don't wire a wrong library block and apologize for it.
-DESIGN the block you need: create_block with the terminals it needs, then author_part (for a discrete/
-passive: cap, resistor, diode, crystal, regulator, source…) or author_block (for a chip). Authoring a
-22pF cap or a 5V LDO is one cheap tool call — prefer doing it over leaving an open pin or a wrong-value
-part. The whole point of Electrace is that you can build the part you need, so build it. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
+The library is a STARTING POINT, not a ceiling. If the right part doesn't exist — a 5V regulator
+instead of the generic 3.3V one, an oscillator, a reset network — don't give up ("the library has no
+cap block, so I'll leave this open") and don't wire a wrong library block and apologize for it. DESIGN
+the block you need.
+
+A BLOCK IS A FUNCTIONAL SUBCIRCUIT, NOT A SINGLE COMPONENT. Real schematics have no block that contains
+just one cap or one resistor. A block is a meaningful group: an oscillator (crystal + its two load
+caps), a power supply (regulator + input/output caps + protection diode), an MCU (the chip + its
+decoupling caps + reset pull-up). Fold support parts (decoupling/bypass caps, crystal load caps,
+pull-ups, series resistors) INTO the functional block they belong to — do not scatter them as one-part
+blocks on the canvas. So when the Nano needs 22pF load caps and a 10k reset pull-up, they go inside the
+oscillator/MCU block, not as standalone "C1" and "R1" blocks.
+
+Build these with author_schematic: pass all the parts and the nets that join them in one call, exposing
+only the pins the rest of the design connects to. Use author_block as a shortcut only when a block
+genuinely is just one chip with nothing around it; otherwise prefer author_schematic so the support
+parts live with it. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
 (chip.names) and the pins to expose — that drops the actual chip into the block's schematic (BOM +
 footprint) and makes those pins terminals (no need to add the whole pinout as terminals by hand).
 
@@ -126,26 +136,43 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
       return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals.`, changed: true };
     }
-    case "author_part": {
+    case "author_schematic": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
       if (err) return { text: err, changed: false };
-      const type = String(input.type ?? "").trim();
-      if (!type) return { text: 'author_part needs a symbol type, e.g. "capacitor", "resistor", "inductor", "diode", "crystal", "regulator", "battery".', changed: false };
-      if (!b!.terminals.length) return { text: `${b!.name} has no terminals to wire the part to — add terminals first (create_block/update_block).`, changed: false };
-      const value = typeof input.value === "string" && input.value.trim() ? input.value.trim() : undefined;
-      const mpn = typeof input.mpn === "string" && input.mpn.trim() ? input.mpn.trim() : undefined;
-      const pinMap = input.pins && typeof input.pins === "object" ? (input.pins as Record<string, string>) : undefined;
-      const ref = typeof input.ref === "string" && input.ref.trim() ? input.ref.trim() : `${(b!.name[0] || "X").toUpperCase()}1`;
-      const termIds = b!.terminals.map((t) => t.id);
-      const { layout } = authorPartLayout(ref, type, termIds, value, pinMap);
-      // value rides on the symbol; only pass authoredParts for the mpn (so part.type stays the
-      // catalog's clean BOM type — "cap", not the symbol string "capacitor").
-      const schematic = deriveBlockSchematic(layout, mpn ? [{ ref, part: mpn }] : []);
-      if (!schematic.parts.length) return { text: `Couldn't author "${type}" — no part was produced. Is the symbol type valid?`, changed: false };
-      const nb: Block = { ...b!, layout, schematic };
+      const rawParts = Array.isArray(input.parts) ? input.parts : [];
+      const rawNets = Array.isArray(input.nets) ? input.nets : [];
+      if (!rawParts.length) return { text: "author_schematic needs parts[] — the components in this block's subcircuit. A block should be a functional group (e.g. an oscillator = crystal + 2 caps), not empty.", changed: false };
+      const parts: PartSpec[] = [];
+      for (const r of rawParts as Record<string, unknown>[]) {
+        const ref = String(r.ref ?? "").trim();
+        if (!ref) return { text: "every part needs a ref (e.g. C1, R3, U1, Y1).", changed: false };
+        const c = r.chip as { profile?: unknown; pins?: unknown; mpn?: unknown; names?: unknown } | undefined;
+        const names = c?.names && typeof c.names === "object" ? (c.names as Record<string, string>) : null;
+        if (names && Object.keys(names).length) {
+          parts.push({ ref, chip: { profile: String(c?.profile ?? "qfp"), pins: Math.max(Object.keys(names).length, Number(c?.pins) || 0), names, ...(c?.mpn ? { mpn: String(c.mpn) } : {}) } });
+        } else {
+          const type = String(r.type ?? "").trim();
+          if (!type) return { text: `part ${ref} needs either a type (e.g. "capacitor", "resistor", "regulator") or a chip { names }.`, changed: false };
+          parts.push({ ref, type, ...(r.value ? { value: String(r.value) } : {}), ...(r.mpn ? { mpn: String(r.mpn) } : {}) });
+        }
+      }
+      const nets: NetSpec[] = (rawNets as Record<string, unknown>[]).map((r) => ({
+        connect: Array.isArray(r.connect) ? r.connect.map(String) : [],
+        ...(r.expose ? { expose: String(r.expose) } : {}),
+        ...(r.role === "in" || r.role === "out" ? { role: r.role } : {}),
+        ...(typeof r.type === "string" ? { type: r.type as NetSpec["type"] } : {}),
+      }));
+      const { layout, terminals } = buildBlockLayout(parts, nets);
+      // mpns are part metadata overrides; values ride on the symbols (so BOM type stays the clean catalog type).
+      const authored = parts.filter((p) => p.mpn || p.chip?.mpn).map((p) => ({ ref: p.ref, part: (p.mpn ?? p.chip?.mpn)! }));
+      const schematic = deriveBlockSchematic(layout, authored);
+      if (!schematic.parts.length) return { text: "No parts were produced — check the part types/refs.", changed: false };
+      const have = new Set(b!.terminals.map((t) => t.id));
+      const merged = [...b!.terminals];
+      for (const t of terminals) if (!have.has(t.id)) { merged.push(t); have.add(t.id); }
+      const nb: Block = { ...b!, terminals: merged, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      const p = schematic.parts[0];
-      return { text: `Authored ${p.ref} (${p.type}${value ? ` ${value}` : ""}${mpn ? ` ${mpn}` : ""}) into ${b!.name} — real BOM part now, wired to ${termIds.join(", ")}.`, changed: true };
+      return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.`, changed: true };
     }
     case "delete_block": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -244,7 +271,7 @@ const TOOLS = [
   { name: "update_block", description: "Edit a custom block you created — rename it, change its glyph/category, or relabel its terminals (pins). Library blocks can't be edited.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, name: { type: "string" }, glyph: { type: "string" }, category: { type: "string" }, terminals: TERMS_SCHEMA }, required: ["block"] } },
   { name: "get_block", description: "Inspect ONE block's current state: its terminals, whether it's been authored with a real chip (and which), and the parts in its internal schematic with their values (what's on the BOM). Use this to verify ground truth after authoring/editing instead of assuming — read-after-write.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "author_block", description: "Populate a custom block's INTERNAL schematic with a real chip: places the IC with its full pinout as an actual part (so it hits the BOM + gets a PCB footprint), and exposes the chosen pins as the block's terminals. This is how you make a block real instead of a hollow shell — use it for MCUs/ICs.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, ref: { type: "string", description: "chip reference designator, e.g. U1 (default U1)" }, chip: { type: "object", properties: { profile: { type: "string", description: "package: soic | qfp | qfn | dip | sot | bga" }, pins: { type: "number" }, mpn: { type: "string", description: "manufacturer part number, e.g. ATmega328P-AU" }, names: { type: "object", description: 'pin map { "1": "PD3", "4": "VCC", "7": "PB6_XTAL1", ... } — pin number → function name' } }, required: ["names"] }, expose: { type: "array", items: { type: "string" }, description: 'function names to expose as block terminals, e.g. ["VCC","GND","PD0_RXD","PC6_RESET"]' } }, required: ["block", "chip"] } },
-  { name: "author_part", description: "Populate a custom block with ONE discrete/passive part — resistor, capacitor, inductor, diode, crystal, ferrite, fuse, LED, transistor, regulator, battery/source, etc. — and its value, so it becomes a real BOM/PCB component instead of a hollow shell. This is the low-friction way to build the simple parts you'd otherwise skip or leave as open pins (a 22pF cap, a 10k pull-up, a 5V regulator): create_block with the terminals you want, then author_part. The part's pins wire to the block's terminals positionally (terminal 1 ↔ pin 1) unless you give an explicit pins map.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, type: { type: "string", description: "symbol type: capacitor | cap-pol | resistor | inductor | ferrite | crystal | fuse | diode | schottky | zener | tvs | led | npn | pnp | nmos | pmos | regulator | battery | isource | acsource | thermistor | varistor | potentiometer" }, value: { type: "string", description: "the part value, e.g. 22pF, 10k, 16MHz, 100nF" }, mpn: { type: "string", description: "manufacturer part number (optional)" }, ref: { type: "string", description: "reference designator, e.g. C1, R3, Y1 (optional)" }, pins: { type: "object", description: 'optional explicit map of terminalId → symbol pin, e.g. {"vin":"IN","vout":"OUT","gnd":"GND"}. Omit for 2-pin passives (positional).' } }, required: ["block", "type"] } },
+  { name: "author_schematic", description: "Build a custom block's INTERNAL SCHEMATIC as a real functional subcircuit: SEVERAL parts wired together, exposing only the pins the rest of the design connects to. This is how a block should be built — an oscillator block = crystal + 2 load caps; a power-supply block = regulator + input/output caps + diode; an MCU block = the chip + its decoupling caps + reset network. Do NOT make one block per component (a block holding a single cap is wrong). Pass all the parts and the nets that join them in one call. Endpoints are 'ref.pin'; for a chip part you can use the function name ('U1.VCC'). A net with `expose` becomes a block terminal of that name; nets without `expose` are internal nodes.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, parts: { type: "array", description: "the components in this block", items: { type: "object", properties: { ref: { type: "string", description: "reference designator, e.g. C1, R3, Y1, U1" }, type: { type: "string", description: "symbol type for a discrete: capacitor | cap-pol | resistor | inductor | ferrite | crystal | fuse | diode | schottky | zener | tvs | led | npn | pnp | nmos | pmos | regulator | battery | isource | thermistor | varistor — OR omit and give chip{} for an IC" }, value: { type: "string", description: "value, e.g. 22pF, 10k, 16MHz" }, mpn: { type: "string", description: "manufacturer part number (optional)" }, chip: { type: "object", description: "for an IC part: its package + full pinout", properties: { profile: { type: "string", description: "soic | qfp | qfn | dip | sot" }, pins: { type: "number" }, mpn: { type: "string" }, names: { type: "object", description: 'pin map { "1":"PD3", "4":"VCC", ... }' } } } }, required: ["ref"] } }, nets: { type: "array", description: "the nets joining the parts; expose the ones the design connects to", items: { type: "object", properties: { connect: { type: "array", items: { type: "string" }, description: "endpoints 'ref.pin' (chip pins may use function names, e.g. 'U1.XTAL1')" }, expose: { type: "string", description: "if set, this net becomes a block terminal of this name" }, role: { type: "string", enum: ["in", "out"], description: "override the exposed terminal's role (else inferred)" }, type: { type: "string", enum: ["power", "rail", "signal", "gnd"], description: "override the exposed terminal's type (else inferred)" } }, required: ["connect"] } } }, required: ["block", "parts"] } },
   { name: "delete_block", description: "Delete a custom block you created (also removes any placed instances). Library blocks can't be deleted.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "list_instances", description: "List the blocks already placed in the current design.", input_schema: { type: "object", properties: {} } },
   { name: "add_block", description: "Place a block instance. Returns the new ref + its terminals.", input_schema: { type: "object", properties: { block: { type: "string", description: "exact block key (id@version) from list_blocks" }, ref: { type: "string", description: "optional instance ref; auto-generated if omitted" } }, required: ["block"] } },
