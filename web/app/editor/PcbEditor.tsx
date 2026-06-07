@@ -740,7 +740,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
             const pl = placeOf(c.ref, i);
             const on = sel?.kind === "comp" && sel.id === c.ref;
             return (
-              <g key={c.ref}>
+              <g key={`${c.ref}__${i}`}>
                 <g transform={`translate(${pl.x},${pl.y}) rotate(${pl.rot})`}>
                   <g onPointerDown={(e) => onCompDown(e, c.ref, pl)} onClick={tool === "measure" ? () => measureClick(snapPoint(cursorRef.current)) : undefined} style={{ cursor: tool === "select" ? "move" : "crosshair" }}>
                     {/* courtyard / silkscreen body */}

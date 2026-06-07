@@ -15,10 +15,17 @@ const pinId = (key: string) => key.slice(key.indexOf(".") + 1);
  *  human-authored part metadata — `why`, `footprint`, `part`, polarity — merged in by ref. */
 export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Part[] = []): Schematic {
   const ports = new Map<string, string>();      // symbol id → terminal id (its ref)
-  const comp = new Map<string, PlacedSymbol>();  // component symbols (everything else)
+  const markers = new Map<string, string>();    // net-marker symbol id → the net name it asserts
+  const comp = new Map<string, PlacedSymbol>(); // real components (everything else)
+  // ground/vcc/off-board/net-label are net markers, not physical parts: they name a net but never
+  // become a BOM/PCB component (several grounds default to ref "GND" — treating them as parts collides).
+  const markerName = (s: PlacedSymbol): string | null =>
+    s.type === "ground" ? "GND" : s.type === "vcc" ? (s.ref || "VCC")
+      : s.type === "offboard" ? (s.ref || "EXT") : s.type === "netlabel" ? (s.ref || "NET") : null;
   for (const s of layout.symbols) {
-    if (s.type === "port") ports.set(s.id, s.ref ?? s.id);
-    else comp.set(s.id, s);
+    if (s.type === "port") { ports.set(s.id, s.ref ?? s.id); continue; }
+    const nm = markerName(s);
+    if (nm) markers.set(s.id, nm); else comp.set(s.id, s);
   }
 
   // union-find the pins joined by wires → connected components = nets
@@ -39,6 +46,7 @@ export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Par
     for (const k of keys) {
       const sid = symId(k);
       if (ports.has(sid)) { const t = ports.get(sid)!; term ??= t; connect.push(`@${t}`); }
+      else if (markers.has(sid)) { term ??= markers.get(sid); } // a net marker names the net, not a part pin
       else if (comp.has(sid)) {
         const s = comp.get(sid)!, pid = pinId(k);
         const name = s.chip?.names?.[pid]; // a named chip pin connects as its function (U1.1 → U1.VIN)
