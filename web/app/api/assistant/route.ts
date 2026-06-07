@@ -43,7 +43,18 @@ oscillator/MCU block, not as standalone "C1" and "R1" blocks.
 Build these with author_schematic: pass all the parts and the nets that join them in one call, exposing
 only the pins the rest of the design connects to. Use author_block as a shortcut only when a block
 genuinely is just one chip with nothing around it; otherwise prefer author_schematic so the support
-parts live with it. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
+parts live with it.
+
+Do NOT place the same generic passive block (capacitor, resistor) several times expecting different
+values — a shared block definition has ONE shared value, so set_value on it changes every instance. The
+two 22pF crystal caps and a 10k pull-up are not three blocks on the canvas; they belong INSIDE the
+oscillator / reset subcircuit (author_schematic), where each part carries its own value. One functional
+block, several parts — that's the path of least resistance and the only one that gives each passive its
+own value.
+
+Authoring re-derives a block's terminals from its schematic, which can RENAME pins (a placeholder "xin"
+becomes the chip's "XTAL1"). The tool result will warn you when that orphans existing wires — read it
+and reconnect/clean up; don't assume authoring left your connections intact. To populate an IC/MCU block with a real chip, call author_block with the part's pinout
 (chip.names) and the pins to expose — that drops the actual chip into the block's schematic (BOM +
 footprint) and makes those pins terminals (no need to add the whole pinout as terminals by hand).
 
@@ -72,6 +83,19 @@ interface Payload { context?: ContextItem[]; history?: Pick<ChatMessage, "role" 
 const refPrefix = (b?: Block) => ((b?.name ?? "B").split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 3) || "B");
 function freshRef(design: Design, b?: Block) { const p = refPrefix(b); let i = 1; while (design.blocks.some((x) => x.ref === `${p}${i}`)) i++; return `${p}${i}`; }
 const termList = (b?: Block) => (b?.terminals ?? []).map((t) => `${t.id} (${t.role}, ${t.type})`).join(", ");
+// Authoring re-derives a block's terminals from the schematic, which can leave PRIOR terminals (e.g. a
+// placeholder "xin" replaced by the chip's "XTAL1") unwired and silently open every connection that
+// referenced them. Surface that loudly instead — the agent expects authoring to populate, not rewire.
+function orphanWarning(prevIds: string[], authoredIds: string[], blockKey: string, design: Design): string {
+  const authored = new Set(authoredIds);
+  const orphaned = prevIds.filter((id) => !authored.has(id));
+  if (!orphaned.length) return "";
+  const refs = design.blocks.filter((bi) => bi.block === blockKey).map((bi) => bi.ref);
+  const broken: string[] = [];
+  for (const ref of refs) for (const o of orphaned) { const ep = `${ref}.${o}`; if (design.connections.some((c) => c.from === ep || c.to === ep)) broken.push(ep); }
+  return ` ⚠ Heads up: prior terminal(s) the new schematic doesn't wire, now dangling: ${orphaned.join(", ")}.` +
+    (broken.length ? ` ${broken.length} existing connection(s) are now OPEN: ${broken.join(", ")} — reconnect them to the new terminals [${authoredIds.join(", ")}] or drop the stale ones via update_block.` : ` Drop them via update_block if unused.`);
+}
 const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "block";
 const ROLES = new Set(["in", "out"]), NETTYPES = new Set(["power", "rail", "signal", "gnd"]);
 function cleanTerminals(raw: unknown): { id: string; role: "in" | "out"; type: "power" | "rail" | "signal" | "gnd" }[] {
@@ -134,7 +158,8 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const schematic = deriveBlockSchematic(layout);
       const nb: Block = { ...b!, terminals: merged, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals.`, changed: true };
+      const warn = orphanWarning(b!.terminals.map((t) => t.id), terminals.map((t) => t.id), key, design);
+      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals.${warn}`, changed: true };
     }
     case "author_schematic": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -172,7 +197,8 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       for (const t of terminals) if (!have.has(t.id)) { merged.push(t); have.add(t.id); }
       const nb: Block = { ...b!, terminals: merged, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.`, changed: true };
+      const warn = orphanWarning(b!.terminals.map((t) => t.id), terminals.map((t) => t.id), key, design);
+      return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.${warn}`, changed: true };
     }
     case "set_value": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -236,13 +262,34 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       return { text: `Removed ${ref} and its connections.`, changed: true };
     }
     case "connect": {
-      const from = String(input.from ?? ""), to = String(input.to ?? "");
+      const fromIn = String(input.from ?? ""), toIn = String(input.to ?? "");
       const valid = (e: string) => { const [r, t] = e.split("."); const bi = design.blocks.find((x) => x.ref === r); return !!bi && !!blocks[bi.block]?.terminals.some((x) => x.id === t); };
-      if (!valid(from)) return { text: `Endpoint "${from}" doesn't exist (need REF.terminal).`, changed: false };
-      if (!valid(to)) return { text: `Endpoint "${to}" doesn't exist (need REF.terminal).`, changed: false };
+      // An endpoint can be REF.terminal OR an existing net name (e.g. "GND") — resolve a net name to one
+      // of its member pins so you can wire straight to a net without hunting for a specific terminal on it.
+      const asNetMember = (name: string): string | null => {
+        try {
+          const a = analyze(design, blockMap);
+          const net = a.resolved.nets.find((n) => n.id.toLowerCase() === name.toLowerCase());
+          if (!net) return null;
+          const s = net.sources[0]; if (s) return `${s.instance}.${s.terminal}`;
+          const k = net.sinks[0]; if (k) return `${k.pin.instance}.${k.pin.terminal}`;
+        } catch { /* ignore */ }
+        return null;
+      };
+      const resolve1 = (e: string): { ep?: string; err?: string } => {
+        if (valid(e)) return { ep: e };
+        if (!e.includes(".")) { const m = asNetMember(e); if (m) return { ep: m }; return { err: `"${e}" isn't a REF.terminal or an existing net.` }; }
+        return { err: `Endpoint "${e}" doesn't exist (need REF.terminal, or a net name like GND).` };
+      };
+      const rf = resolve1(fromIn), rt = resolve1(toIn);
+      if (rf.err) return { text: rf.err, changed: false };
+      if (rt.err) return { text: rt.err, changed: false };
+      const from = rf.ep!, to = rt.ep!;
+      if (from === to) return { text: `${fromIn} and ${toIn} resolve to the same pin — already the same net.`, changed: false };
       if (design.connections.some((c) => (c.from === from && c.to === to) || (c.from === to && c.to === from))) return { text: `${from} ↔ ${to} already connected.`, changed: false };
       design.connections.push({ from, to });
-      return { text: `Connected ${from} ↔ ${to}.`, changed: true };
+      const note = (from !== fromIn || to !== toIn) ? ` (via net member ${from !== fromIn ? from : to})` : "";
+      return { text: `Connected ${from} ↔ ${to}${note}.`, changed: true };
     }
     case "disconnect": {
       const from = String(input.from ?? ""), to = String(input.to ?? "");
@@ -312,7 +359,7 @@ const TOOLS = [
   { name: "list_instances", description: "List the blocks already placed in the current design.", input_schema: { type: "object", properties: {} } },
   { name: "add_block", description: "Place a block instance. Returns the new ref + its terminals.", input_schema: { type: "object", properties: { block: { type: "string", description: "exact block key (id@version) from list_blocks" }, ref: { type: "string", description: "optional instance ref; auto-generated if omitted" } }, required: ["block"] } },
   { name: "remove_block", description: "Remove a placed block (and its connections).", input_schema: { type: "object", properties: { ref: { type: "string" } }, required: ["ref"] } },
-  { name: "connect", description: "Wire two terminals together (e.g. PWR1.vout ↔ REG1.vin).", input_schema: { type: "object", properties: { from: { type: "string", description: "REF.terminal" }, to: { type: "string", description: "REF.terminal" } }, required: ["from", "to"] } },
+  { name: "connect", description: "Wire two terminals together (e.g. PWR1.vout ↔ REG1.vin). Either endpoint may instead be an existing net name (e.g. GND, VCC) — it's resolved to a member of that net, so you can wire straight onto a net without naming a specific terminal on it.", input_schema: { type: "object", properties: { from: { type: "string", description: "REF.terminal, or an existing net name like GND" }, to: { type: "string", description: "REF.terminal, or an existing net name like GND" } }, required: ["from", "to"] } },
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
   { name: "analyze_design", description: "Run the deterministic checks on the current design — returns all findings (errors, warnings, and notes like 'block has no part yet').", input_schema: { type: "object", properties: {} } },
   { name: "list_nets", description: "List the actual derived net graph — each net's type, voltage, drivers (outputs) and loads (inputs). Read this instead of guessing connectivity.", input_schema: { type: "object", properties: {} } },

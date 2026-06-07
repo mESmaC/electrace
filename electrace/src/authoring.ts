@@ -100,6 +100,14 @@ export function buildBlockLayout(parts: PartSpec[], nets: NetSpec[]): { layout: 
     if (names) for (const [num, fn] of Object.entries(names)) if (fn === pin) return num;
     return pin;
   };
+  // only active parts (a chip, a source, a transistor) drive a net; a crystal/cap/resistor is a load.
+  const isActive = (ref: string): boolean => {
+    const p = parts.find((q) => q.ref === ref);
+    if (!p) return false;
+    if (p.chip) return true;
+    const g = SYMBOL_CATALOG[p.type ?? ""]?.group;
+    return g === "integrated" || g === "source" || g === "transistor";
+  };
 
   nets.forEach((net, ni) => {
     const eps = (net.connect ?? []).map((e) => {
@@ -114,7 +122,11 @@ export function buildBlockLayout(parts: PartSpec[], nets: NetSpec[]): { layout: 
       symbols.push({ id: portId, type: "port", ref: net.expose, x: 40, y: 40 + ni * 40 });
       anchor = `${portId}.1`;
       const inf = inferRoleType(net.expose);
-      terminals.push({ id: net.expose, role: net.role ?? inf.role, type: net.type ?? inf.type });
+      // physics-aligned default: a signal net wired only to passives is a LOAD ("in"), not a driver
+      // ("out") — so an oscillator block's XTAL pins don't false-fire the two-drivers check.
+      let role = net.role ?? inf.role;
+      if (!net.role && inf.type === "signal" && eps.length && !eps.some((ep) => isActive(ep.slice(0, ep.indexOf("."))))) role = "in";
+      terminals.push({ id: net.expose, role, type: net.type ?? inf.type });
     }
     if (anchor === undefined) anchor = eps[0];
     if (anchor) for (const ep of eps) if (ep !== anchor) wires.push({ from: anchor, to: ep });

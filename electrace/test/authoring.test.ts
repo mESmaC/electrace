@@ -79,3 +79,29 @@ test("buildBlockLayout: a real subcircuit — crystal oscillator block (crystal 
   assert.deepEqual(terminals.map((t) => t.id).sort(), ["GND", "XTAL1", "XTAL2"]);
   assert.equal(terminals.find((t) => t.id === "GND")!.type, "gnd");
 });
+
+test("buildBlockLayout: a signal net wired only to passives defaults to a LOAD (in), not a driver", () => {
+  // a crystal-oscillator block (crystal + 2 load caps, no chip) → XTAL pins are passive loads
+  const { terminals } = buildBlockLayout(
+    [
+      { ref: "Y1", type: "crystal", value: "16MHz" },
+      { ref: "C1", type: "capacitor", value: "22pF" },
+      { ref: "C2", type: "capacitor", value: "22pF" },
+    ],
+    [
+      { connect: ["Y1.1", "C1.1"], expose: "XTAL1" },
+      { connect: ["Y1.2", "C2.1"], expose: "XTAL2" },
+      { connect: ["C1.2", "C2.2"], expose: "GND" },
+    ],
+  );
+  // both XTAL pins are loads — so they won't false-fire two-drivers against the MCU's XTAL outputs
+  assert.equal(terminals.find((t) => t.id === "XTAL1")!.role, "in");
+  assert.equal(terminals.find((t) => t.id === "XTAL2")!.role, "in");
+
+  // but a signal net that DOES touch an active part (a chip output) stays a driver
+  const withChip = buildBlockLayout(
+    [{ ref: "U1", chip: { profile: "qfp", pins: 8, names: { "1": "OUT" } } }],
+    [{ connect: ["U1.OUT"], expose: "OUT" }],
+  );
+  assert.equal(withChip.terminals.find((t) => t.id === "OUT")!.role, "out");
+});
