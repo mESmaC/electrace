@@ -151,6 +151,7 @@ function infer(type: string, n: number): Footprint {
     case "bjt": case "mosfet": return n <= 3 ? SPECIFIC["SOT-23"]() : SPECIFIC["SOT-23-5"]();
     case "ic": return dual(`SOIC-${n <= 8 ? 8 : n}`, n <= 8 ? 8 : (n % 2 ? n + 1 : n), 1.27, 0.6, 1.55, 5.4);
     case "connector": return header(n || 2);
+    case "relay": return n > 5 ? dip(n % 2 ? n + 1 : n) : header(n || 5); // multi-pin relay: pads match its pins
     case "crystal": return SPECIFIC["HC-49"]();
     case "battery": case "source": return header(2);
     default: return chip("0805");

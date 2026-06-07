@@ -66,7 +66,10 @@ export const SYMBOL_CATALOG: Record<string, CatalogEntry> = {
   // ── Electromechanical
   switch:  { label: "Switch", group: "electromechanical", defaultRef: "SW", partType: "switch", pins: ["1", "2"] },
   button:  { label: "Push Button", group: "electromechanical", defaultRef: "SW", partType: "switch", pins: ["1", "2"] },
-  relay:   { label: "Relay", group: "electromechanical", defaultRef: "K", partType: "relay", pins: ["A", "B", "COM", "NO", "NC"] },
+  relay:   { label: "Relay (SPDT)", group: "electromechanical", defaultRef: "K", partType: "relay", pins: ["A", "B", "COM", "NO", "NC"] },
+  spst:    { label: "Relay SPST", group: "electromechanical", defaultRef: "K", partType: "relay", pins: ["A", "B", "1", "2"] },
+  dpdt:    { label: "Relay DPDT", group: "electromechanical", defaultRef: "K", partType: "relay", pins: ["A", "B", "COM1", "NO1", "NC1", "COM2", "NO2", "NC2"] },
+  ssr:     { label: "Solid-State Relay", group: "electromechanical", defaultRef: "K", partType: "relay", pins: ["+", "-", "1", "2"] },
   motor:   { label: "Motor", group: "electromechanical", defaultRef: "M", partType: "motor", pins: ["1", "2"] },
   speaker: { label: "Speaker", group: "electromechanical", defaultRef: "LS", partType: "speaker", pins: ["1", "2"] },
   buzzer:  { label: "Buzzer", group: "electromechanical", defaultRef: "BZ", partType: "buzzer", pins: ["1", "2"] },

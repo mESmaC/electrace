@@ -443,6 +443,75 @@ export const SYMBOLS: Record<string, SymbolDef> = {
       </>
     ),
   },
+  spst: {
+    label: "Relay SPST", w: 64, h: 56, defaultRef: "K",
+    pins: [
+      { id: "A", x: 0, y: 18, label: "A" }, { id: "B", x: 0, y: 38, label: "B" },
+      { id: "1", x: 64, y: 18, label: "1" }, { id: "2", x: 64, y: 38, label: "2" },
+    ],
+    draw: () => (
+      <>
+        <line x1="0" y1="18" x2="10" y2="18" stroke={A} strokeWidth="2" />
+        <line x1="0" y1="38" x2="10" y2="38" stroke={A} strokeWidth="2" />
+        <rect x="10" y="12" width="16" height="32" fill="#566177" stroke={W} strokeWidth="2" />
+        <line x1="32" y1="28" x2="44" y2="28" stroke={W} strokeWidth="1" strokeDasharray="3 3" />
+        <circle cx="46" cy="18" r="2.5" fill={W} />
+        <line x1="46" y1="18" x2="60" y2="34" stroke={W} strokeWidth="2" />
+        <circle cx="60" cy="38" r="2.5" fill={W} />
+        <line x1="46" y1="18" x2="64" y2="18" stroke={A} strokeWidth="2" />
+        <line x1="60" y1="38" x2="64" y2="38" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
+  dpdt: {
+    label: "Relay DPDT", w: 80, h: 92, defaultRef: "K",
+    pins: [
+      { id: "A", x: 0, y: 30, label: "A" }, { id: "B", x: 0, y: 62, label: "B" },
+      { id: "COM1", x: 80, y: 14, label: "C1" }, { id: "NO1", x: 80, y: 2, label: "NO1" }, { id: "NC1", x: 80, y: 26, label: "NC1" },
+      { id: "COM2", x: 80, y: 62, label: "C2" }, { id: "NO2", x: 80, y: 50, label: "NO2" }, { id: "NC2", x: 80, y: 74, label: "NC2" },
+    ],
+    draw: () => (
+      <>
+        <line x1="0" y1="30" x2="12" y2="30" stroke={A} strokeWidth="2" />
+        <line x1="0" y1="62" x2="12" y2="62" stroke={A} strokeWidth="2" />
+        <rect x="12" y="22" width="16" height="48" fill="#566177" stroke={W} strokeWidth="2" />
+        {[14, 62].map((cy, k) => (
+          <g key={k}>
+            <line x1="34" y1={cy} x2="50" y2={cy} stroke={W} strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx="52" cy={cy} r="2.5" fill={W} />
+            <line x1="52" y1={cy} x2="66" y2={cy - 12} stroke={W} strokeWidth="2" />
+            <line x1="52" y1={cy} x2="80" y2={cy} stroke={A} strokeWidth="2" />
+            <line x1="66" y1={cy - 12} x2="80" y2={cy - 12} stroke={A} strokeWidth="2" />
+            <line x1="66" y1={cy + 12} x2="80" y2={cy + 12} stroke={A} strokeWidth="2" />
+          </g>
+        ))}
+      </>
+    ),
+  },
+  ssr: {
+    label: "Solid-State Relay", w: 72, h: 56, defaultRef: "K",
+    pins: [
+      { id: "+", x: 0, y: 16, label: "+" }, { id: "-", x: 0, y: 40, label: "−" },
+      { id: "1", x: 72, y: 16, label: "1" }, { id: "2", x: 72, y: 40, label: "2" },
+    ],
+    draw: () => (
+      <>
+        <rect x="14" y="6" width="44" height="44" fill="none" stroke={W} strokeWidth="2" rx="3" />
+        <line x1="0" y1="16" x2="14" y2="16" stroke={A} strokeWidth="2" />
+        <line x1="0" y1="40" x2="14" y2="40" stroke={A} strokeWidth="2" />
+        <line x1="58" y1="16" x2="72" y2="16" stroke={A} strokeWidth="2" />
+        <line x1="58" y1="40" x2="72" y2="40" stroke={A} strokeWidth="2" />
+        {/* opto LED (control) → arrows → output switch */}
+        <line x1="22" y1="16" x2="22" y2="40" stroke={W} strokeWidth="2" />
+        <path d="M22 22 L28 28 L22 34 Z" fill={W} />
+        <line x1="28" y1="22" x2="28" y2="34" stroke={W} strokeWidth="2" />
+        <line x1="33" y1="20" x2="38" y2="15" stroke={W} strokeWidth="1.2" /><path d="M38 15 l-3 0 l1.5 2.5 z" fill={W} />
+        <line x1="36" y1="24" x2="41" y2="19" stroke={W} strokeWidth="1.2" /><path d="M41 19 l-3 0 l1.5 2.5 z" fill={W} />
+        <line x1="46" y1="16" x2="46" y2="40" stroke={W} strokeWidth="2" />
+        <line x1="50" y1="16" x2="50" y2="40" stroke={W} strokeWidth="2" />
+      </>
+    ),
+  },
   motor: {
     label: "Motor", w: 44, h: 44, defaultRef: "M",
     pins: [{ id: "1", x: 0, y: 22 }, { id: "2", x: 44, y: 22 }],
@@ -835,6 +904,6 @@ export const SYMBOL_GROUPS: { name: string; types: string[] }[] = [
   { name: "Integrated", types: ["chip", "ic", "opamp", "regulator"] },
   { name: "Source", types: ["battery", "isource", "acsource"] },
   { name: "Power", types: ["ground", "vcc", "offboard"] },
-  { name: "Electromechanical", types: ["switch", "button", "relay", "motor", "speaker", "buzzer", "lamp"] },
+  { name: "Electromechanical", types: ["switch", "button", "relay", "spst", "dpdt", "ssr", "motor", "speaker", "buzzer", "lamp"] },
   { name: "Connector", types: ["header2", "header4", "testpoint", "antenna"] },
 ];
