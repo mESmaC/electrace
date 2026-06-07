@@ -2,17 +2,18 @@
 @import "tailwindcss";
 
 @theme {
-  /* MID theme — the primary palette (slate-blue dusk + blue accent) */
-  --color-bg: #3c4658;
-  --color-bg2: #36404f;
-  --color-surface: #454e62;
-  --color-surface-2: #4e586f;
-  --color-surface-3: #59647d;
-  --color-border: #54607a;
-  --color-border-strong: #677494;
-  --color-text: #ffffff;
-  --color-dim: #d4dae6;
-  --color-faint: #9aa3b5;
+  /* Tokens reference switchable custom properties (set per data-theme below) so utilities like
+     bg-surface / text-dim re-theme live. Accent / amber / green stay constant across themes. */
+  --color-bg: var(--c-bg);
+  --color-bg2: var(--c-bg2);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-text: var(--c-text);
+  --color-dim: var(--c-dim);
+  --color-faint: var(--c-faint);
   --color-accent: #4c8dff;
   --color-accent-hi: #6ea3ff;
   --color-amber: #f7b13c;
@@ -22,7 +23,20 @@
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+/* Dark (default) — slate-blue dusk. */
+:root, [data-theme="dark"] {
+  --c-bg: #3c4658; --c-bg2: #36404f; --c-surface: #454e62; --c-surface-2: #4e586f; --c-surface-3: #59647d;
+  --c-border: #54607a; --c-border-strong: #677494; --c-text: #ffffff; --c-dim: #d4dae6; --c-faint: #9aa3b5;
+}
+/* Light — soft paper, same blue accent. */
+[data-theme="light"] {
+  --c-bg: #eef1f6; --c-bg2: #e4e9f1; --c-surface: #ffffff; --c-surface-2: #f3f5fa; --c-surface-3: #e7ecf3;
+  --c-border: #d3dae7; --c-border-strong: #aab4c6; --c-text: #1b2333; --c-dim: #3a4658; --c-faint: #66718a;
+  color-scheme: light;
+}
+
 html { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
 body {
   background: var(--color-bg);
   color: var(--color-text);

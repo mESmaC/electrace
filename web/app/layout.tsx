@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import ServerSync from "./ServerSync";
+import ThemeToggle from "./ThemeToggle";
+
+// Set the theme before first paint so there's no light/dark flash on load.
+const NO_FLASH = `try{var t=localStorage.getItem('electrace:theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`;
 
 export const metadata: Metadata = {
   title: "Electrace — see inside every circuit",
@@ -10,7 +14,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" data-theme="dark">
+      <head><script dangerouslySetInnerHTML={{ __html: NO_FLASH }} /></head>
       <body className="min-h-full flex flex-col">
         <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
@@ -21,6 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/projects" className="text-sm text-dim hover:text-text">Projects</Link>
             <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
             <Link href="/help" className="text-sm text-dim hover:text-text">Help</Link>
+            <div className="ml-auto"><ThemeToggle /></div>
           </div>
         </nav>
         <div className="flex-1">{children}</div>
