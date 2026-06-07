@@ -1,6 +1,22 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { marked } from "marked";
 import { useAssistant, sendMessage, clearChat, newConversation, switchConversation, deleteConversation } from "@/lib/assistant";
+
+// Markdown styling for assistant replies (tables, lists, code, etc.), scoped to the chat bubble via
+// arbitrary child variants — no global stylesheet or typography plugin needed.
+const MD = [
+  "[&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-[#8db4ff] [&_a]:underline",
+  "[&_strong]:font-semibold [&_em]:italic",
+  "[&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5",
+  "[&_h1]:text-[13px] [&_h1]:font-bold [&_h1]:mt-2 [&_h2]:text-[12.5px] [&_h2]:font-bold [&_h2]:mt-2 [&_h3]:font-semibold [&_h3]:mt-1.5",
+  "[&_code]:rounded [&_code]:bg-[#3c4658] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[11px]",
+  "[&_pre]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-[#3c4658] [&_pre]:p-2 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
+  "[&_table]:my-1.5 [&_table]:block [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-[11px]",
+  "[&_th]:border [&_th]:border-[#54607a] [&_th]:bg-[#3f485b] [&_th]:px-1.5 [&_th]:py-0.5 [&_th]:text-left [&_td]:border [&_td]:border-[#54607a] [&_td]:px-1.5 [&_td]:py-0.5",
+  "[&_blockquote]:border-l-2 [&_blockquote]:border-[#54607a] [&_blockquote]:pl-2 [&_blockquote]:text-[#c5ccdb] [&_hr]:my-2 [&_hr]:border-[#54607a]",
+].join(" ");
+const renderMd = (text: string) => marked.parse(text, { async: false, gfm: true, breaks: true }) as string;
 
 /** Floating AI assistant. Collapsed it's a robot bubble; opening slides a side pane in over the canvas
  *  (collapsible back into the bubble). Conversations are switchable like any chat app and persist. */
@@ -92,11 +108,19 @@ export default function AssistantBubble() {
               <span className="mt-1 block text-[10px] text-[#9aa3b5]">I can see your current design / PCB context.</span>
             </div>
           ) : (
-            messages.map((m) => (
-              <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] whitespace-pre-wrap rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[#4e586f] text-white"}`}>{shown(m)}{typing?.id === m.id && <span className="ml-px inline-block w-1.5 animate-pulse">▍</span>}</div>
-              </div>
-            ))
+            messages.map((m) => {
+              const isTyping = typing?.id === m.id;
+              const asMarkdown = m.role === "assistant" && !isTyping && m.text.length > 0;
+              return (
+                <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`${m.role === "user" ? "max-w-[85%]" : "max-w-[94%]"} rounded-lg p-2.5 leading-relaxed ${m.role === "user" ? "rounded-br-sm bg-[#4c8dff] text-white" : "rounded-tl-sm bg-[#4e586f] text-white"} ${asMarkdown ? MD : "whitespace-pre-wrap"}`}>
+                    {asMarkdown
+                      ? <div dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
+                      : <>{shown(m)}{isTyping && <span className="ml-px inline-block w-1.5 animate-pulse">▍</span>}</>}
+                  </div>
+                </div>
+              );
+            })
           )}
           {busy && !typing && (
             <div className="flex justify-start">
