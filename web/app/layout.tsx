@@ -8,8 +8,23 @@ import ThemeToggle from "./ThemeToggle";
 const NO_FLASH = `try{var t=localStorage.getItem('electrace:theme');document.documentElement.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');}catch(e){}`;
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://electrace.net"),
   title: "Electrace — see inside every circuit",
-  description: "The electrical engineer's IDE — blocks that explain themselves.",
+  description: "The electrical engineer's IDE — block-based schematics that explain themselves, with live deterministic checks and no SPICE.",
+  applicationName: "Electrace",
+  keywords: ["schematic", "EDA", "PCB", "electrical engineering", "circuit design", "block-based", "BOM"],
+  openGraph: {
+    type: "website",
+    siteName: "Electrace",
+    url: "/",
+    title: "Electrace — see inside every circuit",
+    description: "The electrical engineer's IDE — block-based schematics that explain themselves, with live deterministic checks and no SPICE.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Electrace — see inside every circuit",
+    description: "The electrical engineer's IDE — block-based schematics that explain themselves.",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
