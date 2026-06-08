@@ -223,9 +223,12 @@ export function useAssistant(): { messages: ChatMessage[]; context: ContextItem[
   useEffect(() => {
     const sync = () => { setMessages(getChat()); setContext(getContext()); setConversations(getConversations()); setActiveId(getActiveId()); setProgressState(getProgress()); };
     sync();
+    // cross-tab sync: only re-read on a conversation-key write, not every electrace:* localStorage change
+    // (autosaves, telemetry, etc. would otherwise re-parse every conversation on each keystroke).
+    const onStorage = (e: StorageEvent) => { if (!e.key || e.key.startsWith("electrace:chat")) sync(); };
     window.addEventListener(EVT, sync);
-    window.addEventListener("storage", sync); // cross-tab history sync
-    return () => { window.removeEventListener(EVT, sync); window.removeEventListener("storage", sync); };
+    window.addEventListener("storage", onStorage);
+    return () => { window.removeEventListener(EVT, sync); window.removeEventListener("storage", onStorage); };
   }, []);
   return { messages, context, conversations, activeId, progress };
 }

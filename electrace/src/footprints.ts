@@ -37,14 +37,20 @@ function dual(id: string, n: number, pitch: number, padW: number, padL: number, 
 
 // ── gull-wing quad (QFP / QFN): CCW from pin 1 top-left ──────────────────────────────────────
 function quad(id: string, n: number, pitch: number, padW: number, padL: number, span: number): Footprint {
-  const per = Math.round(n / 4), pads: LandPad[] = [];
-  const start = -((per - 1) / 2) * pitch;
-  let k = 1;
-  for (let i = 0; i < per; i++) pads.push({ num: `${k++}`, x: -span / 2, y: start + i * pitch, w: padL, h: padW, round: 0.2 });        // left ↓
-  for (let i = 0; i < per; i++) pads.push({ num: `${k++}`, x: start + i * pitch, y: span / 2, w: padW, h: padL, round: 0.2 });         // bottom →
-  for (let i = 0; i < per; i++) pads.push({ num: `${k++}`, x: span / 2, y: -(start + i * pitch), w: padL, h: padW, round: 0.2 });      // right ↑
-  for (let i = 0; i < per; i++) pads.push({ num: `${k++}`, x: -(start + i * pitch), y: -span / 2, w: padW, h: padL, round: 0.2 });     // top ←
-  return fp(id, "smd", pads.slice(0, n));
+  // distribute n across the 4 sides (extras to the earlier sides) so non-multiples-of-4 don't short a side
+  const base = Math.floor(n / 4), extra = n % 4;
+  const side = [0, 1, 2, 3].map((i) => base + (i < extra ? 1 : 0)); // left, bottom, right, top
+  const startFor = (cnt: number) => -((cnt - 1) / 2) * pitch;       // centre each side's run
+  const pads: LandPad[] = [];
+  let k = 1, s = startFor(side[0]);
+  for (let i = 0; i < side[0]; i++) pads.push({ num: `${k++}`, x: -span / 2, y: s + i * pitch, w: padL, h: padW, round: 0.2 });        // left ↓
+  s = startFor(side[1]);
+  for (let i = 0; i < side[1]; i++) pads.push({ num: `${k++}`, x: s + i * pitch, y: span / 2, w: padW, h: padL, round: 0.2 });         // bottom →
+  s = startFor(side[2]);
+  for (let i = 0; i < side[2]; i++) pads.push({ num: `${k++}`, x: span / 2, y: -(s + i * pitch), w: padL, h: padW, round: 0.2 });      // right ↑
+  s = startFor(side[3]);
+  for (let i = 0; i < side[3]; i++) pads.push({ num: `${k++}`, x: -(s + i * pitch), y: -span / 2, w: padW, h: padL, round: 0.2 });     // top ←
+  return fp(id, "smd", pads);
 }
 
 // ── through-hole: DIP, pin headers, radial cap, axial diode ───────────────────────────────────

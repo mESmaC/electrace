@@ -14,6 +14,10 @@
 const PREFIX = "electrace:";
 const ENDPOINT = "/api/store";
 const HYDRATED_EVENT = "electrace:hydrated";
+// keys that must NOT leave the device: local-only telemetry capture (a high-churn ~2k-entry blob, and
+// the privacy promise is that it's never transmitted). Mirror everything else under electrace:*.
+const NO_MIRROR = new Set(["electrace:events", "electrace:telemetry"]);
+const mirrorable = (k: string) => k.startsWith(PREFIX) && !NO_MIRROR.has(k);
 
 let installed = false;
 let origSet: ((k: string, v: string) => void) | null = null;
@@ -39,8 +43,8 @@ export function installMirror(): void {
   const ls = window.localStorage;
   origSet = ls.setItem.bind(ls);
   origRem = ls.removeItem.bind(ls);
-  ls.setItem = (k: string, v: string) => { origSet!(k, v); if (k.startsWith(PREFIX)) push(k, v); };
-  ls.removeItem = (k: string) => { origRem!(k); if (k.startsWith(PREFIX)) push(k, null); };
+  ls.setItem = (k: string, v: string) => { origSet!(k, v); if (mirrorable(k)) push(k, v); };
+  ls.removeItem = (k: string) => { origRem!(k); if (mirrorable(k)) push(k, null); };
 }
 
 /** Pull the server snapshot into localStorage, backfilling only absent keys. Returns #keys written. */

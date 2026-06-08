@@ -671,7 +671,7 @@ export async function POST(req: Request) {
         }
         if (!finished) emit(donePayload("I made some changes but hit the step limit — ask me to continue if it's not finished.", changed));
       } catch (e) {
-        if (!req.signal.aborted) emit({ type: "error", error: "Could not reach the model.", detail: String(e).slice(0, 300) });
+        if (!req.signal.aborted) { console.error("[sparky] error:", e); emit({ type: "error", error: "Could not reach the model." }); } // detail logged server-side, not sent to the client
       }
       try { controller.close(); } catch { /* already closed by the consumer */ }
     },

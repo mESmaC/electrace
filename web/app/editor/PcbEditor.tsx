@@ -261,8 +261,9 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       if (e.ctrlKey || mouseWheel) {
         const pinch = e.ctrlKey && Math.abs(e.deltaY) < 50;
         const nz = clamp(z * Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * (pinch ? 0.02 : 0.008)), 0.5, 40);
-        const ox = e.clientX - r.left, oy = e.clientY - r.top, cx = panRef.current.x + ox / z, cy = panRef.current.y + oy / z;
-        setZoom(nz); setPan({ x: cx - ox / nz, y: cy - oy / nz });
+        const ox = e.clientX - r.left, oy = e.clientY - r.top;
+        // functional updater reads the latest committed pan (panRef lags un-flushed updates on fast wheels)
+        setZoom(nz); setPan((p) => { const cx = p.x + ox / z, cy = p.y + oy / z; return { x: cx - ox / nz, y: cy - oy / nz }; });
       } else setPan((p) => ({ x: p.x + e.deltaX / z, y: p.y + e.deltaY / z }));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
