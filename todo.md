@@ -63,7 +63,11 @@ These are the spec'd things that actually move the product, deferred while the e
 
 PCB is far more complete than pcb.md's "next phase" framing (placement, routing, vias, layers, DRC, board outline, KiCad-PCB export all shipped).
 
-- [ ] **Standardized footprints (real land patterns).** Today footprints are generated procedurally with rough default geometry (`footprints.ts` quad/dual/chip/header/connector) — valid for the ratsnest/export but NOT standards-compliant land patterns, and not from a real footprint library. So a fabbed board wouldn't match a part's datasheet. *Approaches:* (a) **IPC-7351 land-pattern generation** — compute pads from the standard per package family + density level (Most/Nominal/Least); generated, no library, covers families. (b) **Import KiCad `.kicad_mod`** — the open de-facto standard format with a huge vetted library; we already do KiCad export, so it's natural interop; real footprints for specific parts + Sparky can attach them. (c) **Curated library** of real IPC dims for common packages. Likely path: IPC-7351 generation for the common families + `.kicad_mod` import for specifics. *(L; needs a direction decision.)*
+- **Standardized footprints (real land patterns).** Decision: **hybrid, `.kicad_mod` import first.** Progress:
+  - [x] **Core `.kicad_mod` parser** (`parseKicadFootprint`) — S-expression → Footprint, SMD/THT, all pad shapes, tested incl. a real file.
+  - [x] **Import + library UI** — PCB editor "Footprints" button imports single files or a whole library at once into a local library (with previews).
+  - [ ] **Assign an imported footprint to a part/component** — the integration: a per-component footprint override + the schematic-pin → imported-pad mapping (identity by number, else a pick/AI map), and render/ratsnest off the override. *(M; needs live PCB testing.)*
+  - [ ] **IPC-7351 generation** for the common families (chip/SOIC/SOT/QFP/QFN/headers) to replace the rough procedural geometry — the generated-but-standard half of the hybrid. *(L.)*
 - [ ] **Gerber + drill (Excellon) export** — only KiCad `.kicad_pcb` is wired. KiCad is a fine interim handoff, but Gerber/drill are explicitly named. *(pcb.md; M–L)*
 - [ ] **PCB layout persisted with the design record** (currently `localStorage:electrace:pcb:${id}`) — folds into the backend phase (§4). *(pcb.md; M)*
 

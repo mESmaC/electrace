@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { pcbProject, drcCheck, toKicadPcb, type Block, type Design, type PcbProject, type DrcViolation, type DrcTrace, type DrcPad, type DrcVia, type DrcComp, type DrcUnrouted, type KicadComp, type KicadTrace, type KicadVia } from "@electrace/core";
 import AssistantBubble from "./AssistantBubble";
+import FootprintLibrary from "./FootprintLibrary";
 import { setContextItem } from "@/lib/assistant";
 
 const TRACE_W = 0.25;
@@ -142,6 +143,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   const [board, setBoard] = useState<Board | null>(boot.board);
   const [sel, setSel] = useState<{ kind: "comp" | "trace" | "boardv" | "pad"; id: string } | null>(null);
   const [tool, setTool] = useState<"select" | "route" | "measure">("select");
+  const [fpLib, setFpLib] = useState(false);
   const [measure, setMeasure] = useState<{ a: Pos; b: Pos | null } | null>(null);
   const [layer, setLayer] = useState<string>("F.Cu");
   const [width, setWidth] = useState(TRACE_W);
@@ -687,6 +689,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
           <span className="rounded-md bg-[#11192699] px-2 py-1 font-mono text-[10.5px] text-[var(--color-faint)] ring-1 ring-inset ring-[#212c42]" title="Board size">{(() => { const b = bbox(bd); return `${+b.w.toFixed(1)}×${+b.h.toFixed(1)}`; })()} mm</span>
           <button onClick={fitBoard} className={btn(false)} title="Resize board to fit parts">Fit board</button>
           <button onClick={runDrc} className={btn(drc !== null)} title="Run design-rule check">DRC</button>
+          <button onClick={() => setFpLib(true)} className={btn(false)} title="Import & browse KiCad footprints">Footprints</button>
           <button onClick={exportKicad} className={btn(false)} title="Export KiCad .kicad_pcb">Export ↧</button>
           {SEP}
           <button onClick={autoArrange} className={btn(false)} title="Auto-arrange parts">Arrange</button>
@@ -843,6 +846,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
           {drcEl}
         </svg>
         <AssistantBubble />
+        {fpLib && <FootprintLibrary onClose={() => setFpLib(false)} />}
         </div>
         <aside className="flex w-52 shrink-0 flex-col border-l border-[#1c2740] bg-[#0e1521] text-[12px]">
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
