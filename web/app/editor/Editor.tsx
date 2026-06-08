@@ -772,7 +772,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   );
 
   return (
-    <div className="relative flex" style={{ height: "calc(100vh - 56px)" }}>
+    <div className="relative flex bg-[var(--color-bg)]" style={{ height: "calc(100vh - 56px)" }}>
       <aside className="w-60 shrink-0 overflow-auto border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3">
         <CollapsibleSection title={`My blocks${myEntries.length ? ` (${myEntries.length})` : ""}`}
           action={<button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[var(--color-link)] hover:border-[#4c8dff]">+ New</button>}>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 import ServerSync from "./ServerSync";
 import ThemeToggle from "./ThemeToggle";
+import SiteBackdrop from "./SiteBackdrop";
 
 // Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
 const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className="h-full antialiased" data-theme="mid" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: NO_FLASH }} /></head>
       <body className="min-h-full flex flex-col">
+        <SiteBackdrop />
         <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-7">
