@@ -16,6 +16,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Polish:** friendly **404 and error pages**, and real **Privacy** and **Terms** pages (linked from sign-up and the footer).",
       "**Landing page:** a cleaner, roomier **hero animation** — the two-block preview is properly spaced with port-to-port wires, terminal labels no longer overlap the blocks, and the hover-to-explain tooltip and lint bubble sit clear of everything.",
       "**Site look:** a subtle **schematic dot-grid + ambient glow** backdrop across the pages, so the background has a bit more depth instead of reading flat.",
+      "**Themed dialogs & right-click menus:** the browser's plain prompt/confirm boxes are replaced with **in-app themed dialogs** (Escape/Enter, click-away to cancel). **Right-click** now opens a themed menu — on a block (open · duplicate · delete), on empty canvas (fit to view · clear selection), and on a dashboard design (open · rename · delete).",
     ],
   },
   {

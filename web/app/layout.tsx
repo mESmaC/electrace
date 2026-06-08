@@ -4,6 +4,8 @@ import "./globals.css";
 import ServerSync from "./ServerSync";
 import ThemeToggle from "./ThemeToggle";
 import SiteBackdrop from "./SiteBackdrop";
+import { DialogHost } from "./ui/dialog";
+import { ContextMenuHost } from "./ui/contextMenu";
 
 // Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
 const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
@@ -50,6 +52,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </div>
         </nav>
         <div className="flex-1">{children}</div>
+        <DialogHost />
+        <ContextMenuHost />
       </body>
     </html>
   );

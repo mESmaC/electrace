@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listProjects, createProject, deleteProject, renameProject, getDesign, type ProjectMeta } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
+import { confirmDialog, promptDialog } from "@/app/ui/dialog";
+import { openContextMenu } from "@/app/ui/contextMenu";
 import type { Design } from "@electrace/core";
 
 function relTime(t: number): string {
@@ -64,8 +66,13 @@ export default function Dashboard() {
 
   const open = (id: string) => router.push(`/editor?p=${id}`);
   const newProject = (name?: string) => open(createProject(name).id);
-  const onRename = (id: string, cur: string) => { const n = window.prompt("Rename project", cur); if (n !== null) { renameProject(id, n); refresh(); } };
-  const onDelete = (id: string, name: string) => { if (window.confirm(`Delete “${name}”? This can't be undone.`)) { deleteProject(id); refresh(); } };
+  const onRename = async (id: string, cur: string) => {
+    const n = await promptDialog({ title: "Rename design", defaultValue: cur, placeholder: "Design name", confirmText: "Rename" });
+    if (n !== null) { renameProject(id, n); refresh(); }
+  };
+  const onDelete = async (id: string, name: string) => {
+    if (await confirmDialog({ title: `Delete “${name}”?`, message: "This can't be undone.", confirmText: "Delete", danger: true })) { deleteProject(id); refresh(); }
+  };
 
   const designs = useMemo(() => new Map(projects.map((p) => [p.id, getDesign(p.id)])), [projects]);
   const totalBlocks = useMemo(() => projects.reduce((a, p) => a + (designs.get(p.id)?.blocks?.length ?? 0), 0), [projects, designs]);
@@ -170,7 +177,13 @@ export default function Dashboard() {
               {filtered.map((p) => {
                 const blocks = designs.get(p.id)?.blocks?.length ?? 0;
                 return (
-                  <div key={p.id} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl" onClick={() => open(p.id)}>
+                  <div key={p.id} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl" onClick={() => open(p.id)}
+                    onContextMenu={(e) => openContextMenu(e, [
+                      { label: "Open", icon: "↗", onSelect: () => open(p.id) },
+                      { label: "Rename", icon: "✎", onSelect: () => onRename(p.id, p.name) },
+                      { separator: true },
+                      { label: "Delete", icon: "🗑", danger: true, onSelect: () => onDelete(p.id, p.name) },
+                    ])}>
                     <div className="h-[140px] border-b border-border bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 6%, transparent) 1.3px, transparent 1.3px)", backgroundSize: "16px 16px" }}><Thumb design={designs.get(p.id) ?? null} /></div>
                     <div className="px-3.5 pb-3 pt-3">
                       <div className="flex items-center gap-2"><span className="flex-1 truncate text-[14.5px] font-semibold">{p.name}</span>

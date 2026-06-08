@@ -8,6 +8,7 @@ import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import { track } from "@/lib/telemetry";
 import { saveUserBlock, isUserBlock, getUserBlocks } from "@/lib/userBlocks";
+import { confirmDialog } from "@/app/ui/dialog";
 import { deriveSchematicNets, schematicInsights, type InsightComponent, type SchematicLayout, type Terminal, type Block, type NetType } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
@@ -198,8 +199,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   }, [LS, model]);
 
   // discard this block's saved draft and reload the authored schematic
-  const resetBlock = useCallback(() => {
-    if (typeof window === "undefined" || !window.confirm("Discard your edits to this block and revert to the authored schematic?")) return;
+  const resetBlock = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    if (!(await confirmDialog({ title: "Discard block edits?", message: "Reverts this block to its authored schematic.", confirmText: "Discard", danger: true }))) return;
     try { localStorage.removeItem(LS); } catch { /* ignore */ }
     const m = seedPorts(layoutToModel(initial), terminals);
     restoring.current = true; setModel(m); hist.current = [m]; hidx.current = 0; fitted.current = false;

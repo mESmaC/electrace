@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as RDragEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as RDragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import {
   ReactFlow, Background, Controls, Handle, Position, addEdge, ConnectionMode, useNodes, useEdges,
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
@@ -14,6 +14,8 @@ import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
 import { modelToLayout, layoutToModel } from "./schematic-model";
 import { track } from "@/lib/telemetry";
+import { confirmDialog, promptDialog } from "@/app/ui/dialog";
+import { openContextMenu } from "@/app/ui/contextMenu";
 import TelemetryToggle from "./TelemetryToggle";
 import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
@@ -352,12 +354,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   );
 
   // Mark a correct-but-noisy finding as intended (or un-mark): mutes it + drops it from the counts.
-  const toggleAck = useCallback((f: Finding) => {
+  const toggleAck = useCallback(async (f: Finding) => {
     const k = findingKey(f);
-    // prompt() must run OUTSIDE the state updater — updaters are pure and get double-invoked under
-    // StrictMode, which would pop the dialog twice. Decide add-vs-remove from current acks, then prompt once.
     if (acks.some((a) => findingKey(a) === k)) { setAcks((prev) => prev.filter((a) => findingKey(a) !== k)); return; }
-    const note = (typeof window !== "undefined" ? window.prompt("Why is this intended? (optional)") : "") || undefined;
+    const note = (await promptDialog({ title: "Mark as intended", message: "Mute this finding with an optional note on why it's expected.", placeholder: "Reason (optional)", confirmText: "Mark intended" })) || undefined;
     setAcks((prev) => prev.some((a) => findingKey(a) === k) ? prev : [...prev, { rule: f.rule, at: f.at, note }]);
   }, [acks]);
 
@@ -533,6 +533,38 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     [blockMap, setNodes],
   );
 
+  const duplicateNode = useCallback((id: string) => {
+    setNodes((nds) => {
+      const src = nds.find((x) => x.id === id);
+      if (!src || src.type !== "block") return nds;
+      const key = (src.data as unknown as BlockNodeData).blockKey;
+      const prefix = abbrev(key);
+      let n = 1; while (nds.some((x) => x.id === `${prefix}${n}`)) n++;
+      const ref = `${prefix}${n}`;
+      return [...nds.map((x) => ({ ...x, selected: false })), { ...src, id: ref, selected: true, position: { x: src.position.x + 40, y: src.position.y + 40 }, data: { ...src.data, instanceRef: ref } }];
+    });
+  }, [setNodes]);
+  const deleteNode = useCallback((id: string) => { rfRef.current?.deleteElements({ nodes: [{ id }] }); }, []);
+
+  // themed right-click menus: on a node (open / duplicate / delete) and on empty canvas (fit / clear)
+  const onNodeContextMenu = useCallback((e: ReactMouseEvent, n: Node) => {
+    setSelectedId(n.id); setSelectedNet(null);
+    openContextMenu(e, n.type === "block"
+      ? [
+          { label: "Open block", icon: "⌖", onSelect: () => setDrillRef(n.id) },
+          { label: "Duplicate", icon: "⧉", onSelect: () => duplicateNode(n.id) },
+          { separator: true },
+          { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
+        ]
+      : [{ label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) }]);
+  }, [duplicateNode, deleteNode]);
+  const onPaneContextMenu = useCallback((e: MouseEvent | ReactMouseEvent) => {
+    openContextMenu(e as ReactMouseEvent, [
+      { label: "Fit to view", icon: "⤢", onSelect: () => rfRef.current?.fitView({ duration: 200 }) },
+      { label: "Clear selection", icon: "○", onSelect: () => { setSelectedId(null); setSelectedNet(null); } },
+    ]);
+  }, []);
+
   // drag-from-palette: drop a block/connector onto the canvas at the cursor (click still works too)
   const onCanvasDragOver = useCallback((e: RDragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }, []);
   const onCanvasDrop = useCallback((e: RDragEvent) => {
@@ -644,14 +676,14 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     }
     setNewBlock(null); setUserV((v) => v + 1);
   };
-  const removeUserBlock = (key: string) => {
-    if (!window.confirm("Remove this custom block from your palette? (Its saved schematic is also discarded.)")) return;
+  const removeUserBlock = async (key: string) => {
+    if (!(await confirmDialog({ title: "Remove this block?", message: "Removes the custom block from your palette and discards its saved schematic.", confirmText: "Remove", danger: true }))) return;
     deleteUserBlock(key); setUserV((v) => v + 1);
   };
 
-  const resetSchematics = useCallback(() => {
+  const resetSchematics = useCallback(async () => {
     if (typeof window === "undefined") return;
-    if (!window.confirm("Clear all saved block-schematic edits and revert every block to its authored version?")) return;
+    if (!(await confirmDialog({ title: "Revert all block edits?", message: "Clears every saved block-schematic edit and reverts each block to its authored version.", confirmText: "Revert all", danger: true }))) return;
     Object.keys(localStorage).filter((k) => k.startsWith("electrace:blocksch:")).forEach((k) => localStorage.removeItem(k));
     setDraftV((v) => v + 1);
   }, []);
@@ -845,6 +877,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           onPaneClick={() => { setSelectedId(null); setSelectedNet(null); }}
           onInit={(inst) => { rfRef.current = inst; }}
           onNodeDoubleClick={(_, n) => { if (n.type !== "block") return; setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}
+          onNodeContextMenu={onNodeContextMenu} onPaneContextMenu={onPaneContextMenu}
           deleteKeyCode={drillRef ? null : ["Backspace", "Delete"]}
           fitView proOptions={{ hideAttribution: true }}
         >
