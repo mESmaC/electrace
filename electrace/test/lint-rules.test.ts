@@ -86,3 +86,22 @@ test("a grouped ack (many pins in one entry) mutes each per-pin open-net finding
   assert.ok(after.every((f) => f.acknowledged), "every per-pin open-net finding is muted by the one grouped ack");
   assert.equal(after.filter((f) => !f.acknowledged).length, 0);
 });
+
+test("connector-full flags a maxed multi-pin connector, not a 2-pin power jack", () => {
+  const src = B("@t/src", [{ id: "o", role: "out", type: "power", v: { value: 24 }, i: { max: 15 } }]);
+  // a block with 6 signal terminals, all wired to a 1x6 header (full); plus a 2-pin power conn (full)
+  const blk = B("@t/blk", [...Array.from({ length: 6 }, (_, i) => ({ id: `s${i}`, role: "out" as const, type: "signal" as const })),
+    { id: "v", role: "in" as const, type: "power" as const, v: { value: 24 } }]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S", block: key(src) }, { ref: "U", block: key(blk) }],
+    connectors: [{ ref: "J1", connector: "hdr-6" }, { ref: "JP", connector: "screw-2" }],
+    connections: [
+      { from: "S.o", to: "U.v" }, { from: "S.o", to: "JP.1" }, { from: "S.o", to: "JP.2" },
+      ...Array.from({ length: 6 }, (_, i) => ({ from: `U.s${i}`, to: `J1.${i + 1}` })),
+    ],
+  };
+  const f = analyze(d, lib(src, blk)).findings.filter((x) => x.rule === "completeness/connector-full");
+  assert.equal(f.length, 1, "only the maxed 6-pin header is flagged, not the 2-pin jack");
+  assert.ok(f[0].at.includes("J1"));
+});

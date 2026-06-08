@@ -1,4 +1,5 @@
 import { rmax } from "./types.js";
+import { CONNECTOR_CATALOG } from "./connectors.js";
 import type { Finding, ResolvedDesign, Rule, Range } from "./types.js";
 
 // ── Faults (deterministic arithmetic / threshold) ──────────────────────────
@@ -92,6 +93,28 @@ const emptyBlock: Rule = (rd) =>
       fix: { label: "Assign the part(s) this block represents" },
     } satisfies Finding));
 
+/** A multi-pin connector with every pin wired — no spare. Often fine, but when a signal elsewhere is
+ *  left unconnected, running out of connector pins is usually why (it can't silently grow past its pin
+ *  count). Advisory, and only for connectors big enough that being maxed is noteworthy (≥6 pins) so a
+ *  2-pin power jack doesn't nag. */
+const connectorFull: Rule = (rd) => {
+  const out: Finding[] = [];
+  for (const conn of rd.design.connectors ?? []) {
+    const part = CONNECTOR_CATALOG[conn.connector];
+    if (!part || part.pins.length < 6) continue;
+    const used = new Set<string>();
+    for (const c of rd.design.connections) for (const ep of [c.from, c.to]) {
+      const d = ep.indexOf(".");
+      if (d > 0 && ep.slice(0, d) === conn.ref) used.add(ep.slice(d + 1));
+    }
+    if (used.size >= part.pins.length) out.push({
+      rule: "completeness/connector-full", severity: "recommendation", category: "completeness", at: [conn.ref],
+      message: `${conn.ref} (${part.name}) is full — all ${part.pins.length} pins wired, no spare. If a signal is left unconnected elsewhere, you've likely run out of pins here; size up the connector.`,
+    });
+  }
+  return out;
+};
+
 // ── Recommendations (curated expert rules-of-thumb; advisory) ───────────────
 
 /** A linear regulator dropping a lot of voltage at current burns it as heat. */
@@ -168,7 +191,7 @@ const underUtilized: Rule = (rd) =>
 
 export const RULES: Rule[] = [
   openNet, overCurrent, overVoltage, polarityConflict, multipleDrivers, undrivenRail, // faults
-  lowEfficiency, underUtilized, testPoints, emptyBlock,  // recommendations + completeness
+  lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 
 const SEVERITY_ORDER = { error: 0, warn: 1, recommendation: 2, info: 3, unknown: 4 } as const;

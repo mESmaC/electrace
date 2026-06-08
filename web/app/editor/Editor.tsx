@@ -358,6 +358,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
 
   const budgets = useMemo(() => railBudgets(analysis.resolved), [analysis]);
   const totalW = budgets.filter((b) => b.type === "rail").reduce((a, b) => a + (b.watts ?? 0), 0);
+  // A powered rail (source w/ capacity) but no declared static draw → loads are off-board or dynamic
+  // (e.g. a motor bus switched onto phases). Say "0 W declared" + why, so it doesn't read as broken.
+  const noStaticLoad = totalW === 0 && budgets.some((b) => b.capacityA != null);
+  const powerText = noStaticLoad ? "0 W declared" : `≈${round1(totalW)} W`;
+  const powerTitle = noStaticLoad ? "No static load is declared on the powered rail(s). Off-board loads (behind a connector) and dynamic loads (e.g. a motor bus switched onto phases) aren't modeled by the structural checks — declare a load to budget it." : undefined;
   const worstRail = budgets.filter((b) => b.capacityA != null).sort((a, b) => (b.usedPct ?? 0) - (a.usedPct ?? 0))[0];
   const probCount = { error: analysis.findings.filter((f) => f.severity === "error" && !f.acknowledged).length, warn: analysis.findings.filter((f) => f.severity === "warn" && !f.acknowledged).length };
 
@@ -789,7 +794,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         </div>
         <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
           <div className="pointer-events-none flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]/90 px-3 py-1.5 text-[11px]">
-            <span><span className="text-[var(--color-faint)]">Power</span> <span className="font-mono text-[var(--color-text)]">≈{round1(totalW)} W</span></span>
+            <span title={powerTitle}><span className="text-[var(--color-faint)]">Power</span> <span className="font-mono text-[var(--color-text)]">{powerText}</span>{noStaticLoad && <span className="ml-1 text-[var(--color-faint)]">ⓘ</span>}</span>
             <span className="text-[var(--color-border)]">·</span>
             <span><span className="text-[var(--color-faint)]">Blocks</span> <span className="font-mono text-[var(--color-text)]">{nodes.length}</span></span>
             <span className="text-[var(--color-border)]">·</span>
@@ -833,7 +838,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <div className="ml-auto flex items-center gap-3 px-2 font-mono text-[10px] text-[var(--color-faint)]">
             <span><span className="text-[var(--color-faint)]">nets</span> <span className="text-[var(--color-text)]">{analysis.resolved.nets.length}</span></span>
             <span><span className="text-[var(--color-faint)]">parts</span> <span className="text-[var(--color-text)]">{analysis.bom.length}</span></span>
-            <span><span className="text-[var(--color-faint)]">power</span> <span className="text-[var(--color-text)]">≈{round1(totalW)} W</span></span>
+            <span title={powerTitle}><span className="text-[var(--color-faint)]">power</span> <span className="text-[var(--color-text)]">{powerText}</span></span>
             {worstRail && <span><span className="text-[var(--color-faint)]">top rail</span> <span style={{ color: barColor(worstRail.usedPct) }}>{Math.round(worstRail.usedPct ?? 0)}%</span></span>}
             <button onClick={() => setBottomOpen((o) => !o)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]" title={bottomOpen ? "Collapse" : "Expand"}>{bottomOpen ? "▾" : "▴"}</button>
           </div>
