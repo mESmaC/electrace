@@ -259,7 +259,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       const mouseWheel = e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 100 && Number.isInteger(e.deltaY));
       if (e.ctrlKey || mouseWheel) {
         const pinch = e.ctrlKey && Math.abs(e.deltaY) < 50;
-        const nz = clamp(z * Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * (pinch ? 0.01 : 0.0035)), 0.5, 40);
+        const nz = clamp(z * Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * (pinch ? 0.02 : 0.008)), 0.5, 40);
         const ox = e.clientX - r.left, oy = e.clientY - r.top, cx = panRef.current.x + ox / z, cy = panRef.current.y + oy / z;
         setZoom(nz); setPan({ x: cx - ox / nz, y: cy - oy / nz });
       } else setPan((p) => ({ x: p.x + e.deltaX / z, y: p.y + e.deltaY / z }));
