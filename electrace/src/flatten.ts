@@ -48,10 +48,18 @@ export function flatten(rd: ResolvedDesign): FlatSchematic {
     }
   }
 
-  // stitch across boundaries via the design's connections
+  // stitch across boundaries via the design's connections. A connector pin (e.g. "J1.3") is a real
+  // physical pad on the board — register it as a component pin so it lands in the netlist (and the PCB),
+  // rather than a block terminal node (which gets filtered out as having no physical pin).
+  const connRefs = new Set((rd.design.connectors ?? []).map((x) => x.ref));
+  const epNode = (pinRef: string): string => {
+    const i = pinRef.indexOf(".");
+    if (i < 0) return pinRef;
+    if (connRefs.has(pinRef.slice(0, i))) { uf.add(pinRef); compPins.add(pinRef); return pinRef; }
+    return termNode(pinRef.slice(0, i), pinRef.slice(i + 1));
+  };
   for (const c of rd.design.connections) {
-    const a = refToTermNode(c.from);
-    const b = refToTermNode(c.to);
+    const a = epNode(c.from), b = epNode(c.to);
     uf.union(a, b);
     if (c.net) { connName.set(a, c.net); connName.set(b, c.net); }
   }

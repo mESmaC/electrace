@@ -5,7 +5,8 @@
 // now footprints are generated to match each part's actual pins so the ratsnest is always valid.)
 import { resolve } from "./resolve.js";
 import { flatten } from "./flatten.js";
-import { resolveFootprint } from "./footprints.js";
+import { resolveFootprint, connectorFootprint } from "./footprints.js";
+import { CONNECTOR_CATALOG } from "./connectors.js";
 import type { Block, Design } from "./types.js";
 
 export interface PcbPad { id: string; pin?: string; x: number; y: number; w: number; h: number; round?: number; drill?: number } // id = physical pad number; pin = schematic pin mapped to it. mm, relative to component origin
@@ -39,6 +40,21 @@ export function pcbProject(design: Design, blocks: Map<string, Block>): PcbProje
     for (const [pin, pad] of Object.entries(pinToPad)) if (!(pad in padToPin)) padToPin[pad] = pin;
     components.push({
       ref: p.ref, type: p.type, value: p.value, footprint: footprint.id, w: footprint.w, h: footprint.h,
+      pads: footprint.pads.map((pad) => ({ id: pad.num, pin: padToPin[pad.num], x: pad.x, y: pad.y, w: pad.w, h: pad.h, round: pad.round, drill: pad.drill })),
+    });
+  }
+
+  // connectors are real board parts too (board-edge I/O) — emit each with its FULL footprint (all
+  // pins, not just the wired ones), so the jack/header actually lands on the board.
+  for (const conn of design.connectors ?? []) {
+    const part = CONNECTOR_CATALOG[conn.connector];
+    if (!part) continue;
+    const { footprint, pinToPad } = connectorFootprint(conn.connector, part.pins);
+    pinToPadByRef.set(conn.ref, pinToPad);
+    const padToPin: Record<string, string> = {};
+    for (const [pin, pad] of Object.entries(pinToPad)) if (!(pad in padToPin)) padToPin[pad] = pin;
+    components.push({
+      ref: conn.ref, type: "connector", value: part.name, footprint: footprint.id, w: footprint.w, h: footprint.h,
       pads: footprint.pads.map((pad) => ({ id: pad.num, pin: padToPin[pad.num], x: pad.x, y: pad.y, w: pad.w, h: pad.h, round: pad.round, drill: pad.drill })),
     });
   }

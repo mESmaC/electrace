@@ -58,6 +58,35 @@ function header(n: number, pitch = 2.54): Footprint {
   const pads = Array.from({ length: n }, (_, i) => ({ num: `${i + 1}`, x: (i - (n - 1) / 2) * pitch, y: 0, w: 1.7, h: 1.7, drill: 1.0, round: i === 0 ? 0 : 0.5 }));
   return fp(`HDR-1x${n}`, "tht", pads);
 }
+/** A `rows`×`cols` pin-header grid (e.g. 2×20). Pads numbered 1..rows*cols column-major (1,2 down the
+ *  first column), so a 2×20 lands ~25×5 mm instead of a 100 mm single row. */
+function headerGrid(rows: number, cols: number, pitch = 2.54): Footprint {
+  const pads: LandPad[] = [];
+  const x0 = -((cols - 1) / 2) * pitch, y0 = -((rows - 1) / 2) * pitch;
+  let num = 1;
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++)
+    pads.push({ num: `${num++}`, x: x0 + c * pitch, y: y0 + r * pitch, w: 1.7, h: 1.7, drill: 1.0, round: num === 2 ? 0 : 0.5 });
+  return fp(`HDR-${rows}x${cols}`, "tht", pads);
+}
+
+/** A physical connector's land pattern, by its catalog id (id encodes geometry better than the part's
+ *  footprint string). Pads are numbered in catalog-pin order so the ratsnest maps cleanly. */
+export function connectorFootprint(id: string, pins: string[]): { footprint: Footprint; pinToPad: Record<string, string> } {
+  const n = pins.length;
+  let footprint: Footprint;
+  const grid = id.match(/^hdr-(\d+)x(\d+)/);
+  if (grid) footprint = headerGrid(Number(grid[1]), Number(grid[2]));
+  else if (id.startsWith("hdr-")) footprint = header(n);
+  else if (id.startsWith("screw-")) footprint = header(n, 5.0);
+  else if (id === "barrel") footprint = SPECIFIC["DCJACK"]();
+  else if (id === "rj45") footprint = headerGrid(2, Math.ceil(n / 2));
+  else footprint = header(n); // usb / unknown — placeholder pad row (real USB lands are a later refinement)
+  // map each connector pin (in catalog order) to pad number = its position
+  const padSet = new Set(footprint.pads.map((p) => p.num));
+  const pinToPad: Record<string, string> = {};
+  pins.forEach((p, i) => { const pad = `${i + 1}`; if (padSet.has(pad)) pinToPad[p] = pad; });
+  return { footprint, pinToPad };
+}
 function radial(diamMm: number): Footprint {
   const lead = diamMm <= 6.3 ? 2.5 : diamMm <= 8 ? 3.5 : 5.0; // lead spacing by can diameter
   return fp(`RADIAL-${diamMm}MM`, "tht", [

@@ -9,7 +9,6 @@ const CLEAR = 0.2;  // mm minimum copper clearance for DRC
 const GRIDS = [1, 0.5, 0.25, 0.1, 0]; // mm snap options; 0 = free (no snap, KiCad-style)
 const snap = (n: number, g: number) => (g ? Math.round(n / g) * g : Math.round(n * 1e4) / 1e4);
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
-const AUTO_SP = 16;
 
 type Pos = { x: number; y: number };
 type Place = { x: number; y: number; rot: number };
@@ -64,9 +63,19 @@ function roundedPath(pts: Pos[], r: number, minTurn: number): string {
   const last = pts[pts.length - 1];
   return out.join(" ") + ` L ${last.x} ${last.y}`;
 }
-const autoPlace = (i: number, total: number): Place => {
-  const cols = Math.max(1, Math.ceil(Math.sqrt(total)));
-  return { x: (i % cols) * AUTO_SP, y: Math.floor(i / cols) * AUTO_SP, rot: 0 };
+// Size-aware shelf packing: lay components left→right by their real width/height, wrapping rows, so
+// big parts (a 2×20 header, a QFN) don't overlap their neighbours like a fixed grid did. Place = center.
+const packComponents = (comps: { ref: string; w: number; h: number }[]): Record<string, Place> => {
+  const GAP = 3;
+  const targetW = Math.max(24, Math.sqrt(comps.reduce((a, c) => a + (c.w + GAP) * (c.h + GAP), 0)) * 1.3);
+  const out: Record<string, Place> = {};
+  let x = 0, y = 0, rowH = 0;
+  for (const c of comps) {
+    if (x > 0 && x + c.w > targetW) { x = 0; y += rowH + GAP; rowH = 0; }
+    out[c.ref] = { x: x + c.w / 2, y: y + c.h / 2, rot: 0 };
+    x += c.w + GAP; rowH = Math.max(rowH, c.h);
+  }
+  return out;
 };
 // KiCad-flavoured palette: dark board, copper layers, gold pads, yellow edge cuts.
 // Copper stackup — front red, back blue, inner layers distinct. Extend this list for more layers;
@@ -160,7 +169,8 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   const toolRef = useRef(tool); toolRef.current = tool;
   const fitted = useRef(false);
 
-  const placeOf = (ref: string, i: number): Place => places[ref] ?? autoPlace(i, project.components.length);
+  const autoPlaces = useMemo(() => packComponents(project.components), [project.components]);
+  const placeOf = (ref: string, _i?: number): Place => places[ref] ?? autoPlaces[ref] ?? { x: 0, y: 0, rot: 0 };
   const writeLS = (s: Snap) => { try { localStorage.setItem(LS, JSON.stringify(s)); } catch { /* ignore */ } };
   // every committing mutation flows through persist(): it snapshots the new state, records the
   // previous one on the undo stack, clears the redo stack, and writes through to localStorage.
@@ -441,7 +451,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     } else setSel(null);
   };
 
-  const autoArrange = () => { const next: Record<string, Place> = {}; project.components.forEach((c, i) => { next[c.ref] = autoPlace(i, project.components.length); }); setPlaces(next); persist(next, traces, vias); fitted.current = false; setTimeout(fitView, 0); };
+  const autoArrange = () => { const next = packComponents(project.components); setPlaces(next); persist(next, traces, vias); fitted.current = false; setTimeout(fitView, 0); };
 
   // resolve the visual layout into absolute geometry and run the deterministic design-rule check
   const runDrc = () => {
