@@ -6,7 +6,8 @@ import type { Design } from "@electrace/core";
 const INDEX = "electrace:projects";
 const designKey = (id: string) => `electrace:design:${id}`;
 
-export interface ProjectMeta { id: string; name: string; updatedAt: number }
+export interface LintSummary { error: number; warn: number }
+export interface ProjectMeta { id: string; name: string; updatedAt: number; lint?: LintSummary; starred?: boolean }
 
 const read = <T,>(k: string, fb: T): T => {
   if (typeof window === "undefined") return fb;
@@ -38,11 +39,19 @@ export function createProject(name?: string, base?: Design): ProjectMeta {
   return meta;
 }
 
-/** Mark a project as just-edited (called by the editor's autosave). */
-export function touchProject(id: string, name?: string, now = 0): void {
+/** Mark a project as just-edited (called by the editor's autosave). Carries the latest lint summary so
+ *  the dashboard can show a per-design status without re-running analyze (it has no block library). */
+export function touchProject(id: string, name?: string, lint?: LintSummary): void {
   const cur = read<ProjectMeta[]>(INDEX, []).find((p) => p.id === id);
   if (!cur && !getDesign(id)) return; // don't index a non-existent project
-  upsertMeta({ id, name: name ?? cur?.name ?? "Untitled project", updatedAt: now || stamp() });
+  upsertMeta({ id, name: name ?? cur?.name ?? "Untitled project", updatedAt: stamp(), lint: lint ?? cur?.lint, starred: cur?.starred });
+}
+
+/** Toggle a design's starred flag without bumping its edited time. */
+export function setStar(id: string, starred: boolean): void {
+  const cur = read<ProjectMeta[]>(INDEX, []).find((p) => p.id === id);
+  if (!cur) return;
+  upsertMeta({ ...cur, starred });
 }
 
 export function renameProject(id: string, name: string): void {

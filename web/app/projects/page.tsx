@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { listProjects, createProject, deleteProject, renameProject, getDesign, type ProjectMeta } from "@/lib/projects";
+import { listProjects, createProject, deleteProject, renameProject, getDesign, setStar, type ProjectMeta, type LintSummary } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
@@ -24,6 +24,15 @@ const TEMPLATES = [
   { name: "Sensor front-end", desc: "Amplify → filter → ADC", glyph: "⊳", cls: "text-green bg-green/15 border-green/40" },
   { name: "Blank canvas", desc: "Start from nothing", glyph: "＋", cls: "text-dim bg-surface-2 border-border" },
 ];
+
+/** Per-design lint status, derived from the summary the editor stashes on save. */
+function statusChip(lint?: LintSummary): { label: string; icon: string; cls: string } {
+  if (!lint) return { label: "Not checked", icon: "○", cls: "text-faint border-border" };
+  const issues = lint.error + lint.warn;
+  if (issues === 0) return { label: "Ready", icon: "✓", cls: "text-green border-green/40 bg-green/10" };
+  if (lint.error > 0) return { label: `${issues} issue${issues > 1 ? "s" : ""}`, icon: "▲", cls: "text-[#e2837e] border-[#e2837e]/45 bg-[#e2554b]/10" };
+  return { label: `${lint.warn} warning${lint.warn > 1 ? "s" : ""}`, icon: "▲", cls: "text-amber border-amber/45 bg-amber/10" };
+}
 
 /** A stylized peek of a design — up to 4 of its blocks as accent-striped cards with wires. */
 function Thumb({ design }: { design: Design | null }) {
@@ -48,6 +57,9 @@ function Thumb({ design }: { design: Design | null }) {
   );
 }
 
+type Nav = "recent" | "starred" | "drafts";
+type Sort = "recent" | "name" | "issues";
+
 export default function Dashboard() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
@@ -55,6 +67,9 @@ export default function Dashboard() {
   const [query, setQuery] = useState("");
   const [promo, setPromo] = useState(true);
   const [profile, setProfile] = useState<{ name: string; email: string } | null>(null);
+  const [nav, setNav] = useState<Nav>("recent");
+  const [sort, setSort] = useState<Sort>("recent");
+  const [view, setView] = useState<"grid" | "list">("grid");
   const refresh = () => setProjects(listProjects());
   useEffect(() => {
     try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ }
@@ -73,13 +88,45 @@ export default function Dashboard() {
   const onDelete = async (id: string, name: string) => {
     if (await confirmDialog({ title: `Delete “${name}”?`, message: "This can't be undone.", confirmText: "Delete", danger: true })) { deleteProject(id); refresh(); }
   };
+  const toggleStar = (id: string, cur?: boolean) => { setStar(id, !cur); refresh(); };
 
   const designs = useMemo(() => new Map(projects.map((p) => [p.id, getDesign(p.id)])), [projects]);
-  const totalBlocks = useMemo(() => projects.reduce((a, p) => a + (designs.get(p.id)?.blocks?.length ?? 0), 0), [projects, designs]);
-  const filtered = useMemo(() => projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase())), [projects, query]);
+  const blocksOf = (id: string) => designs.get(id)?.blocks?.length ?? 0;
+  const issuesOf = (p: ProjectMeta) => (p.lint ? p.lint.error + p.lint.warn : 0);
+  const totalBlocks = useMemo(() => projects.reduce((a, p) => a + blocksOf(p.id), 0), [projects, designs]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openIssues = useMemo(() => projects.reduce((a, p) => a + issuesOf(p), 0), [projects]);
+  const starCount = useMemo(() => projects.filter((p) => p.starred).length, [projects]);
   const recent = projects.slice(0, 4);
 
+  const filtered = useMemo(() => {
+    let list = projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
+    if (nav === "starred") list = list.filter((p) => p.starred);
+    else if (nav === "drafts") list = list.filter((p) => blocksOf(p.id) === 0);
+    const out = [...list];
+    if (sort === "name") out.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sort === "issues") out.sort((a, b) => issuesOf(b) - issuesOf(a));
+    else out.sort((a, b) => b.updatedAt - a.updatedAt);
+    return out;
+  }, [projects, query, nav, sort, designs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const navTitle = nav === "starred" ? "Starred" : nav === "drafts" ? "Drafts" : "All designs";
+  const showIntro = nav === "recent" && !query;
+
   const sideLink = "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] font-medium text-dim hover:bg-surface-2 hover:text-text";
+  const navBtn = (k: Nav, icon: string, label: string, count?: number) => (
+    <button onClick={() => setNav(k)} className={`${sideLink} ${nav === k ? "bg-accent/15 text-text" : ""}`}>
+      <span className="w-4 text-center">{icon}</span> {label}
+      {count ? <span className="ml-auto font-mono text-[11px] text-faint">{count}</span> : null}
+    </button>
+  );
+
+  const cardMenu = (p: ProjectMeta) => [
+    { label: "Open", icon: "↗", onSelect: () => open(p.id) },
+    { label: p.starred ? "Unstar" : "Star", icon: "★", onSelect: () => toggleStar(p.id, p.starred) },
+    { label: "Rename", icon: "✎", onSelect: () => onRename(p.id, p.name) },
+    { separator: true as const },
+    { label: "Delete", icon: "🗑", danger: true, onSelect: () => onDelete(p.id, p.name) },
+  ];
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 3.5rem)" }}>
@@ -92,10 +139,9 @@ export default function Dashboard() {
         </div>
         <button onClick={() => newProject()} className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-2.5 font-semibold text-white shadow-lg shadow-accent/30 hover:bg-accent-hi">＋ New design</button>
         <nav className="flex flex-col gap-0.5">
-          <span className={`${sideLink} bg-accent/15 text-text`}><span className="w-4 text-center">⌂</span> Recents</span>
-          <span className={sideLink}><span className="w-4 text-center">▤</span> Drafts</span>
-          <span className={sideLink}><span className="w-4 text-center">★</span> Starred</span>
-          <span className={sideLink}><span className="w-4 text-center">🗑</span> Trash</span>
+          {navBtn("recent", "⌂", "Recents")}
+          {navBtn("starred", "★", "Starred", starCount)}
+          {navBtn("drafts", "▤", "Drafts")}
         </nav>
         <div className="px-3 pb-1.5 pt-4 text-[10px] font-bold uppercase tracking-wider text-faint">Library</div>
         <nav className="flex flex-col gap-0.5">
@@ -128,10 +174,13 @@ export default function Dashboard() {
           <div className="mt-3.5 flex flex-wrap gap-2.5">
             <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[13px]"><span className="text-faint">Designs</span> <b className="font-mono">{mounted ? projects.length : "—"}</b></div>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[13px]"><span className="text-faint">Blocks placed</span> <b className="font-mono">{mounted ? totalBlocks : "—"}</b></div>
+            <div className={`flex items-center gap-2 rounded-lg border bg-surface px-3 py-2 text-[13px] ${mounted && openIssues > 0 ? "border-[#e2837e]/45" : "border-border"}`}>
+              <span className="text-faint">Open issues</span> <b className={`font-mono ${mounted && openIssues > 0 ? "text-[#e2837e]" : ""}`}>{mounted ? openIssues : "—"}</b>
+            </div>
             {recent[0] && <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[13px]"><span className="text-faint">Last edit</span> <b className="font-mono">{relTime(recent[0].updatedAt)}</b></div>}
           </div>
 
-          {promo && (
+          {showIntro && promo && (
             <div className="mt-5 flex items-center gap-3.5 rounded-xl border p-4" style={{ background: "linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent)", borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>
               <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-accent text-[18px]">✦</span>
               <span><div className="text-[14px] font-semibold">Build faster with Sparky</div><div className="text-[12.5px] text-dim">Ask the assistant to wire a chip from its part number, or fan a big board out to parallel sparks.</div></span>
@@ -141,50 +190,74 @@ export default function Dashboard() {
           )}
 
           {/* jump back in */}
-          {recent.length > 0 && (<>
+          {showIntro && recent.length > 0 && (<>
             <div className="mb-3.5 mt-8 text-[15px] font-bold">Jump back in</div>
             <div className="flex gap-4 overflow-auto pb-1.5">
-              {recent.map((p) => (
-                <button key={p.id} onClick={() => open(p.id)} className="w-[260px] shrink-0 overflow-hidden rounded-2xl border border-border bg-surface text-left transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl">
-                  <div className="h-[120px] border-b border-border bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 6%, transparent) 1.3px, transparent 1.3px)", backgroundSize: "15px 15px" }}><Thumb design={designs.get(p.id) ?? null} /></div>
-                  <div className="flex items-center gap-2 px-3.5 py-2.5"><span className="flex-1 truncate text-[13.5px] font-semibold">{p.name}</span><span className="text-[11px] text-faint">{relTime(p.updatedAt)}</span></div>
+              {recent.map((p) => {
+                const st = statusChip(p.lint);
+                return (
+                  <button key={p.id} onClick={() => open(p.id)} onContextMenu={(e) => openContextMenu(e, cardMenu(p))} className="w-[260px] shrink-0 overflow-hidden rounded-2xl border border-border bg-surface text-left transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl">
+                    <div className="h-[120px] border-b border-border bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 6%, transparent) 1.3px, transparent 1.3px)", backgroundSize: "15px 15px" }}><Thumb design={designs.get(p.id) ?? null} /></div>
+                    <div className="flex items-center gap-2 px-3.5 py-2.5">
+                      <span className="flex-1 truncate text-[13.5px] font-semibold">{p.name}</span>
+                      <span className={`rounded-full border px-1.5 py-0.5 text-[9.5px] font-semibold ${st.cls}`}>{st.icon}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>)}
+
+          {/* templates */}
+          {showIntro && (<>
+            <div className="mb-3.5 mt-8 text-[15px] font-bold">Start something new</div>
+            <div className="flex gap-3 overflow-auto pb-1.5">
+              {TEMPLATES.map((t) => (
+                <button key={t.name} onClick={() => newProject(t.name === "Blank canvas" ? undefined : t.name)} className="w-[188px] shrink-0 rounded-xl border border-border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-accent">
+                  <div className={`mb-2.5 grid h-[34px] w-[34px] place-items-center rounded-lg border text-[16px] ${t.cls}`}>{t.glyph}</div>
+                  <div className="text-[13.5px] font-semibold">{t.name}</div><div className="mt-0.5 text-[11.5px] text-faint">{t.desc}</div>
                 </button>
               ))}
             </div>
           </>)}
 
-          {/* templates */}
-          <div className="mb-3.5 mt-8 text-[15px] font-bold">Start something new</div>
-          <div className="flex gap-3 overflow-auto pb-1.5">
-            {TEMPLATES.map((t) => (
-              <button key={t.name} onClick={() => newProject(t.name === "Blank canvas" ? undefined : t.name)} className="w-[188px] shrink-0 rounded-xl border border-border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-accent">
-                <div className={`mb-2.5 grid h-[34px] w-[34px] place-items-center rounded-lg border text-[16px] ${t.cls}`}>{t.glyph}</div>
-                <div className="text-[13.5px] font-semibold">{t.name}</div><div className="mt-0.5 text-[11.5px] text-faint">{t.desc}</div>
-              </button>
-            ))}
+          {/* designs grid/list with toolbar */}
+          <div className="mb-3.5 mt-8 flex flex-wrap items-center gap-3">
+            <span className="text-[15px] font-bold">{navTitle}</span>
+            <span className="text-[12.5px] text-faint">{mounted ? `${filtered.length} design${filtered.length === 1 ? "" : "s"}` : ""}</span>
+            <div className="ml-auto flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-[12px] text-faint">
+                Sort
+                <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-lg border border-border bg-surface px-2 py-1 text-[12px] text-text outline-none focus:border-accent">
+                  <option value="recent">Last edited</option>
+                  <option value="name">Name</option>
+                  <option value="issues">Open issues</option>
+                </select>
+              </label>
+              <div className="flex overflow-hidden rounded-lg border border-border">
+                <button onClick={() => setView("grid")} title="Grid" className={`px-2 py-1 text-[13px] ${view === "grid" ? "bg-accent/15 text-accent" : "text-faint hover:text-text"}`}>▦</button>
+                <button onClick={() => setView("list")} title="List" className={`px-2 py-1 text-[13px] ${view === "list" ? "bg-accent/15 text-accent" : "text-faint hover:text-text"}`}>≣</button>
+              </div>
+            </div>
           </div>
 
-          {/* all designs */}
-          <div className="mb-3.5 mt-8 flex items-center"><span className="text-[15px] font-bold">All designs</span><span className="ml-2.5 text-[12.5px] text-faint">{mounted ? `${filtered.length} design${filtered.length === 1 ? "" : "s"}` : ""}</span></div>
           {mounted && filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-surface/50 px-6 py-16 text-center">
-              <div className="text-[15px] font-semibold">{query ? "No designs match." : "No designs yet."}</div>
-              <p className="mx-auto mt-1 max-w-sm text-[13px] text-dim">{query ? "Try a different search." : "Start your first board — pick a template above, or open the sample."}</p>
-              {!query && <button onClick={() => newProject()} className="mt-4 rounded-xl bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-hi">+ New design</button>}
+              <div className="text-[15px] font-semibold">{query ? "No designs match." : nav === "starred" ? "No starred designs." : nav === "drafts" ? "No empty drafts." : "No designs yet."}</div>
+              <p className="mx-auto mt-1 max-w-sm text-[13px] text-dim">{query ? "Try a different search." : nav === "starred" ? "Star a design to keep it handy here." : "Start your first board — pick a template above, or open the sample."}</p>
+              {!query && nav === "recent" && <button onClick={() => newProject()} className="mt-4 rounded-xl bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-hi">+ New design</button>}
             </div>
-          ) : (
+          ) : view === "grid" ? (
             <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(258px, 1fr))" }}>
               {filtered.map((p) => {
-                const blocks = designs.get(p.id)?.blocks?.length ?? 0;
+                const st = statusChip(p.lint), blocks = blocksOf(p.id);
                 return (
-                  <div key={p.id} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl" onClick={() => open(p.id)}
-                    onContextMenu={(e) => openContextMenu(e, [
-                      { label: "Open", icon: "↗", onSelect: () => open(p.id) },
-                      { label: "Rename", icon: "✎", onSelect: () => onRename(p.id, p.name) },
-                      { separator: true },
-                      { label: "Delete", icon: "🗑", danger: true, onSelect: () => onDelete(p.id, p.name) },
-                    ])}>
-                    <div className="h-[140px] border-b border-border bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 6%, transparent) 1.3px, transparent 1.3px)", backgroundSize: "16px 16px" }}><Thumb design={designs.get(p.id) ?? null} /></div>
+                  <div key={p.id} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl" onClick={() => open(p.id)} onContextMenu={(e) => openContextMenu(e, cardMenu(p))}>
+                    <div className="relative h-[140px] border-b border-border bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 6%, transparent) 1.3px, transparent 1.3px)", backgroundSize: "16px 16px" }}>
+                      <Thumb design={designs.get(p.id) ?? null} />
+                      <button onClick={(e) => { e.stopPropagation(); toggleStar(p.id, p.starred); }} title={p.starred ? "Unstar" : "Star"}
+                        className={`absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-lg border border-border bg-surface/80 text-[13px] backdrop-blur transition ${p.starred ? "text-amber opacity-100" : "text-faint opacity-0 hover:text-text group-hover:opacity-100"}`}>{p.starred ? "★" : "☆"}</button>
+                    </div>
                     <div className="px-3.5 pb-3 pt-3">
                       <div className="flex items-center gap-2"><span className="flex-1 truncate text-[14.5px] font-semibold">{p.name}</span>
                         <button onClick={(e) => { e.stopPropagation(); onRename(p.id, p.name); }} title="Rename" className="text-faint opacity-0 hover:text-text group-hover:opacity-100">✎</button>
@@ -193,9 +266,27 @@ export default function Dashboard() {
                       <div className="mt-0.5 text-[11.5px] text-faint">Edited {relTime(p.updatedAt)} · by you</div>
                       <div className="mt-2.5 flex items-center gap-1.5">
                         <span className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-dim">{blocks} block{blocks === 1 ? "" : "s"}</span>
+                        <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${st.cls}`}>{st.icon} {st.label}</span>
                         <span className="ml-auto grid h-[23px] w-[23px] place-items-center rounded-full bg-accent text-[9.5px] font-bold text-white ring-2 ring-surface">YOU</span>
                       </div>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-border">
+              {filtered.map((p, i) => {
+                const st = statusChip(p.lint), blocks = blocksOf(p.id);
+                return (
+                  <div key={p.id} className={`group flex cursor-pointer items-center gap-3 bg-surface px-4 py-2.5 transition hover:bg-surface-2 ${i ? "border-t border-border" : ""}`} onClick={() => open(p.id)} onContextMenu={(e) => openContextMenu(e, cardMenu(p))}>
+                    <button onClick={(e) => { e.stopPropagation(); toggleStar(p.id, p.starred); }} title={p.starred ? "Unstar" : "Star"} className={`text-[14px] ${p.starred ? "text-amber" : "text-faint opacity-0 hover:text-text group-hover:opacity-100"}`}>{p.starred ? "★" : "☆"}</button>
+                    <span className="w-[34%] min-w-0 flex-1 truncate text-[14px] font-semibold">{p.name}</span>
+                    <span className="hidden w-20 shrink-0 font-mono text-[11.5px] text-faint sm:inline">{blocks} block{blocks === 1 ? "" : "s"}</span>
+                    <span className={`hidden shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-semibold sm:flex ${st.cls}`}>{st.icon} {st.label}</span>
+                    <span className="hidden w-24 shrink-0 text-right text-[11.5px] text-faint md:inline">{relTime(p.updatedAt)}</span>
+                    <button onClick={(e) => { e.stopPropagation(); onRename(p.id, p.name); }} title="Rename" className="shrink-0 text-faint opacity-0 hover:text-text group-hover:opacity-100">✎</button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(p.id, p.name); }} title="Delete" className="shrink-0 text-faint opacity-0 hover:text-[#e2837e] group-hover:opacity-100">🗑</button>
                   </div>
                 );
               })}

@@ -735,7 +735,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     const id = setTimeout(() => {
       try {
         localStorage.setItem(LS_KEY, JSON.stringify(designLive));
-        if (projectId) touchProject(projectId, designName); // keep the dashboard's "edited" stamp + name current
+        if (projectId) touchProject(projectId, designName, probCount); // keep the dashboard's edited stamp + name + lint status current
         setSavedAt(Date.now());
       } catch { /* ignore */ }
     }, 800);
