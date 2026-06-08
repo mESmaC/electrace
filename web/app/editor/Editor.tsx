@@ -871,6 +871,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                 })}
               </ul>
             )}
+            <div className="mt-1.5 border-t border-[var(--color-border)] px-1.5 pt-1.5 text-[10px] leading-snug text-[var(--color-faint)]">
+              Structural checks (typed nets · budgets), not a simulation — a clean result means sane, not validated. <a href="/help" className="text-[var(--color-link)] hover:underline">what this catches →</a>
+            </div>
           </div>
         )}
       </div>

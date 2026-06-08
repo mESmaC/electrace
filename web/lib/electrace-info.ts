@@ -8,6 +8,15 @@ export interface ChangeEntry { date: string; title: string; items: string[] }
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-06-07",
+    title: "Clearer about what a check means",
+    items: [
+      "Help now spells out that the checks are **structural, not a simulation** — a clean result means structurally sane (typed + connected), not validated. New guidance on **what the checks do/don't catch** and **when to author a block vs use a library one**.",
+      "The findings panel carries the same honest note inline.",
+      "**Three themes** (Light / Mid / Dark, Mid default) with a selector; the editor themes too.",
+    ],
+  },
+  {
+    date: "2026-06-07",
     title: "Meet Sparky — the assistant grows up",
     items: [
       "The assistant is now **Sparky** ✨, with a name and a friendlier face (was the generic robot).",
@@ -68,6 +77,28 @@ live checks, no SPICE required. Here's the lay of the land.
 - **Acknowledge** a finding that's correct-but-noisy (e.g. USB + regulator legitimately sharing a rail)
   with the *mark intended* button — it mutes with your reason and stops counting.
 - **Power budgets** (bottom bar) show each rail's load vs the source's capacity.
+
+## What the checks mean (and what they don't)
+Electrace's checks are **structural and deterministic — not a simulation.** They read your typed net
+graph and declared values and catch the dumb-but-deadly mistakes cheaply: two drivers fighting on a net,
+an undriven rail, an open/unconnected pin, a power pin tied to ground, a rail drawing more than its
+source can supply, a polarized part wired backwards.
+
+What they **don't** do: any analog or time-domain behaviour. No SPICE, no transient/inrush, no thermal,
+no ripple-current-on-the-caps, no EMI or loop-stability. A clean result means your design is
+**structurally sane — typed-correct and connected as intended — not that it's validated.** Component
+values you (or Sparky) set are *starting points*; nothing here checks them against a real part's
+datasheet. Treat a green check as "the first 80% is correct and BOM-ready," then take it to a simulator
+and a real EDA/PCB review for the analog 20%. The **KiCad export** is that escape hatch — Electrace
+never locks you in.
+
+## Author a block vs. use a library block
+- **Use a library block** when a stock part fits as-is (a header, a generic passive, a connector).
+- **Author a block** when you need a real part or a functional grouping: an MCU/driver IC (author it
+  from its part number → real footprint + BOM), or a subcircuit like a power stage or oscillator. A
+  block should be a *functional unit* — fold its support parts (decoupling, gate resistors, shunts,
+  load caps) inside it, and expose only the pins the rest of the design connects to. Don't scatter
+  loose passives on the canvas, and don't leave a block as a hollow shell (it won't reach the BOM).
 
 ## Outputs
 - **BOM** — built from the real parts inside your blocks; exportable.
