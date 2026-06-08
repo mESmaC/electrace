@@ -40,7 +40,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SiteBackdrop />
         <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-7">
+          <div className="flex h-14 items-center gap-6 px-7 lg:px-9">
             <Link href="/" aria-label="Electrace home"><Logo className="text-[17px]" /></Link>
             <Link href="/projects" className="text-sm text-dim hover:text-text">Projects</Link>
             <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
