@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="32 -10 200 200" role="img" aria-label="Electrace">
+  <style>
+    .ring { stroke: #1e2a3a; }
+    @media (prefers-color-scheme: dark) { .ring { stroke: #eef2f8; } }
+  </style>
+  <path class="ring" d="M169.7 39.9 A78 78 0 1 0 169.7 140.1" fill="none" stroke-width="16" stroke-linecap="round"/>
+  <path d="M65 90 H100 L106 76 L118 104 L130 76 L142 104 L154 76 L160 90 H200" fill="none" stroke="#4c8dff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="55" cy="90" r="10" fill="none" stroke="#4c8dff" stroke-width="6"/>
+  <circle cx="210" cy="90" r="10" fill="none" stroke="#4c8dff" stroke-width="6"/>
+</svg>

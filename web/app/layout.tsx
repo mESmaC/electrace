@@ -7,6 +7,7 @@ import SiteBackdrop from "./SiteBackdrop";
 import { DialogHost } from "./ui/dialog";
 import { ContextMenuHost } from "./ui/contextMenu";
 import NavAccount from "./NavAccount";
+import { Logo } from "./Logo";
 
 // Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
 const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
@@ -40,9 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-7">
-            <Link href="/" className="font-mono font-bold text-[17px]">
-              Electrace<span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 rounded-[1px] bg-accent" />
-            </Link>
+            <Link href="/" aria-label="Electrace home"><Logo className="text-[17px]" /></Link>
             <Link href="/projects" className="text-sm text-dim hover:text-text">Projects</Link>
             <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
             <Link href="/pricing" className="text-sm text-dim hover:text-text">Pricing</Link>

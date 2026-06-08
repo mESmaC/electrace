@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth";
+import { Logo } from "@/app/Logo";
 
 /** Sign-in / sign-up UI (faithful to mockups/auth.html). NOTE: no real backend yet — submit stores a
  *  LOCAL profile (electrace:profile) and continues; real accounts arrive with the Supabase phase. */
@@ -27,7 +28,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
       {/* form side */}
       <div className="flex flex-col px-10 py-8">
         <div className="flex items-center">
-          <Link href="/" className="font-mono text-[17px] font-bold">Electrace<span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 rounded-[1px] bg-accent" /></Link>
+          <Link href="/" aria-label="Electrace home"><Logo className="text-[17px]" /></Link>
           <span className="ml-auto text-[13.5px] text-faint">{signup ? <>Have an account? <Link href="/login" className="font-semibold text-accent">Log in</Link></> : <>New here? <Link href="/signup" className="font-semibold text-accent">Create an account</Link></>}</span>
         </div>
 

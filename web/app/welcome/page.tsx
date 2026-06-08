@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setSymbolStyle, type SymStyle } from "@/app/editor/symbols";
 import RequireAuth from "@/app/RequireAuth";
+import { Logo } from "@/app/Logo";
 
 export default function WelcomePage() {
   return <RequireAuth><WelcomeWizard /></RequireAuth>;
@@ -51,7 +52,7 @@ function WelcomeWizard() {
       <div className="w-[680px] max-w-full overflow-hidden rounded-2xl border border-border-strong bg-surface shadow-2xl">
         {/* header */}
         <div className="flex items-center gap-3 border-b border-border px-6 py-4">
-          <span className="font-mono text-[16px] font-bold">Electrace<span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 rounded-[1px] bg-accent" /></span>
+          <Logo className="text-[16px]" />
           <div className="ml-auto flex items-center gap-1.5">
             {Array.from({ length: total }).map((_, i) => (
               <span key={i} className={`h-2 rounded-full transition-all ${i === step ? "w-5 bg-accent" : "w-2 bg-surface-3"}`} />
