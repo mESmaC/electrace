@@ -107,3 +107,13 @@ body {
 .ec-reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s ease }
 .ec-reveal.in { opacity: 1; transform: none }
 @media (prefers-reduced-motion: reduce) { .ec-reveal { opacity: 1; transform: none; transition: none } .ec-float, .ec-cursor, .ec-tip, .ec-bubble, .ec-wire { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0 } }
+
+/* ReactFlow viewport controls: xyflow's defaults follow the OS color-scheme, not our data-theme, so
+   in Mid/Dark on a light-OS the light buttons + light icons go invisible. Pin them to our tokens. */
+.react-flow {
+  --xy-controls-button-background-color: var(--color-surface);
+  --xy-controls-button-background-color-hover: var(--color-surface-2);
+  --xy-controls-button-color: var(--color-text);
+  --xy-controls-button-color-hover: var(--color-accent);
+  --xy-controls-button-border-color: var(--color-border);
+}
