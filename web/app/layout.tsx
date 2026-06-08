@@ -4,8 +4,8 @@ import "./globals.css";
 import ServerSync from "./ServerSync";
 import ThemeToggle from "./ThemeToggle";
 
-// Set the theme before first paint so there's no flash on load. Defaults to Mid.
-const NO_FLASH = `try{var t=localStorage.getItem('electrace:theme');document.documentElement.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');}catch(e){}`;
+// Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
+const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://electrace.net"),

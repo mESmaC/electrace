@@ -18,7 +18,10 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [mounted, setMounted] = useState(false);
   const refresh = () => setProjects(listProjects());
-  useEffect(() => { setMounted(true); refresh(); return onHydrated(refresh); }, []); // re-list once server data lands
+  useEffect(() => {
+    try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ } // first run → onboarding
+    setMounted(true); refresh(); return onHydrated(refresh);
+  }, [router]); // re-list once server data lands
 
   const onNew = () => {
     const name = window.prompt("Name your project", "Untitled project");
