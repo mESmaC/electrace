@@ -5,6 +5,7 @@ import Link from "next/link";
 import { listProjects, createProject, deleteProject, renameProject, getDesign, setStar, type ProjectMeta, type LintSummary } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
 import { isLoggedIn, getProfile } from "@/lib/auth";
+import { HOBBY_DESIGN_CAP } from "@/lib/plans";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
 import type { Design } from "@electrace/core";
@@ -82,7 +83,13 @@ export default function Dashboard() {
   const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "YOU";
 
   const open = (id: string) => router.push(`/editor?p=${id}`);
-  const newProject = (name?: string) => open(createProject(name).id);
+  const newProject = async (name?: string) => {
+    if (listProjects().length >= HOBBY_DESIGN_CAP) {
+      if (await confirmDialog({ title: "You've reached the Hobby limit", message: `Hobby includes up to ${HOBBY_DESIGN_CAP} designs. Upgrade to Pro for unlimited designs and private projects.`, confirmText: "See plans", cancelText: "Not now" })) router.push("/pricing");
+      return;
+    }
+    open(createProject(name).id);
+  };
   const onRename = async (id: string, cur: string) => {
     const n = await promptDialog({ title: "Rename design", defaultValue: cur, placeholder: "Design name", confirmText: "Rename" });
     if (n !== null) { renameProject(id, n); refresh(); }
@@ -154,11 +161,11 @@ export default function Dashboard() {
           <Link href="/help" className={sideLink}><span className="w-4 text-center">◎</span> Learn</Link>
         </nav>
         <div className="flex-1" />
-        <div className="mb-2.5 rounded-xl border border-border bg-surface-2 p-3">
-          <div className="flex justify-between text-[12px] font-semibold"><span>Free plan</span><span className="font-mono text-faint">{projects.length} / 10</span></div>
-          <div className="my-2 h-1.5 overflow-hidden rounded bg-bg"><div className="h-full rounded bg-accent" style={{ width: `${Math.min(100, projects.length * 10)}%` }} /></div>
-          <button className="w-full rounded-lg border border-accent py-1.5 text-[12px] font-semibold text-accent hover:bg-accent hover:text-white">Upgrade for unlimited</button>
-        </div>
+        <Link href="/pricing" className="mb-2.5 block rounded-xl border border-border bg-surface-2 p-3 transition hover:border-accent">
+          <div className="flex justify-between text-[12px] font-semibold"><span>Hobby plan</span><span className="font-mono text-faint">{projects.length} / {HOBBY_DESIGN_CAP}</span></div>
+          <div className="my-2 h-1.5 overflow-hidden rounded bg-bg"><div className={`h-full rounded ${projects.length >= HOBBY_DESIGN_CAP ? "bg-[#e2837e]" : "bg-accent"}`} style={{ width: `${Math.min(100, (projects.length / HOBBY_DESIGN_CAP) * 100)}%` }} /></div>
+          <div className="text-[12px] font-semibold text-accent">Upgrade for unlimited + private →</div>
+        </Link>
         <Link href="/settings" className="flex items-center gap-2.5 rounded-xl border border-border p-2.5 hover:bg-surface-2">
           <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-gradient-to-br from-accent to-[#7c6cff] text-[12px] font-bold text-white">{initials}</span>
           <span className="leading-tight"><span className="block text-[13px] font-semibold">{who}</span><span className="text-[11px] text-faint">{profile?.email || "local — sign in to save"}</span></span>

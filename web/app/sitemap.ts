@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${BASE}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${BASE}/blocks`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/pricing`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/help`, changeFrequency: "weekly", priority: 0.6 },
   ];
   // the public block explainer pages — the SEO/growth surface
