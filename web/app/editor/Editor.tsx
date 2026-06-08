@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as RDragEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent as RDragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import {
   ReactFlow, Background, Controls, Handle, Position, addEdge, ConnectionMode, useNodes, useEdges,
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
@@ -118,11 +118,18 @@ function BlockNode(props: NodeProps) {
         </div>
         {order.map((side) => sides[side].map((t, i, arr) => {
           const pct = `${((i + 1) / (arr.length + 1)) * 100}%`;
-          const lblBase = "pointer-events-none absolute font-mono text-[8px] text-[var(--color-text)] whitespace-nowrap";
-          const lbl = side === "left" ? { left: 7, top: pct, transform: "translateY(-50%)" }
-            : side === "right" ? { right: 7, top: pct, transform: "translateY(-50%)" }
-            : side === "top" ? { top: 8, left: pct, transform: "translate(-50%) rotate(-90deg)", transformOrigin: "left center" }
-            : { bottom: 8, left: pct, transform: "translate(-50%) rotate(-90deg)", transformOrigin: "left center" };
+          const half = dim / 2;
+          // labels read INWARD and are clamped to half the block, so long pin names never spill off the
+          // edges. Top/bottom use vertical writing-mode (flows down/up into the chip) instead of a rotate
+          // that pushed text off the top.
+          const lblBase = "pointer-events-none absolute overflow-hidden font-mono text-[8px] leading-none text-[var(--color-text)]";
+          const lbl: CSSProperties = side === "left"
+            ? { left: 7, top: pct, transform: "translateY(-50%)", maxWidth: half - 8, whiteSpace: "nowrap" }
+            : side === "right"
+            ? { right: 7, top: pct, transform: "translateY(-50%)", maxWidth: half - 8, whiteSpace: "nowrap", textAlign: "right" }
+            : side === "top"
+            ? { top: 7, left: pct, transform: "translateX(-50%)", writingMode: "vertical-rl", maxHeight: half - 6 }
+            : { bottom: 7, left: pct, transform: "translateX(-50%)", writingMode: "vertical-rl", maxHeight: half - 6 };
           return (
             <Fragment key={t.id}>
               <Handle id={t.id} type={t.role === "out" ? "source" : "target"} position={posOf[side]}
