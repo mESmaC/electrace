@@ -198,7 +198,7 @@ export default function Home() {
       <footer className="border-t border-border px-7 py-10 text-[14px] text-faint">
         <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-between gap-7">
           <span className="font-mono text-[16px] font-bold text-text">Electrace<span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 rounded-[1px] bg-accent" /></span>
-          <div className="flex gap-9"><a href="#how" className="text-dim hover:text-text">Product</a><a href="#why" className="text-dim hover:text-text">Why</a><Link href="/help" className="text-dim hover:text-text">Docs</Link><Link href="/blocks" className="text-dim hover:text-text">Blocks</Link></div>
+          <div className="flex flex-wrap gap-x-9 gap-y-2"><a href="#how" className="text-dim hover:text-text">Product</a><a href="#why" className="text-dim hover:text-text">Why</a><Link href="/help" className="text-dim hover:text-text">Docs</Link><Link href="/blocks" className="text-dim hover:text-text">Blocks</Link><Link href="/privacy" className="text-dim hover:text-text">Privacy</Link><Link href="/terms" className="text-dim hover:text-text">Terms</Link></div>
           <span>© 2026 US Nylon</span>
         </div>
       </footer>

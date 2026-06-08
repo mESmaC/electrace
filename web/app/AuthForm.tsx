@@ -61,7 +61,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
               </Field>
               {!signup && <label className="mb-5 mt-1 flex items-center gap-2 text-[13px] text-dim"><input type="checkbox" defaultChecked className="h-4 w-4 accent-[var(--color-accent)]" /> Remember me</label>}
               <button type="submit" disabled={busy} className="w-full rounded-xl bg-accent py-3 font-semibold text-white shadow-lg shadow-accent/30 hover:bg-accent-hi disabled:opacity-60">{busy ? "Just a sec…" : signup ? "Create account" : "Log in"}</button>
-              {signup && <p className="mt-4 text-center text-[12px] text-faint">By creating an account you agree to our <span className="text-dim underline">Terms</span> and <span className="text-dim underline">Privacy Policy</span>.</p>}
+              {signup && <p className="mt-4 text-center text-[12px] text-faint">By creating an account you agree to our <Link href="/terms" className="text-dim underline hover:text-text">Terms</Link> and <Link href="/privacy" className="text-dim underline hover:text-text">Privacy Policy</Link>.</p>}
             </form>
 
             <div className="mt-5 text-center text-[12px] text-faint">Real accounts arrive with the cloud backend — for now this saves your profile locally.</div>

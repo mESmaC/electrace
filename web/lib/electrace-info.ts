@@ -8,6 +8,15 @@ export interface ChangeEntry { date: string; title?: string; items: string[] }
  *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-06-08",
+    items: [
+      "**Settings:** a proper **settings page** (from the account menu) to change your theme, accent, ANSI/IEC symbols, role, and local-capture preference — and edit your display name — any time after onboarding.",
+      "**Block library:** the library index is now **searchable** and **filterable by category**.",
+      "**Schematic export:** export a **KiCad netlist (.net)** of the whole stitched design straight from the editor toolbar (alongside Export and Report).",
+      "**Polish:** friendly **404 and error pages**, and real **Privacy** and **Terms** pages (linked from sign-up and the footer).",
+    ],
+  },
+  {
     date: "2026-06-07",
     items: [
       "**Sparky (assistant):** named **Sparky** ✨ with a friendlier face; opens into a **collapsible side pane** over the canvas (was a small popup); **multiple conversations** — new / switch / delete, each named from its first message and saved; replies render as **markdown** (tables, lists, code); shows **live progress while it works** — its current step, the tool it's running, and token usage — instead of a static typing indicator; for a big multi-block build it can **delegate to parallel sub-agents (“sparks”)** — Sparky decides when, the sparks author the blocks in parallel (each in its own focused, cheap context), then Sparky places, wires, and oversees their work; **bias-to-action** — finishes obvious steps instead of asking permission; can answer questions about **Electrace itself + what's new**; can read a block's ground truth (`get_block`), set values without re-authoring (`set_value`), bulk-expose chip pins as a header (`expose_pins`), author discrete/passive parts, place connectors, and read power budgets.",

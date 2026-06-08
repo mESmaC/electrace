@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, findingKey, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, railBudgets, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
@@ -730,6 +730,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     URL.revokeObjectURL(a.href);
   }, [designLive, blockMap, designName]);
 
+  // KiCad netlist export (the schematic-side fab handoff): flatten the whole design's stitched netlist
+  // and emit a KiCad .net so the design can leave Electrace for a traditional EDA flow.
+  const downloadNetlist = useCallback(() => {
+    const net = toKicadNetlist(flatten(analysis.resolved), { source: `${designName || "design"} (Electrace)` });
+    const blob = new Blob([net], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(designName || "design").replace(/\s+/g, "-").toLowerCase()}.net`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, [analysis, designName]);
+
   const onImportFile = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -795,6 +807,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Import</button>
           <button onClick={exportDesign} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Export</button>
           <button onClick={downloadReport} title="Generate a Markdown design report" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
+          <button onClick={downloadNetlist} title="Export a KiCad netlist (.net) of the whole stitched design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
           <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset schematics</button>
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
           {savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
