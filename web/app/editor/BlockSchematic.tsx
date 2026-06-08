@@ -18,6 +18,9 @@ import {
 
 const GRID = 10;
 const snap = (n: number) => Math.round(n / GRID) * GRID;
+// unique id suffix: a per-session counter disambiguates ids created within the same millisecond
+let _uidSeq = 0;
+const uid = () => `${Math.floor(performance.now())}-${_uidSeq++}`;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 const NET_COLOR: Record<string, string> = { power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff" };
@@ -255,7 +258,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       const def = SYMBOLS[s.type];
       counts[s.type] = (counts[s.type] ?? 0) + 1;
       const ref = def?.defaultRef === "GND" ? "GND" : `${def?.defaultRef}${m.syms.filter((x) => x.type === s.type).length + counts[s.type]}`;
-      const nid = `${s.type}-${Math.floor(performance.now())}-${clones.length}`;
+      const nid = `${s.type}-${uid()}-${clones.length}`;
       const o = anchorOrigin(s, s.x + 20, s.y + 20, GRID);
       clones.push({ ...s, id: nid, ref, x: o.x, y: o.y });
       keys.push(symKey(nid));
@@ -299,7 +302,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
           if (!d) return d;
           const ws = wireSnap(cursorRef.current);
           const end = ws.pin && !(d.a.sym === ws.pin.sym && d.a.pin === ws.pin.pin) ? ws.pin : { x: ws.x, y: ws.y };
-          setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: d.a, b: end, mid: d.pts }] }));
+          setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${uid()}`, a: d.a, b: end, mid: d.pts }] }));
           return null;
         });
       }
@@ -343,7 +346,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       const n = m.syms.filter((s) => s.type === type).length + 1;
       const ref = def.defaultRef === "GND" ? "GND" : `${def.defaultRef}${n}`;
       const chip = type === "chip" ? { chip: { profile: "soic", pins: 8, names: {}, mpn: "" } as ChipSpec } : {};
-      const base: Sym = { id: `${type}-${Math.floor(performance.now())}`, type, ref, x: cx - def.w / 2, y: cy - def.h / 2, ...chip };
+      const base: Sym = { id: `${type}-${uid()}`, type, ref, x: cx - def.w / 2, y: cy - def.h / 2, ...chip };
       const o = anchorOrigin(base, base.x, base.y, GRID); // land its first pin on the grid
       return { ...m, syms: [...m.syms, { ...base, x: o.x, y: o.y }] };
     });
@@ -388,7 +391,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       e.stopPropagation();
       const onW = nearestWirePoint(model.syms, [w], localPt(e), Infinity);
       const end = onW ? { x: onW.x, y: onW.y } : { x: snap(localPt(e).x), y: snap(localPt(e).y) };
-      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: end, mid: draw.pts }] }));
+      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${uid()}`, a: draw.a, b: end, mid: draw.pts }] }));
       track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${end.x},${end.y}` });
       setDraw(null);
       return;
@@ -499,7 +502,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     if (!draw) setDraw({ a: ref, pts: [] });
     else {
       if (!(draw.a.sym === sym && draw.a.pin === pin)) {
-        setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: ref, mid: draw.pts }] }));
+        setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${uid()}`, a: draw.a, b: ref, mid: draw.pts }] }));
         track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${sym}.${pin}` });
       }
       setDraw(null);
@@ -515,12 +518,12 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     if (ws.pin && !(draw.a.sym === ws.pin.sym && draw.a.pin === ws.pin.pin)) {
       // clicked near a pin → finish the wire on it (no need to hit the dot exactly)
       const pin = ws.pin;
-      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: pin, mid: draw.pts }] }));
+      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${uid()}`, a: draw.a, b: pin, mid: draw.pts }] }));
       track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${pin.sym}.${pin.pin}` });
       setDraw(null);
     } else if (ws.onWire) {
       // tap onto an existing wire → finish with a junction point lying on it (joins their nets)
-      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: { x: ws.x, y: ws.y }, mid: draw.pts }] }));
+      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${uid()}`, a: draw.a, b: { x: ws.x, y: ws.y }, mid: draw.pts }] }));
       track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${ws.x},${ws.y}` });
       setDraw(null);
     } else {
@@ -574,9 +577,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
         if (m.syms.some((s) => s.type === "port" && s.ref === name)) return;
         const pin = d?.pins.find((p) => p.id === pinId);
         const ap = pin && d ? symPoint(sym, pin.x, pin.y, d.w, d.h) : { x: sym.x, y: sym.y + k * 20 };
-        const portId = `port-${name}-${Math.floor(performance.now())}-${k}`;
+        const portId = `port-${name}-${uid()}-${k}`;
         newSyms.push({ id: portId, type: "port", ref: name, x: snap(ap.x - 70), y: snap(ap.y - 10) });
-        newWires.push({ id: `w-${Math.floor(performance.now())}-${k}`, a: { sym: portId, pin: "1" }, b: { sym: sym.id, pin: pinId }, mid: [] });
+        newWires.push({ id: `w-${uid()}-${k}`, a: { sym: portId, pin: "1" }, b: { sym: sym.id, pin: pinId }, mid: [] });
       });
       return { ...m, syms: [...m.syms, ...newSyms], wires: [...m.wires, ...newWires] };
     });

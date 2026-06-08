@@ -968,7 +968,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                   const ackd = !!f.acknowledged;
                   const canAck = f.severity === "error" || f.severity === "warn";
                   return (
-                    <li key={i} className="group flex items-start gap-1">
+                    <li key={findingKey(f)} className="group flex items-start gap-1">
                       <button onClick={() => blk && locateBlock(blk)} disabled={!blk}
                         className={`flex min-w-0 flex-1 items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[var(--color-surface)] disabled:cursor-default ${ackd ? "opacity-50" : ""}`}>
                         <span style={{ color: ackd ? "#9aa3b5" : SEV_COLOR[f.severity] }}>{ackd ? "✓" : SEV_ICON[f.severity]}</span>
@@ -1084,13 +1084,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         <Panel title={selectedId ? `Checks · ${selectedId}` : `Checks · ${analysis.findings.length}`}>
           {shownFindings.length === 0
             ? <p className="mt-2 text-sm text-[#46dca6]">● {selectedId ? "No issues on this block" : "All clear"}</p>
-            : <div className="mt-2 space-y-2">{shownFindings.map((f, i) => <FindingCard key={i} f={f} onToggleAck={toggleAck} />)}</div>}
+            : <div className="mt-2 space-y-2">{shownFindings.map((f) => <FindingCard key={findingKey(f)} f={f} onToggleAck={toggleAck} />)}</div>}
         </Panel>
 
         <Panel title={`BOM · ${analysis.bom.length}`}>
           <div className="mt-2 space-y-1 font-mono text-[11px] text-[var(--color-text)]">
             {analysis.bom.map((r, i) => (
-              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[var(--color-link)]">pol</span>} <span className="text-[var(--color-faint)]">{r.refs.join(", ")}</span></div>
+              <div key={r.refs.join(",") || `${r.type}-${i}`}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[var(--color-link)]">pol</span>} <span className="text-[var(--color-faint)]">{r.refs.join(", ")}</span></div>
             ))}
           </div>
         </Panel>
@@ -1133,8 +1133,8 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
               );
             })()}
             <div className="mt-2 space-y-1">
-              {stressLimits.map((l, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+              {stressLimits.map((l) => (
+                <div key={`${l.ref}-${l.field}`} className="flex items-center justify-between gap-2 text-[11px]">
                   <span className="font-mono text-[var(--color-text)]">{l.ref} · {l.field}</span>
                   <span className="font-mono" style={{ color: l.margin < 0 ? "#f87171" : l.margin < 3 ? "#fbbf24" : "#9aa3b5" }}>
                     {l.value}{l.unit ?? "V"} · {l.margin < 0 ? "over" : `+${round1(l.margin)}`}
