@@ -12,7 +12,7 @@ import { confirmDialog } from "@/app/ui/dialog";
 import { deriveSchematicNets, schematicInsights, type InsightComponent, type SchematicLayout, type Terminal, type Block, type NetType } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
-  isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin,
+  isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin, nearestWirePoint, wireAtPoint, pinAtCoord,
   PROFILES, type ChipSpec,
 } from "./schematic-model";
 
@@ -322,11 +322,16 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     return { x: panRef.current.x + (e.clientX - r.left) / z, y: panRef.current.y + (e.clientY - r.top) / z };
   };
 
-  // Snap a wire point: magnetically to the nearest pin (within ~10 screen px), else to the grid. The
-  // tolerance is in content units so it stays a constant screen distance at any zoom.
-  const wireSnap = (p: Pt): { x: number; y: number; pin?: PinRef } => {
-    const hit = nearestPin(model.syms, p.x, p.y, 10 / zoomRef.current);
-    return hit ? { x: hit.x, y: hit.y, pin: { sym: hit.sym, pin: hit.pin } } : { x: snap(p.x), y: snap(p.y) };
+  // Snap a wire point: magnetically to the nearest pin, else to a point ON an existing wire (a junction
+  // tap — so you can wire to a wire, not just pin-to-pin), else to the grid. Tolerance is in content units
+  // so it stays a constant screen distance at any zoom.
+  const wireSnap = (p: Pt): { x: number; y: number; pin?: PinRef; onWire?: boolean } => {
+    const tol = 10 / zoomRef.current;
+    const hit = nearestPin(modelRef.current.syms, p.x, p.y, tol);
+    if (hit) return { x: hit.x, y: hit.y, pin: { sym: hit.sym, pin: hit.pin } };
+    const onW = nearestWirePoint(modelRef.current.syms, modelRef.current.wires, p, tol);
+    if (onW) return { x: onW.x, y: onW.y, onWire: true };
+    return { x: snap(p.x), y: snap(p.y) };
   };
 
   // place a symbol centred at content point (cx, cy)
@@ -377,7 +382,17 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   };
 
   const onWireDown = (e: RPE<SVGPathElement>, w: Wire) => {
-    if (draw || e.button !== 0) return;
+    if (e.button !== 0) return;
+    if (draw) {
+      // tapping an existing wire while drawing → finish the wire as a junction on it (wire-to-wire)
+      e.stopPropagation();
+      const onW = nearestWirePoint(model.syms, [w], localPt(e), Infinity);
+      const end = onW ? { x: onW.x, y: onW.y } : { x: snap(localPt(e).x), y: snap(localPt(e).y) };
+      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: end, mid: draw.pts }] }));
+      track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${end.x},${end.y}` });
+      setDraw(null);
+      return;
+    }
     e.stopPropagation();
     (e.target as Element).setPointerCapture?.(e.pointerId);
     pend.current = { id: w.id, mode: w.mid.length ? "whole" : "insert", idx: 0, start: localPt(e), startMid: w.mid.map((p) => ({ ...p })), active: false };
@@ -503,6 +518,11 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: pin, mid: draw.pts }] }));
       track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${pin.sym}.${pin.pin}` });
       setDraw(null);
+    } else if (ws.onWire) {
+      // tap onto an existing wire → finish with a junction point lying on it (joins their nets)
+      setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${Math.floor(performance.now())}`, a: draw.a, b: { x: ws.x, y: ws.y }, mid: draw.pts }] }));
+      track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${ws.x},${ws.y}` });
+      setDraw(null);
     } else {
       setDraw((d) => (d ? { ...d, pts: [...d.pts, { x: ws.x, y: ws.y }] } : d)); // empty space → add a bend
     }
@@ -579,6 +599,26 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   // All net/geometry derivation is memoized on [model, terminals] — it runs deriveSchematicNets and
   // O(n²) crossing detection, so keeping it out of cursor/hover/pan re-renders is the big win here.
   const derived = useMemo(() => {
+    // junction taps: a free wire-end that lands on another wire's mid-span joins their nets (wire-to-wire)
+    const tapped = new Set<string>();
+    const tapDots: Pt[] = [];
+    const tapConns: { id: string; a: ReturnType<typeof toSchEndpoint>; b: ReturnType<typeof toSchEndpoint> }[] = [];
+    for (const w of model.wires) {
+      for (const which of ["a", "b"] as const) {
+        const end = w[which];
+        if (isPin(end)) continue;
+        const P = endAbs(model.syms, end);
+        if (!P || pinAtCoord(model.syms, P.x, P.y)) continue;
+        const hitId = wireAtPoint(model.syms, model.wires, P, w.id);
+        if (!hitId) continue;
+        const v = model.wires.find((x) => x.id === hitId)!;
+        const key = `${w.id}:${which}`;
+        tapped.add(key);
+        tapConns.push({ id: `tap:${key}`, a: toSchEndpoint(model.syms, end, key), b: toSchEndpoint(model.syms, v.a, `${v.id}:a`) });
+        tapDots.push(P);
+      }
+    }
+
     // junction dots: coordinates where 2+ wire ends meet (a shared pin) → electrically joined
     const endCount = new Map<string, Pt & { n: number }>();
     for (const w of model.wires) {
@@ -590,7 +630,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
         c.n++; endCount.set(k, c);
       }
     }
-    const junctions = [...endCount.values()].filter((c) => c.n >= 2);
+    const junctions = [...endCount.values()].filter((c) => c.n >= 2).concat(tapDots.map((p) => ({ x: p.x, y: p.y, n: 3 })));
 
     // crossings: where two different wires' segments cross at an interior point (not a junction)
     const segs = model.wires.flatMap((w) => {
@@ -614,11 +654,12 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       b: toSchEndpoint(model.syms, w.b, `${w.id}:b`),
     }));
     const twoPin = model.syms.filter((s) => symDims(s)?.pins.length === 2).map((s) => s.id);
-    const nets = deriveSchematicNets(conns, twoPin);
+    const nets = deriveSchematicNets([...conns, ...tapConns], twoPin);
     const wireState = (w: Wire): WireState => {
       const ea = toSchEndpoint(model.syms, w.a, `${w.id}:a`), eb = toSchEndpoint(model.syms, w.b, `${w.id}:b`);
       if (ea.kind === "broken" || eb.kind === "broken") return "error";
-      if (ea.kind === "free" || eb.kind === "free") return "floating";
+      // a free end that taps another wire is connected, not floating
+      if ((ea.kind === "free" && !tapped.has(`${w.id}:a`)) || (eb.kind === "free" && !tapped.has(`${w.id}:b`))) return "floating";
       const nid = nets.netOfConn.get(w.id);
       if (nid != null && nets.nets[nid].shorts.length) return "error";
       return "ok";

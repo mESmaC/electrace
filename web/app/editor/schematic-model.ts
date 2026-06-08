@@ -224,14 +224,100 @@ export function layoutToModel(layout?: SchematicLayout): Model {
   };
 }
 
-/** Serialize an editor model back to the core SchematicLayout (the persisted/derivable form).
- *  Only pin-connected wires survive — floating ends carry no connectivity. Waypoints are visual. */
+/** The absolute orthogonal point run of a wire: [start, …waypoints, end]. */
+export function wireAbsPath(syms: Sym[], w: Wire): Pt[] {
+  const a = endAbs(syms, w.a), b = endAbs(syms, w.b);
+  if (!a || !b) return [];
+  return [a, ...w.mid, b];
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+/** The closest point lying ON any wire's segment within `tol` (a junction tap point), or null. Skips
+ *  `excludeId` (the wire being drawn) so it can't tap itself. */
+export function nearestWirePoint(syms: Sym[], wires: Wire[], p: Pt, tol: number, excludeId?: string): { x: number; y: number; wireId: string } | null {
+  let best: { x: number; y: number; wireId: string } | null = null;
+  let bestD = tol * tol;
+  for (const w of wires) {
+    if (w.id === excludeId) continue;
+    for (const s of segmentsOf(wireAbsPath(syms, w))) {
+      const qx = s.h ? clamp(p.x, Math.min(s.x1, s.x2), Math.max(s.x1, s.x2)) : s.x1;
+      const qy = s.h ? s.y1 : clamp(p.y, Math.min(s.y1, s.y2), Math.max(s.y1, s.y2));
+      const dd = (qx - p.x) ** 2 + (qy - p.y) ** 2;
+      if (dd <= bestD) { bestD = dd; best = { x: qx, y: qy, wireId: w.id }; }
+    }
+  }
+  return best;
+}
+
+const ptOnSeg = (P: Pt, s: { h: boolean; x1: number; y1: number; x2: number; y2: number }, eps = 0.01): boolean =>
+  s.h ? Math.abs(P.y - s.y1) <= eps && P.x >= Math.min(s.x1, s.x2) - eps && P.x <= Math.max(s.x1, s.x2) + eps
+      : Math.abs(P.x - s.x1) <= eps && P.y >= Math.min(s.y1, s.y2) - eps && P.y <= Math.max(s.y1, s.y2) + eps;
+
+/** The id of a wire whose segment passes exactly through P (a junction tap), or null. Skips `excludeId`. */
+export function wireAtPoint(syms: Sym[], wires: Wire[], P: Pt, excludeId?: string): string | null {
+  for (const v of wires) {
+    if (v.id === excludeId) continue;
+    if (segmentsOf(wireAbsPath(syms, v)).some((s) => ptOnSeg(P, s))) return v.id;
+  }
+  return null;
+}
+
+/** Extra pin-to-pin connections implied by junctions: a free wire end that lands on another wire (a
+ *  mid-span tap) or coincides with another free end joins their nets. Returns minimal bridges across the
+ *  pin-wired components that a junction merges — so connectivity follows the drawing, not just pin pairs. */
+export function junctionBridges(model: Model): { from: string; to: string }[] {
+  const { syms, wires } = model;
+  const pinOf = (e: Endpoint): string | null => {
+    if (isPin(e)) return `${e.sym}.${e.pin}`;
+    const hit = pinAtCoord(syms, e.x, e.y);
+    return hit ? `${hit.sym}.${hit.pin}` : null;
+  };
+  const keyOf = (e: Endpoint): string => pinOf(e) ?? `@${(e as Pt).x},${(e as Pt).y}`;
+
+  // geometric union-find over every endpoint node (pin keys + free-coord keys)
+  const par = new Map<string, string>();
+  const find = (x: string): string => { if (!par.has(x)) par.set(x, x); let r = x; while (par.get(r) !== r) r = par.get(r)!; return r; };
+  const union = (a: string, b: string) => { par.set(find(a), find(b)); };
+  for (const w of wires) union(keyOf(w.a), keyOf(w.b)); // two ends of a wire (and coincident free ends, by shared key)
+  // a free end lying on another wire's segment taps it
+  for (const w of wires) {
+    for (const e of [w.a, w.b]) {
+      if (pinOf(e) !== null) continue; // pin / on-a-pin ends already connect by key
+      const hit = wireAtPoint(syms, wires, e as Pt, w.id);
+      if (hit) { const v = wires.find((x) => x.id === hit)!; union(keyOf(e), keyOf(v.a)); }
+    }
+  }
+  // direct union-find: pins joined by genuine pin-to-pin wires (what core already gets)
+  const dpar = new Map<string, string>();
+  const dfind = (x: string): string => { if (!dpar.has(x)) dpar.set(x, x); let r = x; while (dpar.get(r) !== r) r = dpar.get(r)!; return r; };
+  for (const w of wires) { const a = pinOf(w.a), b = pinOf(w.b); if (a && b) dpar.set(dfind(a), dfind(b)); }
+
+  // for each geometric net, bridge the distinct pin-wired components a junction merged
+  const geoNets = new Map<string, string[]>();
+  for (const k of par.keys()) { if (k.startsWith("@")) continue; const r = find(k); (geoNets.get(r) ?? geoNets.set(r, []).get(r)!).push(k); }
+  const bridges: { from: string; to: string }[] = [];
+  for (const pins of geoNets.values()) {
+    const reps = new Map<string, string>(); // direct-root → representative pin
+    for (const p of pins) { const dr = dfind(p); if (!reps.has(dr)) reps.set(dr, p); }
+    const rs = [...reps.values()];
+    for (let i = 1; i < rs.length; i++) bridges.push({ from: rs[0], to: rs[i] });
+  }
+  return bridges;
+}
+
+/** Serialize an editor model back to the core SchematicLayout (the persisted/derivable form). Genuine
+ *  pin-to-pin wires survive as-is (preserving the picture); junction taps (a wire ending on another wire)
+ *  add bridge connections so they're electrically joined. Floating ends carry no connectivity. */
 export function modelToLayout(model: Model): SchematicLayout {
   return {
     symbols: model.syms.map((s) => ({ id: s.id, type: s.type, ref: s.ref, value: s.value, x: s.x, y: s.y, rot: s.rot, chip: s.chip })),
-    wires: model.wires
-      .filter((w) => isPin(w.a) && isPin(w.b))
-      .map((w) => ({ from: `${(w.a as PinRef).sym}.${(w.a as PinRef).pin}`, to: `${(w.b as PinRef).sym}.${(w.b as PinRef).pin}` })),
+    wires: [
+      ...model.wires
+        .filter((w) => isPin(w.a) && isPin(w.b))
+        .map((w) => ({ from: `${(w.a as PinRef).sym}.${(w.a as PinRef).pin}`, to: `${(w.b as PinRef).sym}.${(w.b as PinRef).pin}` })),
+      ...junctionBridges(model),
+    ],
   };
 }
 
