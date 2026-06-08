@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="h-full antialiased" data-theme="mid">
+    <html lang="en" className="h-full antialiased" data-theme="mid" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: NO_FLASH }} /></head>
       <body className="min-h-full flex flex-col">
         <ServerSync />
