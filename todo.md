@@ -66,7 +66,8 @@ PCB is far more complete than pcb.md's "next phase" framing (placement, routing,
 - **Standardized footprints (real land patterns).** Decision: **hybrid, `.kicad_mod` import first.** Progress:
   - [x] **Core `.kicad_mod` parser** (`parseKicadFootprint`) — S-expression → Footprint, SMD/THT, all pad shapes, tested incl. a real file.
   - [x] **Import + library UI** — PCB editor "Footprints" button imports single files or a whole library at once into a local library (with previews).
-  - [ ] **Assign an imported footprint to a part/component** — the integration: a per-component footprint override + the schematic-pin → imported-pad mapping (identity by number, else a pick/AI map), and render/ratsnest off the override. *(M; needs live PCB testing.)*
+  - [x] **Assign an imported footprint to a part/component** — per-component override (saved with the board, undoable); pins map to imported pads by pad number, else by order; ratsnest re-keyed to follow. Select a part → Footprints → Use. *(Needs live break-testing — odd pad counts, BGA pad names, etc.)*
+  - [ ] **Footprint storage = server-side** ✅ done (`/api/footprints` → `web/.data`), the shared-registry shape. Future: a curated standard set + per-user scoping when accounts land.
   - [ ] **IPC-7351 generation** for the common families (chip/SOIC/SOT/QFP/QFN/headers) to replace the rough procedural geometry — the generated-but-standard half of the hybrid. *(L.)*
 - [ ] **Gerber + drill (Excellon) export** — only KiCad `.kicad_pcb` is wired. KiCad is a fine interim handoff, but Gerber/drill are explicitly named. *(pcb.md; M–L)*
 - [ ] **PCB layout persisted with the design record** (currently `localStorage:electrace:pcb:${id}`) — folds into the backend phase (§4). *(pcb.md; M)*

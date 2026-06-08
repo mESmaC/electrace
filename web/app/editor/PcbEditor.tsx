@@ -1,9 +1,32 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pcbProject, drcCheck, toKicadPcb, type Block, type Design, type PcbProject, type DrcViolation, type DrcTrace, type DrcPad, type DrcVia, type DrcComp, type DrcUnrouted, type KicadComp, type KicadTrace, type KicadVia } from "@electrace/core";
+import { pcbProject, drcCheck, toKicadPcb, type Block, type Design, type PcbProject, type PcbPad, type Footprint, type DrcViolation, type DrcTrace, type DrcPad, type DrcVia, type DrcComp, type DrcUnrouted, type KicadComp, type KicadTrace, type KicadVia } from "@electrace/core";
 import AssistantBubble from "./AssistantBubble";
 import FootprintLibrary from "./FootprintLibrary";
 import { setContextItem } from "@/lib/assistant";
+import { useFootprints } from "@/lib/footprints";
+
+/** Swap a component's pads for an assigned (imported) footprint, keeping pin→net by re-keying the
+ *  ratsnest. Pins map to the imported pads by pad number, falling back to position order. */
+function applyFootprintOverrides(base: PcbProject, overrides: Record<string, string>, fpById: Map<string, Footprint>): PcbProject {
+  if (!Object.keys(overrides).length) return base;
+  const remap = new Map<string, string>(); // "ref.oldPadNum" → "ref.newPadNum"
+  const components = base.components.map((c) => {
+    const fp = overrides[c.ref] ? fpById.get(overrides[c.ref]) : undefined;
+    if (!fp) return c;
+    const origByNum = new Map(c.pads.map((p) => [p.id, p]));
+    const pads: PcbPad[] = fp.pads.map((ip, i) => {
+      const orig = origByNum.get(ip.num) ?? c.pads[i]; // match pad number, else by order
+      return { id: ip.num, ...(orig?.pin ? { pin: orig.pin } : {}), x: ip.x, y: ip.y, w: ip.w, h: ip.h, ...(ip.round != null ? { round: ip.round } : {}), ...(ip.drill ? { drill: ip.drill } : {}) };
+    });
+    const newByPin = new Map<string, string>();
+    for (const p of pads) if (p.pin && !newByPin.has(p.pin)) newByPin.set(p.pin, p.id);
+    for (const p of c.pads) if (p.pin && newByPin.has(p.pin)) remap.set(`${c.ref}.${p.id}`, `${c.ref}.${newByPin.get(p.pin)!}`);
+    return { ...c, footprint: fp.id, w: fp.w, h: fp.h, pads };
+  });
+  const ratsnest = base.ratsnest.map((r) => ({ ...r, pads: r.pads.map((k) => remap.get(k) ?? k) }));
+  return { components, ratsnest };
+}
 
 const TRACE_W = 0.25;
 const CLEAR = 0.2;  // mm minimum copper clearance for DRC
@@ -16,7 +39,7 @@ type Place = { x: number; y: number; rot: number };
 type Trace = { id: string; net: string; layer: string; width: number; a: string; b: string; points: Pos[] };
 type Via = { id: string; net: string; x: number; y: number };
 type Board = Pos[];  // edge-cut polygon (any shape); implicitly closed
-type Snap = { places: Record<string, Place>; traces: Trace[]; vias: Via[]; board: Board | null };
+type Snap = { places: Record<string, Place>; traces: Trace[]; vias: Via[]; board: Board | null; footprints?: Record<string, string> };
 const BMARGIN = 3;  // mm default board margin around parts
 const WIDTHS = [0.2, 0.25, 0.4, 0.6];
 const bbox = (poly: Pos[]) => { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const p of poly) { a = Math.min(a, p.x); b = Math.min(b, p.y); c = Math.max(c, p.x); d = Math.max(d, p.y); } return { x: a, y: b, w: c - a, h: d - b }; };
@@ -105,7 +128,7 @@ const NETCOL = "#6fd6c0"; // net-name label colour
 /** Load (and migrate) a saved PCB layout synchronously, so the first render already has the real
  *  positions — which lets the initial fit-to-view actually centre the board. */
 function loadPcb(LS: string): Snap {
-  const empty: Snap = { places: {}, traces: [], vias: [], board: null };
+  const empty: Snap = { places: {}, traces: [], vias: [], board: null, footprints: {} };
   if (typeof window === "undefined") return empty;
   try {
     const d = JSON.parse(localStorage.getItem(LS) ?? "{}");
@@ -115,7 +138,7 @@ function loadPcb(LS: string): Snap {
     else if (Array.isArray(d.board?.outline)) board = d.board.outline;
     else if (d.board && typeof d.board.w === "number") { const r = d.board; board = [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }]; }
     const traces: Trace[] = (Array.isArray(d.traces) ? d.traces : []).map((t: Trace) => ({ ...t, layer: t.layer === "top" ? "F.Cu" : t.layer === "bottom" ? "B.Cu" : t.layer }));
-    return { places, traces, vias: Array.isArray(d.vias) ? d.vias : [], board };
+    return { places, traces, vias: Array.isArray(d.vias) ? d.vias : [], board, footprints: d.footprints ?? {} };
   } catch { return empty; }
 }
 
@@ -133,7 +156,9 @@ function mst(pts: Pos[]): [number, number][] {
 }
 
 export default function PcbEditor({ design, blocks, onClose }: { design: Design; blocks: Map<string, Block>; onClose: () => void }) {
-  const project: PcbProject = useMemo(() => pcbProject(design, blocks), [design, blocks]);
+  const baseProject: PcbProject = useMemo(() => pcbProject(design, blocks), [design, blocks]);
+  const fpLibrary = useFootprints();
+  const fpById = useMemo(() => new Map(fpLibrary.map((f) => [f.id, f.footprint])), [fpLibrary]);
   const LS = `electrace:pcb:${design.id}`;
 
   const [boot] = useState<Snap>(() => loadPcb(LS));
@@ -141,6 +166,9 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   const [traces, setTraces] = useState<Trace[]>(boot.traces);
   const [vias, setVias] = useState<Via[]>(boot.vias);
   const [board, setBoard] = useState<Board | null>(boot.board);
+  const [fpOverrides, setFpOverrides] = useState<Record<string, string>>(boot.footprints ?? {});
+  // the live project = base netlist with any assigned (imported) footprints swapped in
+  const project: PcbProject = useMemo(() => applyFootprintOverrides(baseProject, fpOverrides, fpById), [baseProject, fpOverrides, fpById]);
   const [sel, setSel] = useState<{ kind: "comp" | "trace" | "boardv" | "pad"; id: string } | null>(null);
   const [tool, setTool] = useState<"select" | "route" | "measure">("select");
   const [fpLib, setFpLib] = useState(false);
@@ -178,7 +206,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   // every committing mutation flows through persist(): it snapshots the new state, records the
   // previous one on the undo stack, clears the redo stack, and writes through to localStorage.
   const persist = (pl: Record<string, Place>, tr: Trace[], vs: Via[] = viasRef.current, bd: Board | null = boardRef.current) => {
-    const s: Snap = { places: pl, traces: tr, vias: vs, board: bd };
+    const s: Snap = { places: pl, traces: tr, vias: vs, board: bd, footprints: fpOverridesRef.current };
     const h = histRef.current;
     h.past.push(presentRef.current); if (h.past.length > 100) h.past.shift();
     h.future = []; presentRef.current = s;
@@ -190,7 +218,19 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     setTraces(s.traces); tracesRef.current = s.traces;
     setVias(s.vias); viasRef.current = s.vias;
     setBoard(s.board); boardRef.current = s.board;
+    setFpOverrides(s.footprints ?? {}); fpOverridesRef.current = s.footprints ?? {};
     setDrawing(null); setSel(null); setDrc(null); writeLS(s);
+  };
+  // assign / clear an imported footprint on a component (undoable, persisted with the layout)
+  const assignFootprint = (ref: string, fpId: string) => {
+    const next = { ...fpOverridesRef.current, [ref]: fpId };
+    setFpOverrides(next); fpOverridesRef.current = next;
+    persist(placesRef.current, tracesRef.current);
+  };
+  const clearFootprint = (ref: string) => {
+    const next = { ...fpOverridesRef.current }; delete next[ref];
+    setFpOverrides(next); fpOverridesRef.current = next;
+    persist(placesRef.current, tracesRef.current);
   };
   const undo = () => { const h = histRef.current; if (!h.past.length) return; h.future.push(presentRef.current); const s = h.past.pop()!; presentRef.current = s; applySnap(s); setHistTick((t) => t + 1); };
   const redo = () => { const h = histRef.current; if (!h.future.length) return; h.past.push(presentRef.current); const s = h.future.pop()!; presentRef.current = s; applySnap(s); setHistTick((t) => t + 1); };
@@ -307,6 +347,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, []);
   const placesRef = useRef(places); placesRef.current = places;
+  const fpOverridesRef = useRef(fpOverrides); fpOverridesRef.current = fpOverrides;
   const tracesRef = useRef(traces); tracesRef.current = traces;
   const viasRef = useRef(vias); viasRef.current = vias;
   const boardRef = useRef(board); boardRef.current = board;
@@ -846,7 +887,15 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
           {drcEl}
         </svg>
         <AssistantBubble />
-        {fpLib && <FootprintLibrary onClose={() => setFpLib(false)} />}
+        {fpLib && (
+          <FootprintLibrary
+            onClose={() => setFpLib(false)}
+            assignTo={sel?.kind === "comp" ? sel.id : undefined}
+            currentId={sel?.kind === "comp" ? fpOverrides[sel.id] : undefined}
+            onAssign={(id) => { if (sel?.kind === "comp") { assignFootprint(sel.id, id); setFpLib(false); } }}
+            onClear={() => { if (sel?.kind === "comp") { clearFootprint(sel.id); setFpLib(false); } }}
+          />
+        )}
         </div>
         <aside className="flex w-52 shrink-0 flex-col border-l border-[#1c2740] bg-[#0e1521] text-[12px]">
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
