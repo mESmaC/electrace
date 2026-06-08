@@ -10,7 +10,6 @@ const FAQ = [
   { q: "Is the free tier actually free?", a: "Yes — forever. The entire understand-loop (blocks, hover & drill-in, expand-to-discrete, linting, themes) is free, with up to 10 designs. We never charge you to learn." },
   { q: "What do I get with Pro?", a: "Pro lifts the 10-design cap entirely and unlocks private designs, manufacturing-grade export (Gerber / BOM / pick-and-place), version history, and advanced checks — for when you're shipping real hardware." },
   { q: "Are my designs private?", a: "On Hobby, designs are public — discoverable, like a public repo. Keeping designs private is a Pro feature, for when you need to hold work to yourself." },
-  { q: "When does Pro start charging?", a: "Not during early access — everything is free while we build. We'll set Pro pricing from real maker feedback, and you'll always know before anything changes." },
 ];
 
 export default function PricingPage() {
@@ -25,11 +24,11 @@ export default function PricingPage() {
         </p>
       </div>
 
-      {/* early-access banner */}
-      <div className="mx-auto mt-8 flex max-w-[680px] items-center justify-center gap-2.5 rounded-xl border px-4 py-2.5 text-center text-[13.5px]"
+      {/* early-adopter banner */}
+      <div className="mx-auto mt-8 flex max-w-[700px] items-center justify-center gap-2.5 rounded-xl border px-4 py-2.5 text-center text-[13.5px]"
         style={{ background: "color-mix(in srgb, var(--color-accent) 12%, transparent)", borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>
         <span className="text-accent">⚡</span>
-        <span><b className="font-semibold">Early access:</b> everything below is free while we build. This is where pricing is headed.</span>
+        <span><b className="font-semibold">Early adopters get a discount on Pro.</b> Start free today.</span>
       </div>
 
       {/* tiers */}
@@ -43,10 +42,16 @@ export default function PricingPage() {
             )}
             <div className="text-[17px] font-bold">{p.name}</div>
             <div className="mt-1 min-h-[40px] text-[13.5px] text-dim">{p.tagline}</div>
-            <div className="mt-4 flex items-end gap-2">
-              <span className="text-[34px] font-extrabold leading-none tracking-tight">{p.price}</span>
-            </div>
-            <div className="mt-1 text-[12.5px] text-faint">{p.priceNote}</div>
+            {p.price ? (
+              <div className="mt-4 flex h-[44px] items-end gap-2">
+                <span className="text-[34px] font-extrabold leading-none tracking-tight">{p.price}</span>
+                <span className="pb-0.5 text-[12.5px] text-faint">{p.priceNote}</span>
+              </div>
+            ) : (
+              <div className="mt-4 flex h-[44px] items-center">
+                <span className="inline-block rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-[13px] font-semibold text-accent">{p.priceNote}</span>
+              </div>
+            )}
             <Link href={p.cta.href}
               className={`mt-5 rounded-xl py-2.5 text-center font-semibold transition ${p.highlight ? "bg-accent text-white shadow-lg shadow-accent/30 hover:bg-accent-hi" : "border border-border-strong hover:border-accent hover:text-accent"}`}>
               {p.cta.label}
@@ -88,7 +93,7 @@ export default function PricingPage() {
         <h2 className="text-[26px] font-extrabold tracking-tight">Start understanding your circuits.</h2>
         <p className="mt-2 text-[15px] text-dim">No card, no catch — the understand-loop is free.</p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
-          <Link href="/signup" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Get early access</Link>
+          <Link href="/signup" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Start free</Link>
           <Link href="/blocks" className="rounded-xl border border-border-strong px-6 py-3 font-semibold transition hover:border-accent hover:text-accent">Browse the library</Link>
         </div>
       </div>

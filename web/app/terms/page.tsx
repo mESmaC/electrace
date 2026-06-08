@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Terms — Electrace", description: "The terms for using Electrace during early access." };
+export const metadata = { title: "Terms — Electrace", description: "The terms for using Electrace." };
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section className="mt-8">
@@ -15,7 +15,7 @@ export default function TermsPage() {
       <Link href="/" className="text-sm text-faint hover:text-dim">← Back</Link>
       <header className="mt-5 border-b border-border pb-6">
         <h1 className="text-3xl font-extrabold tracking-tight text-text">Terms of use</h1>
-        <p className="mt-1 text-faint">Electrace is in early access. By using it you agree to the following. These terms will be firmed up before general availability.</p>
+        <p className="mt-1 text-faint">Electrace is still in active development. By using it you agree to the following. These terms will be firmed up as the product matures.</p>
       </header>
 
       <Section title="Early-access software">

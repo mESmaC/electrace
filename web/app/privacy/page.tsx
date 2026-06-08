@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       <Link href="/" className="text-sm text-faint hover:text-dim">← Back</Link>
       <header className="mt-5 border-b border-border pb-6">
         <h1 className="text-3xl font-extrabold tracking-tight text-text">Privacy</h1>
-        <p className="mt-1 text-faint">Electrace is in early access. This reflects how the product works today; it will be updated when cloud accounts ship.</p>
+        <p className="mt-1 text-faint">Electrace is still in active development. This reflects how the product works today; it will be updated as the product grows.</p>
       </header>
 
       <Section title="The short version">

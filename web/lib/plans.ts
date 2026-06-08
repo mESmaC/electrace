@@ -1,6 +1,7 @@
 // Single source of truth for the pricing tiers (rendered on /pricing and referenced by the dashboard).
-// Hobby = free, up to HOBBY_DESIGN_CAP designs, public only. Pro = unlimited + private. Price is TBD
-// (validation probe), so Pro shows "coming soon" and the whole thing is free during early access.
+// Hobby = free, up to HOBBY_DESIGN_CAP designs, public only. Pro = unlimited + private (paid; price is not
+// set yet, so the card shows features + an early-adopter discount, no number). We do NOT give Pro away for
+// free — the free tier is Hobby.
 
 /** The free (Hobby) design cap. Pro lifts it entirely. */
 export const HOBBY_DESIGN_CAP = 10;
@@ -9,8 +10,8 @@ export interface Plan {
   key: "hobby" | "pro" | "team";
   name: string;
   tagline: string;
-  price: string;       // "$0" / "Coming soon" / "Let's talk"
-  priceNote: string;   // small line under the price
+  price?: string;      // "$0" / "Let's talk" — omitted when there's no number to show (Pro, for now)
+  priceNote: string;   // small line under the price (or a standalone badge when there's no price)
   cta: { label: string; href: string };
   highlight?: boolean; // featured column (Pro)
   featuresLead?: string;
@@ -38,9 +39,8 @@ export const PLANS: Plan[] = [
     key: "pro",
     name: "Pro",
     tagline: "For keeping work private and shipping real hardware.",
-    price: "Coming soon",
-    priceNote: "free for everyone during early access",
-    cta: { label: "Get early access", href: "/signup" },
+    priceNote: "Early-adopter discount",
+    cta: { label: "Start free", href: "/signup" },
     highlight: true,
     featuresLead: "Everything in Hobby, plus:",
     features: [

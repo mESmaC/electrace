@@ -17,7 +17,7 @@ export default function Home() {
           <h1 className="text-[54px] font-black leading-[0.98] tracking-[-2px] sm:text-[74px] sm:tracking-[-2.5px]">See inside<br />every circuit.<span className="ec-blink ml-1.5 inline-block h-9 w-2 translate-y-1 rounded-[1px] bg-accent align-middle sm:h-14" /></h1>
           <p className="mx-auto mt-5 max-w-[560px] text-[20px] text-dim">Blocks that explain themselves — and catch what doesn&apos;t add up.</p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Link href="/signup" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Get early access</Link>
+            <Link href="/signup" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Start free</Link>
             <a href="#how" className="rounded-xl border border-border-strong px-6 py-3 font-semibold transition hover:border-accent hover:text-accent">Watch it work ↓</a>
           </div>
           <div className="mt-4 text-[13px] text-faint">No simulation · no guessing · vendor-neutral</div>
@@ -191,7 +191,7 @@ export default function Home() {
           <div className="relative">
             <Eyebrow>Early access</Eyebrow><h2 className="text-[42px] font-extrabold leading-[1.08] tracking-tight">Start understanding<br />your circuits.</h2>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Link href="/signup" className="rounded-xl bg-accent px-6 py-3.5 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Get early access</Link>
+              <Link href="/signup" className="rounded-xl bg-accent px-6 py-3.5 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Start free</Link>
               <Link href="/editor" className="rounded-xl border border-border-strong px-6 py-3.5 font-semibold transition hover:border-accent hover:text-accent">Open the editor</Link>
             </div>
             <div className="mt-4 text-[13px] text-faint">Built by US Nylon · no spam, just launch news</div>
