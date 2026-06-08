@@ -32,6 +32,9 @@ export { drcCheck } from "./drc.js";
 export type { DrcInput, DrcViolation, DrcKind, DrcTrace, DrcPad, DrcVia, DrcComp, DrcUnrouted, DrcPoint, DrcBoard } from "./drc.js";
 export { toKicadPcb } from "./export-kicad-pcb.js";
 export type { KicadPcbInput, KicadComp, KicadPad, KicadTrace, KicadVia, KicadBoard } from "./export-kicad-pcb.js";
+export { parseKicadFootprint } from "./kicad-footprint.js";
+export type { ParsedFootprint } from "./kicad-footprint.js";
+export type { Footprint, LandPad } from "./footprints.js";
 
 import type { Block, Design, ResolvedDesign, Finding, BomRow } from "./types.js";
 import { resolve } from "./resolve.js";
