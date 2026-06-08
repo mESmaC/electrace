@@ -25,13 +25,14 @@ need an owner intent call before building.
 
 ## §1 — Quick wins (small, no backend, do soon)
 
-- [ ] **`/privacy` + `/terms` pages** — T0 legal, and the signup form already references them as dead `<span>`s. Plain static pages. *(views.md; S)*
-- [ ] **404 / 500 error pages** — no `not-found.tsx` / `error.tsx`; `/blocks/[slug]` `notFound()` falls back to the Next default. *(views.md, design.md; S)*
-- [ ] **`/settings` page** — there is no post-onboarding home for prefs that are *already local* (theme, accent, ANSI/IEC, role, telemetry consent, Pro density). Dashboard/account gear links currently dead-end to `/projects`. *(views.md `/app/settings`; M)*
-- [ ] **KiCad netlist + printable export from the schematic side** — `toKicadNetlist` exists in core but is wired nowhere; the editor's Export only dumps design JSON. The PCB side already exports KiCad PCB. *(design.md "schematic is the export source"; S — just a UI hook)*
-- [ ] **`/blocks` search + category filter** — index shows `category` per card but no search box / grouping; spec calls it a "searchable hub by category." Cheap now, real once the library grows. *(views.md, registry.md; S)*
+- [x] **`/privacy` + `/terms` pages** — done; sign-up's dead spans + the landing footer now link to them. *(views.md; S)*
+- [x] **404 / 500 error pages** — done; themed `not-found.tsx` + `error.tsx`. *(views.md, design.md; S)*
+- [x] **`/settings` page** — done; theme/accent/ANSI-IEC/role/capture + editable display name, wired from the dashboard account row. *(views.md `/app/settings`; M)*
+- [x] **KiCad netlist export from the schematic side** — done; "Netlist" button in the editor toolbar via `toKicadNetlist`. (Printable PDF still open.) *(design.md; S)*
+- [x] **`/blocks` search + category filter** — done; searchable + category-filterable index. *(views.md, registry.md; S)*
 - [ ] **Brand logo SVG in nav/footer/auth** — the decided "open-C + resistor trace" mark (mockups/logo.html, electrace-logo.svg) is unused; chrome uses a wordmark + caret everywhere. *(design.md, mockups; S)*
 - [ ] **Dashboard top bar niceties** — `⌘K` palette hint + a Help `?` affordance from the mockup (skip the notifications bell — needs backend). *(mockups/dashboard.html; S)*
+- [ ] **Printable / PDF export from the schematic side** — the KiCad netlist is done; the spec also names a printable PDF handoff. *(design.md; S–M)*
 
 ---
 
