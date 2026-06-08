@@ -95,6 +95,10 @@ Known-deferred, grouped so they aren't mistaken for oversights. This is the big 
 
 Noted for completeness — add-to-cart / BOM-aware sourcing (distributor PN), block-swap electrical diff, tradeoff sliders / parametric blocks, semantic zoom, live budget gauges ("watch the watts" — `railBudgets` data exists, no gauge UI), "explain this board" on import, pin-passport (overlaps `whats_on_net`). Pull into §2 individually if/when they earn it.
 
+## §6 — Known limitations (shipped features with rough edges)
+
+- [ ] **Wire-to-wire junction taps don't track their host wire.** A tap is stored as a fixed coordinate that *lies on* the other wire, not *bound* to it. So when the host wire moves — dragging its symbols, or the **Align** button re-snapping symbols to grid — the tap point stays put and can slide off the wire (breaking the connection / leaving the trace stranded). Align therefore does nothing to those traces. *Fix:* bind a junction to its host wire (store "on wire W at param t", recompute its coordinate when W moves; Align/move should reposition taps too). *(Model change; M.)*
+
 ---
 
 ### Top of the list if optimizing for impact
