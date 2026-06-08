@@ -1,48 +1,42 @@
-// A local library of imported KiCad footprints. Parse .kicad_mod files (single, or a whole .pretty folder
-// via multi-select) into our Footprint model and keep them in localStorage so they can be browsed and —
-// later — assigned to parts in the PCB editor. The parsing lives in core (parseKicadFootprint).
+// Client view of the footprint library, which lives SERVER-SIDE (/api/footprints) — footprints are
+// shared reference data like the block library, not per-user browser data. The client uploads raw
+// .kicad_mod text; the server parses + persists it. No bulky browser storage.
 import { useEffect, useState } from "react";
-import { parseKicadFootprint, type Footprint } from "@electrace/core";
+import type { Footprint } from "@electrace/core";
 
 export interface StoredFootprint { id: string; name: string; footprint: Footprint; addedAt: number }
 
-const KEY = "electrace:footprints";
+const ENDPOINT = "/api/footprints";
 const EVT = "electrace:footprints";
+const notify = () => { try { window.dispatchEvent(new CustomEvent(EVT)); } catch { /* ignore */ } };
 
-export function getFootprints(): StoredFootprint[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") as StoredFootprint[]; } catch { return []; }
-}
-function write(list: StoredFootprint[]): void {
-  try { localStorage.setItem(KEY, JSON.stringify(list)); window.dispatchEvent(new CustomEvent(EVT)); } catch { /* ignore */ }
+export async function getFootprints(): Promise<StoredFootprint[]> {
+  try { const r = await fetch(ENDPOINT, { cache: "no-store" }); return r.ok ? (await r.json()) as StoredFootprint[] : []; } catch { return []; }
 }
 
-/** Parse + store one or more .kicad_mod texts (same id replaces). Returns added/failed counts. */
-export function importKicadFootprints(files: { name: string; text: string }[]): { added: number; failed: number } {
-  const byId = new Map(getFootprints().map((f) => [f.id, f]));
-  let added = 0, failed = 0;
-  for (const f of files) {
-    const parsed = parseKicadFootprint(f.text);
-    if (!parsed || !parsed.footprint.pads.length) { failed++; continue; }
-    byId.set(parsed.footprint.id, { id: parsed.footprint.id, name: parsed.name, footprint: parsed.footprint, addedAt: Date.now() });
-    added++;
-  }
-  write([...byId.values()].sort((a, b) => a.name.localeCompare(b.name)));
-  return { added, failed };
+/** Upload .kicad_mod files; the server parses + stores them. Returns added/failed counts. */
+export async function importKicadFootprints(files: { name: string; text: string }[]): Promise<{ added: number; failed: number }> {
+  try {
+    const r = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files }) });
+    const out = r.ok ? await r.json() : { added: 0, failed: files.length };
+    notify();
+    return out;
+  } catch { return { added: 0, failed: files.length }; }
 }
 
-export function removeFootprint(id: string): void { write(getFootprints().filter((f) => f.id !== id)); }
+export async function removeFootprint(id: string): Promise<void> {
+  try { await fetch(ENDPOINT, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) }); notify(); } catch { /* ignore */ }
+}
 
-/** Subscribe to the imported-footprint library. */
+/** Subscribe to the footprint library (loads from the server). */
 export function useFootprints(): StoredFootprint[] {
   const [list, setList] = useState<StoredFootprint[]>([]);
   useEffect(() => {
-    const sync = () => setList(getFootprints());
+    let alive = true;
+    const sync = () => { getFootprints().then((l) => { if (alive) setList(l); }); };
     sync();
-    const onStorage = (e: StorageEvent) => { if (!e.key || e.key === KEY) sync(); };
     window.addEventListener(EVT, sync);
-    window.addEventListener("storage", onStorage);
-    return () => { window.removeEventListener(EVT, sync); window.removeEventListener("storage", onStorage); };
+    return () => { alive = false; window.removeEventListener(EVT, sync); };
   }, []);
   return list;
 }

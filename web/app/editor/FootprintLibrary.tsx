@@ -33,7 +33,7 @@ export default function FootprintLibrary({ onClose }: { onClose: () => void }) {
     e.target.value = "";
     if (!files.length) return;
     const texts = await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() })));
-    const { added, failed } = importKicadFootprints(texts);
+    const { added, failed } = await importKicadFootprints(texts);
     const el = document.getElementById("fp-status");
     if (el) el.textContent = `Imported ${added}${failed ? ` · ${failed} skipped` : ""}.`;
   };
