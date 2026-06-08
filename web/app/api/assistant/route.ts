@@ -503,11 +503,25 @@ export async function POST(req: Request) {
     { role: "user", content: message },
   ];
 
-  const baseTools = agentic ? TOOLS : [];
+  // Prompt caching: the tools array is large and identical on every one of the (up to MAX_TURNS) agentic
+  // calls — mark the last tool so the whole array caches (read at ~10% cost after the first call). The
+  // SYSTEM block is already cached above.
+  const baseTools = agentic ? TOOLS.map((t, i) => (i === TOOLS.length - 1 ? { ...t, cache_control: { type: "ephemeral" } } : t)) : [];
+  // A rolling cache breakpoint on the tail of the conversation: each loop step the prior messages
+  // (assistant tool_use + tool_results, which accumulate) are read from cache instead of re-charged.
+  const cacheTail = (msgs: { role: string; content: unknown }[]) => {
+    if (!msgs.length) return msgs;
+    const last = msgs[msgs.length - 1];
+    const c = last.content;
+    let content: unknown = c;
+    if (typeof c === "string") content = [{ type: "text", text: c, cache_control: { type: "ephemeral" } }];
+    else if (Array.isArray(c) && c.length) { const arr = c as object[]; content = arr.map((b, i) => (i === arr.length - 1 ? { ...b, cache_control: { type: "ephemeral" } } : b)); }
+    return [...msgs.slice(0, -1), { ...last, content }];
+  };
   const post = (tools: unknown[]) => fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 4096, system, messages, ...(tools.length ? { tools } : {}) }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 4096, system, messages: cacheTail(messages), ...(tools.length ? { tools } : {}) }),
   });
   const call = async () => {
     let r = await post([WEB_SEARCH, ...baseTools]);
@@ -533,6 +547,8 @@ export async function POST(req: Request) {
     let changed = false;
     for (let turn = 0; turn < (agentic ? MAX_TURNS : 1); turn++) {
       const data = await call();
+      const u = data.usage ?? {};
+      console.log(`[sparky] turn ${turn}: in=${u.input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`);
       messages.push({ role: "assistant", content: data.content });
       const toolUses = (Array.isArray(data.content) ? data.content : []).filter((b: { type: string }) => b.type === "tool_use");
       if (!agentic || data.stop_reason !== "tool_use" || !toolUses.length) {
