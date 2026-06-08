@@ -173,17 +173,26 @@ export const RULES: Rule[] = [
 
 const SEVERITY_ORDER = { error: 0, warn: 1, recommendation: 2, info: 3, unknown: 4 } as const;
 
-/** A finding's identity: its rule + the subjects it points at (order-independent). An acknowledgement
- *  with the same key mutes exactly that occurrence — not the rule everywhere. */
+/** A finding's identity: its rule + the subjects it points at (order-independent). Used by the UI to
+ *  toggle a single finding's acknowledgement. */
 export const findingKey = (f: { rule: string; at: string[] }): string => `${f.rule}@${[...f.at].sort().join(",")}`;
+
+/** Does an acknowledgement cover this finding? Same rule, and every subject the finding points at is
+ *  within the ack's `at`. Subset (not exact) so ONE grouped ack — e.g. all 16 SPI pins listed together
+ *  — mutes each per-net open-net finding (which points at a single pin), not just an identical set. */
+const ackCovers = (ack: { rule: string; at: string[] }, f: { rule: string; at: string[] }): boolean => {
+  if (ack.rule !== f.rule || !f.at.length) return false;
+  const set = new Set(ack.at);
+  return f.at.every((x) => set.has(x));
+};
 
 /** Run every rule and return findings, most severe first. Findings the user/agent marked intended
  *  (design.acks) are flagged `acknowledged` (with the note) so consumers can mute them and drop them
  *  from the error/warning counts — keeping the linter trustworthy instead of noisy-but-correct. */
 export function lint(rd: ResolvedDesign): Finding[] {
-  const acks = new Map((rd.design.acks ?? []).map((a) => [findingKey(a), a.note]));
+  const acks = rd.design.acks ?? [];
   return RULES.flatMap((rule) => rule(rd))
-    .map((f) => (acks.has(findingKey(f)) ? { ...f, acknowledged: { note: acks.get(findingKey(f)) } } : f))
+    .map((f) => { const a = acks.find((ack) => ackCovers(ack, f)); return a ? { ...f, acknowledged: { note: a.note } } : f; })
     .sort((a, b) => Number(!!a.acknowledged) - Number(!!b.acknowledged) || SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 

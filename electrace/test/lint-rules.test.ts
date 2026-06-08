@@ -62,3 +62,27 @@ test("an acknowledged finding is muted (flagged + not counted as a warning), key
   // it must NOT count among active warnings anymore
   assert.equal(analyze(acked, lib(s, t)).findings.filter((x) => x.severity === "warn" && !x.acknowledged).length, 0);
 });
+
+test("a grouped ack (many pins in one entry) mutes each per-pin open-net finding", () => {
+  // three blocks, each with an unconnected output → three separate open-net findings (one pin each)
+  const drv = (n: string) => B(`@t/${n}`, [
+    { id: "vin", role: "in", type: "power", v: { value: 5 } },
+    { id: "spi", role: "out", type: "signal" }, // left unconnected on purpose
+  ]);
+  const a = drv("a"), b = drv("b"), c = drv("c");
+  const src = B("@t/src", [{ id: "o", role: "out", type: "power", v: { value: 5 }, i: { max: 1 } }]);
+  const base: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S", block: key(src) }, { ref: "A", block: key(a) }, { ref: "B", block: key(b) }, { ref: "C", block: key(c) }],
+    connections: [{ from: "S.o", to: "A.vin" }, { from: "A.vin", to: "B.vin" }, { from: "B.vin", to: "C.vin" }],
+  };
+  const opens = analyze(base, lib(src, a, b, c)).findings.filter((f) => f.rule === "connectivity/open-net");
+  assert.ok(opens.length >= 3, "each unconnected spi pin is its own open-net finding");
+  const at = opens.flatMap((f) => f.at); // the net ids/subjects the findings point at
+
+  // ONE grouped ack listing all three pins should mute ALL of them (subset match, not exact)
+  const acked: Design = { ...base, acks: [{ rule: "connectivity/open-net", at, note: "intentional — strap config" }] };
+  const after = analyze(acked, lib(src, a, b, c)).findings.filter((f) => f.rule === "connectivity/open-net");
+  assert.ok(after.every((f) => f.acknowledged), "every per-pin open-net finding is muted by the one grouped ack");
+  assert.equal(after.filter((f) => !f.acknowledged).length, 0);
+});
