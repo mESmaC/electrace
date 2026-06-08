@@ -715,8 +715,10 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       problems.push({ sev: "error", msg: `${ref}: both pins are on the same net (short across the part)`, target: { kind: "sym", id: symId } });
     }));
     conns.forEach((c) => {
+      // a free end that taps another wire is connected, not floating (matches wireState)
+      const aFree = c.a.kind === "free" && !tapped.has(`${c.id}:a`), bFree = c.b.kind === "free" && !tapped.has(`${c.id}:b`);
       if (c.a.kind === "broken" || c.b.kind === "broken") problems.push({ sev: "error", msg: "Wire references a deleted pin", target: { kind: "wire", id: c.id } });
-      else if (c.a.kind === "free" || c.b.kind === "free") problems.push({ sev: "warn", msg: "Wire has a floating end", target: { kind: "wire", id: c.id } });
+      else if (aFree || bFree) problems.push({ sev: "warn", msg: "Wire has a floating end", target: { kind: "wire", id: c.id } });
     });
     termStatus.forEach(({ t, connected, portId }) => { if (!connected) problems.push({ sev: "warn", msg: `Terminal "${t.id}" isn't wired into the circuit`, target: portId ? { kind: "sym", id: portId } : undefined }); });
     openPinList.forEach((k) => problems.push({ sev: "info", msg: `${k.ref ?? k.sym}.${k.pin} is unconnected`, target: { kind: "sym", id: k.sym } }));
