@@ -556,7 +556,7 @@ export async function POST(req: Request) {
   const headers = { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" };
   const anthropic = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[], maxTokens = 4096) => {
     const send = (ts: unknown[]) => fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers,
+      method: "POST", headers, signal: req.signal, // abort the in-flight model call if the client disconnects
       body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: sys, messages: cacheTail(msgs), ...(ts.length ? { tools: ts } : {}) }),
     });
     let r = await send([WEB_SEARCH, ...tools]);
@@ -632,6 +632,7 @@ export async function POST(req: Request) {
       let changed = false, totalIn = 0, totalOut = 0, finished = false;
       try {
         for (let turn = 0; turn < (agentic ? MAX_TURNS : 1); turn++) {
+          if (req.signal.aborted) return; // client disconnected — stop the loop (and stop billing model calls)
           emit({ type: "status", text: turn === 0 ? "Thinking…" : "Working…" });
           const data = await anthropic(system, messages, baseTools);
           const u = data.usage ?? {};
@@ -670,9 +671,9 @@ export async function POST(req: Request) {
         }
         if (!finished) emit(donePayload("I made some changes but hit the step limit — ask me to continue if it's not finished.", changed));
       } catch (e) {
-        emit({ type: "error", error: "Could not reach the model.", detail: String(e).slice(0, 300) });
+        if (!req.signal.aborted) emit({ type: "error", error: "Could not reach the model.", detail: String(e).slice(0, 300) });
       }
-      controller.close();
+      try { controller.close(); } catch { /* already closed by the consumer */ }
     },
   });
   return new Response(stream, { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache, no-transform" } });
