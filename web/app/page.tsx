@@ -23,25 +23,35 @@ export default function Home() {
           <div className="mt-4 text-[13px] text-faint">No simulation · no guessing · vendor-neutral</div>
 
           {/* product window */}
-          <div className="ec-float mx-auto mt-14 max-w-[900px] overflow-hidden rounded-2xl border border-border-strong bg-surface text-left shadow-2xl">
+          <div className="ec-float mx-auto mt-14 max-w-[940px] overflow-hidden rounded-2xl border border-border-strong bg-surface text-left shadow-2xl">
             <div className="flex h-11 items-center gap-2 border-b border-border bg-surface-2 px-4">
               <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" /><span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" /><span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
               <span className="ml-2.5 font-mono text-[12px] text-dim">buck-supply.elec — Electrace</span>
               <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-green">● all nets connected</span>
             </div>
-            <div className="relative grid h-[300px] place-items-center bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 5%, transparent) 1.4px, transparent 1.4px)", backgroundSize: "22px 22px" }}>
-              <div className="relative h-[210px] w-[560px] scale-[0.78] sm:scale-100">
-                <svg viewBox="0 0 560 210" className="pointer-events-none absolute inset-0 h-full w-full">
-                  <path className="ec-wire" d="M212 96 C246 96 252 112 286 112" stroke="var(--color-amber)" strokeWidth={2.5} fill="none" />
-                  <path className="ec-wire" style={{ animationDelay: "0.5s" }} d="M212 120 C246 120 252 136 286 136" stroke="var(--color-gray)" strokeWidth={2.5} fill="none" />
+            <div className="relative grid h-[360px] place-items-center overflow-hidden bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 5%, transparent) 1.4px, transparent 1.4px)", backgroundSize: "22px 22px" }}>
+              <div className="relative h-[290px] w-[560px] scale-[0.74] sm:scale-100">
+                {/* port-to-port wires — straight, like a real schematic net */}
+                <svg viewBox="0 0 560 290" className="pointer-events-none absolute inset-0 h-full w-full">
+                  <path className="ec-wire" d="M218 150 H300" stroke="var(--color-amber)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+                  <path className="ec-wire" style={{ animationDelay: "0.45s" }} d="M218 178 H300" stroke="var(--color-gray)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
                 </svg>
-                {/* hover-to-explain demo */}
-                <div className="ec-tip pointer-events-none absolute left-[300px] top-[96px] z-10 max-w-[210px] rounded-xl border border-border-strong bg-surface px-3 py-2.5 text-[11.5px] shadow-xl">
+
+                {/* hover-to-explain tooltip — ABOVE the buck block, pointing down to it */}
+                <div className="ec-tip pointer-events-none absolute left-[296px] top-[2px] z-20 w-[220px] rounded-xl border border-border-strong bg-surface px-3 py-2.5 text-[11.5px] leading-snug shadow-xl">
                   <b className="font-semibold text-accent">✦ U1 — buck controller.</b> Holds 5 V from a 9–18 V input; R1/R2 set the voltage.
+                  <span className="absolute bottom-[-5px] left-7 h-2.5 w-2.5 rotate-45 border-b border-r border-border-strong bg-surface" />
                 </div>
-                <svg className="ec-cursor pointer-events-none absolute z-20 h-5 w-5 drop-shadow" viewBox="0 0 20 20"><path d="M2 2 L2 16 L6 12 L9 18 L11 17 L8 11 L14 11 Z" fill="#fff" stroke="#0e1015" strokeWidth={1.2} /></svg>
-                <WindowBlock x={20} y={48} glyph="⎓" tone="amber" name="Power Entry" tag="disc" spec="9–18 V DC in"
-                  ports={[{ side: "out", top: 52, tone: "amber", label: "VBUS" }, { side: "out", top: 74, tone: "gray", label: "GND" }]}
+
+                {/* lint bubble — BELOW the blocks, clear of everything */}
+                <div className="ec-bubble absolute left-[150px] top-[236px] z-20 flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border-strong bg-surface px-3 py-2 text-[11.5px] shadow-xl">
+                  <span className="text-accent">✦</span><span className="text-green">●</span>Plenty of headroom — 9 W of 15 W.
+                </div>
+
+                <svg className="ec-cursor pointer-events-none absolute z-30 h-5 w-5 drop-shadow" viewBox="0 0 20 20"><path d="M2 2 L2 16 L6 12 L9 18 L11 17 L8 11 L14 11 Z" fill="#fff" stroke="#0e1015" strokeWidth={1.2} /></svg>
+
+                <WindowBlock x={18} y={58} glyph="⎓" tone="amber" name="Power Entry" tag="disc" spec="9–18 V DC in"
+                  ports={[{ side: "in", top: 101, tone: "amber" }, { side: "out", top: 87, tone: "amber" }, { side: "out", top: 115, tone: "gray" }]}
                   preview={<>
                     <circle cx={16} cy={26} r={8} fill="none" stroke="currentColor" strokeWidth={1.5} /><line x1={13} y1={23} x2={19} y2={29} stroke="currentColor" strokeWidth={1.5} />
                     <line x1={24} y1={26} x2={48} y2={26} stroke="var(--color-accent)" strokeWidth={1.7} />
@@ -50,10 +60,9 @@ export default function Home() {
                     <line x1={124} y1={26} x2={124} y2={40} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={114} y1={40} x2={134} y2={40} stroke="currentColor" strokeWidth={1.7} /><line x1={114} y1={46} x2={134} y2={46} stroke="currentColor" strokeWidth={1.7} /><line x1={124} y1={46} x2={124} y2={62} stroke="var(--color-accent)" strokeWidth={1.7} />
                     <line x1={62} y1={62} x2={150} y2={62} stroke="var(--color-accent)" strokeWidth={1.7} />
                     <g stroke="currentColor" strokeWidth={1.7}><line x1={98} y1={62} x2={98} y2={68} /><line x1={90} y1={68} x2={106} y2={68} /><line x1={94} y1={71} x2={102} y2={71} /></g>
-                    <text x={150} y={20} className="fill-green font-mono text-[9px]">VBUS</text>
                   </>} />
-                <WindowBlock x={290} y={60} glyph="⇄" tone="cyan" name="Buck Regulator" tag="IC" spec="9–18 V → 5 V · 3 A"
-                  ports={[{ side: "in", top: 52, tone: "amber", label: "VIN" }, { side: "in", top: 74, tone: "gray", label: "GND" }, { side: "out", top: 52, tone: "green", label: "+5 V" }]}
+                <WindowBlock x={300} y={58} glyph="⇄" tone="cyan" name="Buck Regulator" tag="IC" spec="9–18 V → 5 V · 3 A"
+                  ports={[{ side: "in", top: 87, tone: "amber" }, { side: "in", top: 115, tone: "gray" }, { side: "out", top: 87, tone: "green", label: "+5 V" }]}
                   preview={<>
                     <line x1={8} y1={22} x2={46} y2={22} stroke="var(--color-accent)" strokeWidth={1.7} />
                     <line x1={26} y1={22} x2={26} y2={34} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={18} y1={34} x2={34} y2={34} stroke="currentColor" strokeWidth={1.7} /><line x1={18} y1={38} x2={34} y2={38} stroke="currentColor" strokeWidth={1.7} /><line x1={26} y1={38} x2={26} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} />
@@ -61,15 +70,11 @@ export default function Home() {
                     <line x1={92} y1={22} x2={104} y2={22} stroke="var(--color-accent)" strokeWidth={1.7} /><path d="M104 22 q5 -8 10 0 q5 -8 10 0 q5 -8 10 0" stroke="currentColor" strokeWidth={1.7} fill="none" /><line x1={134} y1={22} x2={188} y2={22} stroke="var(--color-accent)" strokeWidth={1.7} />
                     <line x1={152} y1={22} x2={152} y2={34} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={144} y1={34} x2={160} y2={34} stroke="currentColor" strokeWidth={1.7} /><line x1={144} y1={38} x2={160} y2={38} stroke="currentColor" strokeWidth={1.7} /><line x1={152} y1={38} x2={152} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} />
                     <line x1={26} y1={60} x2={152} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={69} y1={52} x2={69} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} />
-                    <text x={170} y={16} className="fill-green font-mono text-[9px]">+5V</text>
-                  </>}>
-                  <div className="ec-bubble absolute left-[-26px] top-[140px] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-surface px-2.5 py-2 text-[11.5px] shadow-xl">
-                    <span className="text-accent">✦</span><span className="text-green">●</span>Plenty of headroom — 9 W of 15 W
-                  </div>
-                </WindowBlock>
+                  </>} />
               </div>
             </div>
           </div>
+          <p className="mx-auto mt-3 max-w-[560px] text-[13px] text-faint">A live Electrace design — hover a block to see what it does, while the linter keeps an eye on the math.</p>
         </div>
       </header>
 
@@ -207,14 +212,14 @@ export default function Home() {
   );
 }
 
-type Port = { side: "in" | "out"; top: number; tone: "amber" | "gray" | "green"; label: string };
+type Port = { side: "in" | "out"; top: number; tone: "amber" | "gray" | "green"; label?: string };
 const NUB = { amber: "var(--color-amber)", gray: "var(--color-gray)", green: "var(--color-green)" };
-function WindowBlock({ x, y, glyph, tone, name, tag, spec, preview, ports = [], children }: { x: number; y: number; glyph: string; tone: "amber" | "cyan"; name: string; tag: string; spec: string; preview: React.ReactNode; ports?: Port[]; children?: React.ReactNode }) {
+function WindowBlock({ x, y, glyph, tone, name, tag, spec, preview, ports = [] }: { x: number; y: number; glyph: string; tone: "amber" | "cyan"; name: string; tag: string; spec: string; preview: React.ReactNode; ports?: Port[] }) {
   const toneCls = tone === "amber" ? "text-amber" : "text-[#3fd0e6]";
   const toneBg = tone === "amber" ? "color-mix(in srgb, var(--color-amber) 16%, transparent)" : "rgba(34,211,238,.16)";
   const toneBd = tone === "amber" ? "color-mix(in srgb, var(--color-amber) 40%, transparent)" : "rgba(34,211,238,.4)";
   return (
-    <div className="absolute w-[202px] rounded-2xl border border-border-strong bg-surface-2 shadow-xl" style={{ left: x, top: y }}>
+    <div className="absolute w-[200px] rounded-2xl border border-border-strong bg-surface-2 shadow-xl" style={{ left: x, top: y }}>
       <div className="flex items-center gap-2.5 px-3 pb-1.5 pt-3">
         <span className={`grid h-7 w-7 place-items-center rounded-lg border text-[14px] ${toneCls}`} style={{ background: toneBg, borderColor: toneBd }}>{glyph}</span>
         <span className="flex-1 text-[13px] font-semibold">{name}</span>
@@ -224,12 +229,15 @@ function WindowBlock({ x, y, glyph, tone, name, tag, spec, preview, ports = [], 
       <div className="mx-2.5 mb-2.5 h-[72px] overflow-hidden rounded-lg border border-border-strong bg-bg" style={{ color: "var(--color-text)" }}>
         <svg viewBox="0 0 200 72" className="h-full w-full">{preview}</svg>
       </div>
+      {/* terminal nubs sit ON the edge; any label extends OUTWARD (never over the preview) */}
       {ports.map((p, i) => (
-        <span key={i} className={`absolute flex items-center gap-1.5 font-mono text-[10px] text-text ${p.side === "in" ? "left-[-6px]" : "right-[-6px] flex-row-reverse"}`} style={{ top: p.top }}>
-          <i className="h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: NUB[p.tone], background: `color-mix(in srgb, ${NUB[p.tone]} 25%, transparent)` }} />{p.label}
+        <span key={i}
+          className={`absolute z-10 flex items-center gap-1 font-mono text-[10px] text-dim ${p.side === "in" ? "flex-row-reverse" : ""}`}
+          style={{ top: p.top, ...(p.side === "in" ? { right: "calc(100% - 7px)" } : { left: "calc(100% - 7px)" }) }}>
+          <i className="h-2.5 w-2.5 shrink-0 rounded-full border-2 bg-surface" style={{ borderColor: NUB[p.tone] }} />
+          {p.label && <span className="whitespace-nowrap px-0.5 text-text">{p.label}</span>}
         </span>
       ))}
-      {children}
     </div>
   );
 }

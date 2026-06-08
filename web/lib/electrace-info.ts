@@ -14,6 +14,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Block library:** the library index is now **searchable** and **filterable by category**.",
       "**Schematic export:** export a **KiCad netlist (.net)** of the whole stitched design straight from the editor toolbar (alongside Export and Report).",
       "**Polish:** friendly **404 and error pages**, and real **Privacy** and **Terms** pages (linked from sign-up and the footer).",
+      "**Landing page:** a cleaner, roomier **hero animation** — the two-block preview is properly spaced with port-to-port wires, terminal labels no longer overlap the blocks, and the hover-to-explain tooltip and lint bubble sit clear of everything.",
     ],
   },
   {
