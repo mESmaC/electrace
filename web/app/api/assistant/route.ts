@@ -522,13 +522,16 @@ export async function POST(req: Request) {
   const blocks = body.blocks ?? {};
 
   const ctx = (body.context ?? []).filter((c) => c?.text).map((c) => `### ${c.kind}\n${c.text}`).join("\n\n");
-  const system = [
-    { type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } },
-    ...(ctx ? [{ type: "text", text: `Workspace context:\n\n${ctx}` }] : []),
-  ];
+  // Prompt-cache hygiene: keep SYSTEM (and the big tools array) the ONLY thing before the messages, so the
+  // expensive ~10k system+tools prefix stays cached even as the design changes. The workspace context is
+  // volatile (it changes on every canvas edit) — if it sat in `system` ahead of the tools, every edit would
+  // invalidate the whole prefix and force a full re-write. Instead it rides in the latest user message, so
+  // only the (small) message tail is re-written per turn while system+tools are read at ~10% cost.
+  const system = [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }];
+  const userContent = ctx ? `<workspace-context>\n${ctx}\n</workspace-context>\n\n${message}` : message;
   const messages: { role: string; content: unknown }[] = [
     ...(body.history ?? []).filter((m) => m?.text).map((m) => ({ role: m.role, content: m.text })),
-    { role: "user", content: message },
+    { role: "user", content: userContent },
   ];
 
   // Prompt caching: the tools array is large and identical on every one of the (up to MAX_TURNS) agentic
