@@ -52,11 +52,15 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [promo, setPromo] = useState(true);
+  const [profile, setProfile] = useState<{ name: string; email: string } | null>(null);
   const refresh = () => setProjects(listProjects());
   useEffect(() => {
     try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ }
+    try { const p = localStorage.getItem("electrace:profile"); if (p) setProfile(JSON.parse(p)); } catch { /* ignore */ }
     setMounted(true); refresh(); return onHydrated(refresh);
   }, [router]);
+  const who = profile?.name?.trim() || "You";
+  const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "YOU";
 
   const open = (id: string) => router.push(`/editor?p=${id}`);
   const newProject = (name?: string) => open(createProject(name).id);
@@ -97,11 +101,11 @@ export default function Dashboard() {
           <div className="my-2 h-1.5 overflow-hidden rounded bg-bg"><div className="h-full rounded bg-accent" style={{ width: `${Math.min(100, projects.length * 10)}%` }} /></div>
           <button className="w-full rounded-lg border border-accent py-1.5 text-[12px] font-semibold text-accent hover:bg-accent hover:text-white">Upgrade for unlimited</button>
         </div>
-        <div className="flex items-center gap-2.5 rounded-xl border border-border p-2.5">
-          <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-gradient-to-br from-accent to-[#7c6cff] text-[12px] font-bold text-white">YOU</span>
-          <span className="leading-tight"><span className="block text-[13px] font-semibold">You</span><span className="text-[11px] text-faint">local — sign in coming</span></span>
+        <Link href={profile ? "/projects" : "/login"} className="flex items-center gap-2.5 rounded-xl border border-border p-2.5 hover:bg-surface-2">
+          <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-gradient-to-br from-accent to-[#7c6cff] text-[12px] font-bold text-white">{initials}</span>
+          <span className="leading-tight"><span className="block text-[13px] font-semibold">{who}</span><span className="text-[11px] text-faint">{profile?.email || "local — sign in to save"}</span></span>
           <span className="ml-auto text-faint">⚙</span>
-        </div>
+        </Link>
       </aside>
 
       {/* main */}
