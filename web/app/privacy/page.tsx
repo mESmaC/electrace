@@ -27,7 +27,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="The assistant (Sparky)">
-        <p>When you send a message to the assistant, that message and a snapshot of your current design are sent to our server and forwarded to Anthropic&apos;s API to generate a reply. We don&apos;t use your designs to train models, and we don&apos;t retain them beyond what&apos;s needed to serve the request. If you never open the assistant, none of your design data is transmitted anywhere.</p>
+        <p>When you send a message to the assistant, that message and a snapshot of your current design are sent to our servers and a third-party AI provider to generate a reply. We don&apos;t use your designs to train models, and we don&apos;t retain them beyond what&apos;s needed to serve the request. If you never open the assistant, none of your design data is transmitted anywhere.</p>
       </Section>
 
       <Section title="Optional local telemetry">

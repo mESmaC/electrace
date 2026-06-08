@@ -9,9 +9,8 @@ export const metadata = {
 const FAQ = [
   { q: "Is the free tier actually free?", a: "Yes — forever. The entire understand-loop (blocks, hover & drill-in, expand-to-discrete, linting, themes) is free, with up to 10 designs. We never charge you to learn." },
   { q: "What do I get with Pro?", a: "Pro lifts the 10-design cap entirely and unlocks private designs, manufacturing-grade export (Gerber / BOM / pick-and-place), version history, and advanced checks — for when you're shipping real hardware." },
-  { q: "Are my designs public?", a: "On Hobby, designs are public — discoverable like a public repo, which feeds the community library. Private designs are a Pro feature, for when you need to keep work to yourself." },
+  { q: "Are my designs private?", a: "On Hobby, designs are public — discoverable, like a public repo. Keeping designs private is a Pro feature, for when you need to hold work to yourself." },
   { q: "When does Pro start charging?", a: "Not during early access — everything is free while we build. We'll set Pro pricing from real maker feedback, and you'll always know before anything changes." },
-  { q: "How does Electrace make money, then?", a: "Electrace is vendor-neutral and helps you pick parts, so we earn a small affiliate cut when you order them. That lets the design tools stay generous." },
 ];
 
 export default function PricingPage() {

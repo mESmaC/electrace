@@ -51,6 +51,13 @@ answer. (2) Tune the 10-design cap so it reads generous, not coercive — high e
 hitting it means you're a real user, not a tinkerer being taxed — and watch that free
 storage cost stays comfortably below BOM-affiliate revenue per free user.
 
+> **Internal only — do not leak into user-facing copy.** The reasoning here (storage
+> economics, that blocks are cheap to store, the affiliate engine, the AI provider, the
+> data/corpus flywheel, anything about how the backend works) is competitive IP. Public
+> copy — pricing, FAQ, marketing, privacy, changelog — stays **value-framed**: users see what
+> they get, never the cost model or the moat. Disclose only what's legally/ethically required,
+> and generalize sub-processors (e.g. "a third-party AI provider", not the vendor name).
+
 ### Second stream from day one: BOM affiliate
 - Because Electrace is **vendor-neutral** and helps pick parts, it can earn referral
   commissions from distributors (Digikey, Mouser, etc.) on the parts users order from a BOM.
