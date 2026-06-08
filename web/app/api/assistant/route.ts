@@ -552,10 +552,10 @@ export async function POST(req: Request) {
   // One model call (used by both Sparky and the sparks). Web search is offered; if the host rejects it,
   // retry without it. cacheTail caches the conversation prefix.
   const headers = { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" };
-  const anthropic = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[]) => {
+  const anthropic = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[], maxTokens = 4096) => {
     const send = (ts: unknown[]) => fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers,
-      body: JSON.stringify({ model: MODEL, max_tokens: 4096, system: sys, messages: cacheTail(msgs), ...(ts.length ? { tools: ts } : {}) }),
+      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: sys, messages: cacheTail(msgs), ...(ts.length ? { tools: ts } : {}) }),
     });
     let r = await send([WEB_SEARCH, ...tools]);
     if (r.status === 400) {
@@ -579,6 +579,8 @@ export async function POST(req: Request) {
     let changed = false;
     for (let t = 0; t < SPARK_MAX_TURNS; t++) {
       const data = await anthropic(sparkSys, msgs, sparkTools);
+      const su = data.usage ?? {};
+      console.log(`[spark] turn ${t}: in=${su.input_tokens ?? 0} cache_read=${su.cache_read_input_tokens ?? 0} cache_write=${su.cache_creation_input_tokens ?? 0} out=${su.output_tokens ?? 0}`);
       const content = Array.isArray(data.content) ? data.content : [];
       msgs.push({ role: "assistant", content: data.content });
       const toolUses = content.filter((b: { type: string }) => b.type === "tool_use");
@@ -594,6 +596,21 @@ export async function POST(req: Request) {
       msgs.push({ role: "user", content: results });
     }
     return { summary: "(spark hit its step limit)", changed };
+  };
+
+  // Warm the shared spark prefix (SPARK_SYSTEM + spark tools, ~2.3k tokens) with ONE tiny call before
+  // fanning out. The sparks run via Promise.all, so without this they all fire at once, each MISSES the
+  // not-yet-written cache, and each re-creates the prefix (N writes at 1.25x). After one warming write,
+  // every spark READS the prefix at ~10% cost. Non-fatal if it fails — sparks just pay the cold path.
+  let sparkCacheWarmed = false;
+  const warmSparkCache = async () => {
+    if (sparkCacheWarmed) return;
+    sparkCacheWarmed = true;
+    try {
+      const data = await anthropic(sparkSys, [{ role: "user", content: "ready" }], sparkTools, 4);
+      const u = data.usage ?? {};
+      console.log(`[sparky] warm sparks: cache_write=${u.cache_creation_input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0}`);
+    } catch { sparkCacheWarmed = false; }
   };
 
   const donePayload = (reply: string, changed: boolean) => ({
@@ -635,6 +652,7 @@ export async function POST(req: Request) {
               const tasks = Array.isArray(u.input?.tasks) ? (u.input.tasks as unknown[]).map(String).map((s) => s.trim()).filter(Boolean) : [];
               if (!tasks.length) { results.push({ type: "tool_result", tool_use_id: u.id, content: "delegate needs tasks[] — one focused build instruction per block." }); continue; }
               emit({ type: "status", text: `⚡ Dispatching ${tasks.length} spark${tasks.length > 1 ? "s" : ""}…` });
+              if (tasks.length > 1) await warmSparkCache(); // one cache write, then the parallel sparks all read it
               const outs = await Promise.all(tasks.map((task, i) => runSpark(task, (tool) => emit({ type: "status", text: `⚡ Spark ${i + 1}/${tasks.length} · ${tool}` }))));
               outs.forEach((s) => { changed = changed || s.changed; });
               const text = outs.map((s, i) => `Spark ${i + 1} — ${s.summary}`).join("\n\n");
