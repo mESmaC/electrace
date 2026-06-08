@@ -2,42 +2,32 @@
 // fed to the assistant (Sparky) via the electrace_help tool, so it can help users with the app itself,
 // not just their design. Keep this current as features ship.
 
-export interface ChangeEntry { date: string; title: string; items: string[] }
+export interface ChangeEntry { date: string; title?: string; items: string[] }
 
-/** Reverse-chronological. `date` is an ISO day for shipped entries, or a label for the foundations. */
+/** Reverse-chronological, ONE entry per day — every functionality change that day, grouped by area.
+ *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-06-07",
-    title: "Clearer about what a check means",
     items: [
-      "Help now spells out that the checks are **structural, not a simulation** — a clean result means structurally sane (typed + connected), not validated. New guidance on **what the checks do/don't catch** and **when to author a block vs use a library one**.",
-      "The findings panel carries the same honest note inline.",
-      "**Three themes** (Light / Mid / Dark, Mid default) with a selector; the editor themes too.",
+      "**Sparky (assistant):** named **Sparky** ✨ with a friendlier face; opens into a **collapsible side pane** over the canvas (was a small popup); **multiple conversations** — new / switch / delete, each named from its first message and saved; replies render as **markdown** (tables, lists, code); **bias-to-action** — finishes obvious steps instead of asking permission; can answer questions about **Electrace itself + what's new**; can read a block's ground truth (`get_block`), set values without re-authoring (`set_value`), bulk-expose chip pins as a header (`expose_pins`), author discrete/passive parts, place connectors, and read power budgets.",
+      "**Blocks & authoring:** a block is a **functional subcircuit** (multiple parts folded in), not one-part-per-block; re-authoring **auto-reconnects renamed pins** instead of orphaning wires; **shared-value guardrail** warns when one shared block can't carry per-instance values; values are **first-class** and editable.",
+      "**Library:** **relay** variants (SPST / DPDT / solid-state); **Mini-USB-B** and **Micro-USB-B** connectors; connectors are placeable by the assistant.",
+      "**Checks & analysis:** **acknowledge** a correct-but-noisy finding so it mutes with a reason (and grouped acknowledgements now mute every matching pin); a **connector-capacity** note when a header is maxed; **power budgets** surfaced (draw vs capacity, headroom); the findings panel and help now say plainly that checks are **structural, not a simulation** — clean = sane, not validated.",
+      "**Declare loads & sources from the UI:** power/rail terminals now take a **voltage + current** in the block form and the right-hand inspector, so a source or static load shows up in the budget (instead of reading 0 W).",
+      "**Appearance:** **three themes** — Light / Mid / Dark (Mid default) — from a selector, and the editor themes too; **user-assignable glyph colors** per block.",
+      "**PCB editor:** **connectors now land on the board** with real footprints (a 2×20 header is a proper 2-row grid, not a 100 mm row) and the ratsnest connects them; **size-aware auto-placement** so big parts don't overlap; **faster zoom**; authored **chips land their real package** (e.g. QFP-32 with all 32 pads).",
+      "**Site:** a **Help & Changelog** page; social-share metadata (OpenGraph/Twitter card), sitemap + robots for the public block pages.",
+      "**Fixes:** assistant reply truncation; authored blocks now reach the BOM/analyzer; light-mode contrast (white text/symbols on light); theme load flash + hydration warning.",
     ],
   },
   {
-    date: "2026-06-07",
-    title: "Meet Sparky — the assistant grows up",
+    date: "2026-06-06",
     items: [
-      "The assistant is now **Sparky** ✨, with a name and a friendlier face (was the generic robot).",
-      "Sparky opens into a **collapsible side pane** over the canvas instead of a small popup.",
-      "**Multiple conversations** — start new chats, switch between them, delete; each is named from its first message and persists.",
-      "Sparky's replies now render as **markdown** (tables, lists, code, headings).",
-      "Sparky **bias-to-action**: it finishes obvious steps (landing board I/O on a connector, adding needed support parts) instead of asking permission for each.",
-      "Sparky can now answer questions about **Electrace itself** and **what's new** (this page).",
-    ],
-  },
-  {
-    date: "2026-06-07",
-    title: "Build real boards, not sketches",
-    items: [
-      "**Functional blocks** — a block is a real subcircuit (e.g. an oscillator = crystal + 2 load caps), with its support parts folded in, not one component per block.",
-      "Authored **chips land their real PCB footprint** (a 32-pin ATmega → QFP-32 with all 32 pads, named pins on the right pad) — no more tiny stub packages.",
-      "**Connectors for board I/O**: place USB / barrel / headers (incl. new **Mini-USB-B** and **Micro-USB-B**) and wire block terminals to their pins.",
-      "**Relays**: SPDT plus new **SPST**, **DPDT**, and **solid-state (SSR)** variants.",
-      "**Acknowledge** a correct-but-noisy warning (e.g. an intentional diode-OR) so it mutes with a reason instead of nagging.",
-      "**Power budgets** surfaced — per-rail load draw vs source capacity, headroom, and over-budget flags.",
-      "Re-authoring a block now **auto-reconnects renamed pins** instead of silently orphaning wires.",
+      "**Connectors:** added as a first-class concept — place them on the canvas and **drag a block terminal onto a connector pin to dock** it as board-edge I/O.",
+      "**Blocks:** **edit a user block after creating it**; **expose a chip's pins as block terminals** one at a time (as needed); **QFP-style rendering** for high-pin blocks; the assistant can **author a block's internal schematic with a real chip** (so it hits the BOM + footprints, not a hollow shell).",
+      "**Palette:** reorganized into a **2-wide grid** with collapsible **My blocks / Library / Connectors** sections; drag blocks/connectors straight onto the canvas.",
+      "**Fixes:** duplicate-terminal canvas crash; block persistence across refresh; live-edit refresh; orphan ports; net-markers wrongly becoming duplicate PCB components.",
     ],
   },
   {
@@ -119,13 +109,13 @@ budgets, and explain what's on any net. Start a **new chat** any time; conversat
 /** Render the changelog to markdown (for the page and the assistant). */
 export function changelogMarkdown(): string {
   return ["# Changelog", ...CHANGELOG.map((e) =>
-    `## ${e.title}\n*${e.date}*\n\n${e.items.map((i) => `- ${i}`).join("\n")}`,
+    `## ${e.date}${e.title ? ` — ${e.title}` : ""}\n\n${e.items.map((i) => `- ${i}`).join("\n")}`,
   )].join("\n\n");
 }
 
 /** Combined reference handed to the assistant on demand (features + recent changelog). */
 export function electraceHelpText(): string {
-  const recent = CHANGELOG.slice(0, 3);
-  const log = recent.map((e) => `### ${e.title} (${e.date})\n${e.items.map((i) => `- ${i}`).join("\n")}`).join("\n\n");
+  const recent = CHANGELOG.slice(0, 2);
+  const log = recent.map((e) => `### ${e.date}${e.title ? ` — ${e.title}` : ""}\n${e.items.map((i) => `- ${i}`).join("\n")}`).join("\n\n");
   return `${FEATURES_MD}\n\n---\n\n# Recent changes\n\n${log}`;
 }
