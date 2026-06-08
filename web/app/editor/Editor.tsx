@@ -67,6 +67,16 @@ function BlockNode(props: NodeProps) {
   const undock = (terminal: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal } }));
   const shadow = sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)";
 
+  // hover-to-explain: a short delay, then a tooltip with the block's spec / I/O / inside / a key limit note
+  const [hover, setHover] = useState(false);
+  const tipTimer = useRef<number | undefined>(undefined);
+  const tipHandlers = {
+    onMouseEnter: () => { tipTimer.current = window.setTimeout(() => setHover(true), 320); },
+    onMouseLeave: () => { window.clearTimeout(tipTimer.current); setHover(false); },
+    onMouseDown: () => { window.clearTimeout(tipTimer.current); setHover(false); }, // don't linger during a drag
+  };
+  const tip = hover ? <BlockTip block={block} /> : null;
+
   // docked terminals collapse to chips; their handles stay in the DOM (hidden) so the hidden
   // dock-edges remain valid. Click a chip to undock.
   const dockedSection = dockedTerms.length > 0 ? (
@@ -98,8 +108,9 @@ function BlockNode(props: NodeProps) {
     const vertical = (s: string) => s === "left" || s === "right";
     const posOf = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
     return (
-      <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow }}
+      <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow }} {...tipHandlers}
         className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface)] text-[var(--color-text)]`}>
+        {tip}
         <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center text-center">
           <span className="text-base" style={block.glyphColor ? { color: block.glyphColor } : undefined}>{block.glyph ?? "▦"}</span>
           <span className="text-[11px] font-semibold leading-tight">{block.name}</span>
@@ -126,8 +137,9 @@ function BlockNode(props: NodeProps) {
   }
 
   return (
-    <div style={{ width: 210, boxShadow: shadow }}
-      className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface-2)] text-[var(--color-text)]`}>
+    <div style={{ width: 210, boxShadow: shadow }} {...tipHandlers}
+      className={`relative rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface-2)] text-[var(--color-text)]`}>
+      {tip}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
         <span className="grid h-6 w-6 place-items-center rounded-md border text-sm" style={glyphChip(block.glyphColor)}>{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
@@ -160,6 +172,42 @@ function BlockNode(props: NodeProps) {
         })}
         {dockedSection}
       </div>
+    </div>
+  );
+}
+
+function fmtSpecVal(v: unknown): string {
+  if (typeof v === "number" || typeof v === "string") return String(v);
+  if (v && typeof v === "object") {
+    const r = v as { value?: number; min?: number; max?: number; unit?: string };
+    const u = r.unit ? ` ${r.unit}` : "";
+    if (r.value != null) return `${r.value}${u}`;
+    if (r.min != null || r.max != null) return `${r.min ?? "?"}–${r.max ?? "?"}${u}`;
+  }
+  return "";
+}
+
+/** The hover-to-explain tooltip: a compact, plain-language read on a block — its spec, I/O, what's
+ *  folded inside, and a key limit note — built from the block's own authored data. */
+function BlockTip({ block }: { block: Block }) {
+  const spec = block.spec ? Object.entries(block.spec).flatMap(([k, v]) => { const s = fmtSpecVal(v); return s ? [`${k} ${s}`] : []; }) : [];
+  const outs = block.terminals.filter((t) => t.role === "out").map((t) => t.id);
+  const ins = block.terminals.filter((t) => t.role === "in").map((t) => t.id);
+  const parts = block.schematic?.parts ?? [];
+  const note = block.limits?.find((l) => l.note)?.note;
+  return (
+    <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2.5 w-[238px] -translate-x-1/2 rounded-xl border border-border-strong bg-surface px-3 py-2.5 text-left shadow-2xl">
+      <div className="flex items-center gap-1.5 text-[12px] font-bold text-text">
+        <span className="text-accent">✦</span>{block.name}
+        {(block.topology || block.category) && <span className="ml-auto text-[8.5px] font-semibold uppercase tracking-wide text-faint">{block.topology ?? block.category}</span>}
+      </div>
+      {spec.length > 0 && <div className="mt-1 font-mono text-[10.5px] text-dim">{spec.join(" · ")}</div>}
+      {(outs.length > 0 || ins.length > 0) && (
+        <div className="mt-1 text-[10.5px] text-dim">{outs.length ? `Out ${outs.join(", ")}` : ""}{outs.length && ins.length ? " · " : ""}{ins.length ? `In ${ins.join(", ")}` : ""}</div>
+      )}
+      {parts.length > 0 && <div className="mt-1 text-[10.5px] text-faint">Inside: {parts.length} part{parts.length > 1 ? "s" : ""}{parts.length <= 6 ? ` — ${parts.map((p) => p.ref).join(", ")}` : ""}</div>}
+      {note && <div className="mt-1.5 border-t border-border pt-1.5 text-[10px] leading-snug text-amber">⚠ {note}</div>}
+      <span className="absolute left-1/2 top-full h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-border-strong bg-surface" />
     </div>
   );
 }
