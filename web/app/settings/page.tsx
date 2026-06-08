@@ -80,7 +80,7 @@ export default function SettingsPage() {
       <Link href="/projects" className="text-sm text-faint hover:text-dim">← Back to your designs</Link>
       <header className="mt-5">
         <h1 className="text-3xl font-extrabold tracking-tight text-text">Settings</h1>
-        <p className="mt-1 text-dim">Preferences are stored in your browser. Account settings arrive with the cloud backend.</p>
+        <p className="mt-1 text-dim">Preferences are saved on this device.</p>
       </header>
 
       <Card title="Profile">
@@ -91,7 +91,7 @@ export default function SettingsPage() {
         <Row title="Email" hint={email ? "From your local sign-in." : "Set when you sign in."}>
           <span className="text-sm text-dim">{email || "—"}</span>
         </Row>
-        <Row title="Session" hint="Sign out of this local profile on this device.">
+        <Row title="Session" hint="Sign out on this device.">
           <button onClick={logout} className="rounded-lg border border-[#e2837e]/45 px-4 py-1.5 text-sm font-medium text-[#e2837e] transition hover:bg-[#e2554b]/10">Log out</button>
         </Row>
       </Card>

@@ -45,7 +45,7 @@ export default function NavAccount() {
         <div className="absolute right-0 top-9 z-50 w-56 overflow-hidden rounded-xl border border-border-strong bg-surface py-1.5 shadow-2xl">
           <div className="border-b border-border px-3 py-2">
             <div className="truncate text-[13px] font-semibold">{profile.name}</div>
-            <div className="truncate text-[11px] text-faint">{profile.email || "local profile"}</div>
+            <div className="truncate text-[11px] text-faint">{profile.email || "Signed in on this device"}</div>
           </div>
           <Link href="/projects" onClick={() => setOpen(false)} className={item}>Your designs</Link>
           <Link href="/settings" onClick={() => setOpen(false)} className={item}>Settings</Link>

@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="Where your work lives">
-        <p>Designs, blocks, and editor preferences are stored locally in your browser (<code className="font-mono text-[13px]">localStorage</code>). They never leave your machine unless you explicitly export them or use the assistant (below). Clearing your browser storage deletes them.</p>
+        <p>Designs, blocks, and editor preferences are stored locally on your device. They never leave your machine unless you explicitly export them or use the assistant (below). Clearing your browser storage deletes them.</p>
       </Section>
 
       <Section title="The assistant (Sparky)">

@@ -168,7 +168,7 @@ export default function Dashboard() {
         </Link>
         <Link href="/settings" className="flex items-center gap-2.5 rounded-xl border border-border p-2.5 hover:bg-surface-2">
           <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-gradient-to-br from-accent to-[#7c6cff] text-[12px] font-bold text-white">{initials}</span>
-          <span className="leading-tight"><span className="block text-[13px] font-semibold">{who}</span><span className="text-[11px] text-faint">{profile?.email || "local — sign in to save"}</span></span>
+          <span className="leading-tight"><span className="block text-[13px] font-semibold">{who}</span><span className="text-[11px] text-faint">{profile?.email || "Signed in on this device"}</span></span>
           <span className="ml-auto text-faint">⚙</span>
         </Link>
       </aside>

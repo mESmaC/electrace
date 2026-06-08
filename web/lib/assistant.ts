@@ -7,6 +7,20 @@
 // it sends just the history. (A token cap on the context window is a TODO.)
 import { useEffect, useState } from "react";
 
+// Friendly, user-facing labels for what the assistant is doing — so the progress UI never surfaces the
+// internal tool/API names.
+const TOOL_LABELS: Record<string, string> = {
+  list_blocks: "Browsing blocks", get_block: "Reading a block", create_block: "Creating a block",
+  update_block: "Updating a block", author_block: "Authoring a block", author_schematic: "Drawing a schematic",
+  expose_pins: "Exposing pins", set_value: "Setting a value", delegate: "Dispatching sparks",
+  delete_block: "Removing a block", list_instances: "Reading the design", add_block: "Placing a block",
+  remove_block: "Removing a block", connect: "Wiring", disconnect: "Unwiring", analyze_design: "Running checks",
+  acknowledge: "Marking intended", unacknowledge: "Updating a finding", list_nets: "Reading nets",
+  power_budget: "Checking power", list_connectors: "Browsing connectors", add_connector: "Adding a connector",
+  electrace_help: "Reading the docs", web_search: "Searching the web",
+};
+export const toolLabel = (name: string): string => TOOL_LABELS[name] ?? "Working";
+
 export interface ChatMessage { id: string; role: "user" | "assistant"; text: string; t: number }
 export interface ContextItem { kind: string; text: string }
 
@@ -163,7 +177,7 @@ export async function sendMessage(text: string): Promise<void> {
       let ev: { type: string; [k: string]: unknown };
       try { ev = JSON.parse(line); } catch { return; }
       if (ev.type === "status") { prog.status = String(ev.text); setProgress({ ...prog }); }
-      else if (ev.type === "tool") { const name = String(ev.name); prog.tool = name; prog.status = `Running ${name}…`; if (!prog.tools.includes(name)) prog.tools.push(name); setProgress({ ...prog }); }
+      else if (ev.type === "tool") { const name = String(ev.name); const label = toolLabel(name); prog.tool = label; prog.status = `${label}…`; if (!prog.tools.includes(label)) prog.tools.push(label); setProgress({ ...prog }); }
       else if (ev.type === "narration") { prog.narration = String(ev.text); setProgress({ ...prog }); }
       else if (ev.type === "usage") { prog.tokensIn = Number(ev.in) || prog.tokensIn; prog.tokensOut = Number(ev.out) || prog.tokensOut; setProgress({ ...prog }); }
       else if (ev.type === "error") { appendChat("assistant", `⚠️ ${ev.error ?? "model error"}`); out.errored = true; }

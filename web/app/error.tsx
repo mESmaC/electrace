@@ -10,7 +10,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <div>
         <div className="font-mono text-[56px] font-black leading-none tracking-tight text-amber">⚡</div>
         <h1 className="mt-3 text-2xl font-bold text-text">Something shorted out.</h1>
-        <p className="mx-auto mt-2 max-w-sm text-dim">An unexpected error broke this page. Your saved work lives in your browser and isn&apos;t affected — try again.</p>
+        <p className="mx-auto mt-2 max-w-sm text-dim">An unexpected error broke this page. Your saved work is safe — try again.</p>
         {error?.digest && <p className="mt-2 font-mono text-[11px] text-faint">ref {error.digest}</p>}
         <div className="mt-7 flex flex-wrap justify-center gap-3">
           <button onClick={reset} className="rounded-xl bg-accent px-5 py-2.5 font-semibold text-white transition hover:bg-accent-hi">Try again</button>

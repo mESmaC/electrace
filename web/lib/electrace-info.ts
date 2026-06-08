@@ -21,13 +21,13 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Hover-to-explain:** hover any block on the canvas to get a quick **tooltip** — its spec, inputs/outputs, what parts are folded inside, and a key limit note — the same at-a-glance read the home page shows off.",
       "**QFP blocks:** pin labels on big (QFP-style) chips no longer **overflow off the block** — top/bottom labels now read down/up into the chip and every label is clamped to stay on-body.",
       "**Pricing & tiers:** a **/pricing** page with three tiers — **Hobby** (free, up to 10 designs), **Pro** (unlimited + private designs + manufacturing exports), and **Team** — an early-access note (it's all free for now), and an FAQ. The dashboard shows your **10-design Hobby allowance** with an upgrade prompt when you hit it. Linked from the nav, footer, and dashboard.",
-      "**Accounts (local):** a real **log in / sign up / log out** flow. The top bar shows **Log in / Sign up** when signed out and your **avatar menu** (your designs · settings · log out) when signed in. The **app now requires signing in** — the editor, your dashboard, settings, and onboarding — while the **marketing pages, block library, and help stay public**. (Real cloud accounts still arrive with the backend — this is a local profile for now.)",
+      "**Accounts (local):** a real **log in / sign up / log out** flow. The top bar shows **Log in / Sign up** when signed out and your **avatar menu** (your designs · settings · log out) when signed in. The **app now requires signing in** — the editor, your dashboard, settings, and onboarding — while the **marketing pages, block library, and help stay public**.",
     ],
   },
   {
     date: "2026-06-07",
     items: [
-      "**Sparky (assistant):** named **Sparky** ✨ with a friendlier face; opens into a **collapsible side pane** over the canvas (was a small popup); **multiple conversations** — new / switch / delete, each named from its first message and saved; replies render as **markdown** (tables, lists, code); shows **live progress while it works** — its current step, the tool it's running, and token usage — instead of a static typing indicator; for a big multi-block build it can **delegate to parallel sub-agents (“sparks”)** — Sparky decides when, the sparks author the blocks in parallel (each in its own focused, cheap context), then Sparky places, wires, and oversees their work; **bias-to-action** — finishes obvious steps instead of asking permission; can answer questions about **Electrace itself + what's new**; can read a block's ground truth (`get_block`), set values without re-authoring (`set_value`), bulk-expose chip pins as a header (`expose_pins`), author discrete/passive parts, place connectors, and read power budgets.",
+      "**Sparky (assistant):** named **Sparky** ✨ with a friendlier face; opens into a **collapsible side pane** over the canvas (was a small popup); **multiple conversations** — new / switch / delete, each named from its first message and saved; replies render as **markdown** (tables, lists, code); shows **live progress while it works** instead of a static typing indicator; for a big multi-block build, Sparky fans the work out to its **sparks** and builds blocks in parallel, then places, wires, and reviews them; **bias-to-action** — finishes obvious steps instead of asking permission; can answer questions about **Electrace itself + what's new**; reads a block's details, sets values without re-authoring, exposes chip pins as a header, authors discrete/passive parts, places connectors, and reads power budgets.",
       "**Blocks & authoring:** a block is a **functional subcircuit** (multiple parts folded in), not one-part-per-block; re-authoring **auto-reconnects renamed pins** instead of orphaning wires; **shared-value guardrail** warns when one shared block can't carry per-instance values; values are **first-class** and editable.",
       "**Library:** **relay** variants (SPST / DPDT / solid-state); **Mini-USB-B** and **Micro-USB-B** connectors; connectors are placeable by the assistant.",
       "**Checks & analysis:** **acknowledge** a correct-but-noisy finding so it mutes with a reason (and grouped acknowledgements now mute every matching pin); a **connector-capacity** note when a header is maxed; **power budgets** surfaced (draw vs capacity, headroom); the findings panel and help now say plainly that checks are **structural, not a simulation** — clean = sane, not validated.",
@@ -35,7 +35,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Appearance:** **three themes** — Light / Mid / Dark (Mid default) — from a selector, and the editor themes too; **user-assignable glyph colors** per block; an **accent color** you can pick.",
       "**Onboarding:** a first-run **welcome wizard** — pick your role, choose **ANSI vs IEC symbols** (a teaching picker that shows a resistor both ways), and your theme + accent — all applied live as you pick, then it opens a sample design to explore.",
       "**Dashboard:** the projects home is now a real dashboard — a workspace sidebar, **jump-back-in** recents, **start-from-a-template** cards, and a **searchable design grid** with live thumbnails + block counts (and a friendly empty state).",
-      "**Account pages:** **login / sign-up** screens (GitHub / Google + email, split-layout with a product showcase). For now they save a local profile (your name shows in the dashboard); real cloud accounts land with the backend.",
+      "**Account pages:** **login / sign-up** screens (GitHub / Google + email, split-layout with a product showcase).",
       "**Landing page:** a real home page — an **animated** hero with a live product-window preview (floating window, mini block schematics, a hover-to-explain cursor, a lint bubble), how-it-works, the see-inside transparency story, typed-nets, why-Electrace, the design → PCB → build path, scroll-reveal sections, and an early-access CTA.",
       "**PCB editor:** **connectors now land on the board** with real footprints (a 2×20 header is a proper 2-row grid, not a 100 mm row) and the ratsnest connects them; **size-aware auto-placement** so big parts don't overlap; **faster zoom**; authored **chips land their real package** (e.g. QFP-32 with all 32 pads).",
       "**Site:** a **Help & Changelog** page; social-share metadata (OpenGraph/Twitter card), sitemap + robots for the public block pages.",
@@ -90,10 +90,10 @@ live checks, no SPICE required. Here's the lay of the land.
 - **Power budgets** (bottom bar) show each rail's load vs the source's capacity.
 
 ## What the checks mean (and what they don't)
-Electrace's checks are **structural and deterministic — not a simulation.** They read your typed net
-graph and declared values and catch the dumb-but-deadly mistakes cheaply: two drivers fighting on a net,
-an undriven rail, an open/unconnected pin, a power pin tied to ground, a rail drawing more than its
-source can supply, a polarized part wired backwards.
+Electrace's checks are **structural — not a simulation.** They look at how your design is connected and
+the values you declared, and catch the dumb-but-deadly mistakes: two drivers fighting on a net, an
+undriven rail, an open/unconnected pin, a power pin tied to ground, a rail drawing more than its source
+can supply, a polarized part wired backwards.
 
 What they **don't** do: any analog or time-domain behaviour. No SPICE, no transient/inrush, no thermal,
 no ripple-current-on-the-caps, no EMI or loop-stability. A clean result means your design is

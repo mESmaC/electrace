@@ -62,7 +62,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
               {signup && <p className="mt-4 text-center text-[12px] text-faint">By creating an account you agree to our <Link href="/terms" className="text-dim underline hover:text-text">Terms</Link> and <Link href="/privacy" className="text-dim underline hover:text-text">Privacy Policy</Link>.</p>}
             </form>
 
-            <div className="mt-5 text-center text-[12px] text-faint">Real accounts arrive with the cloud backend — for now this saves your profile locally.</div>
+            <div className="mt-5 text-center text-[12px] text-faint">Your profile is saved on this device. Cloud sync is coming soon.</div>
           </div>
         </div>
       </div>

@@ -17,7 +17,6 @@ const MD = [
   "[&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-border)] [&_blockquote]:pl-2 [&_blockquote]:text-[var(--color-dim)] [&_hr]:my-2 [&_hr]:border-[var(--color-border)]",
 ].join(" ");
 const renderMd = (text: string) => marked.parse(text, { async: false, gfm: true, breaks: true }) as string;
-const fmtTok = (n?: number) => (!n ? "0" : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
 /** Sparky — the floating assistant. Collapsed it's a sparkle bubble; opening slides a side pane in over
  *  the canvas (collapsible back into the bubble). Conversations are switchable like any chat app. */
@@ -133,9 +132,6 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-link)]" />
                   </span>
                   <span className="font-medium text-[var(--color-text)]">{progress?.status ?? "Thinking…"}</span>
-                  {progress && (progress.tokensIn || progress.tokensOut) ? (
-                    <span className="ml-auto shrink-0 font-mono text-[10px] text-[var(--color-faint)]" title="tokens in / out this turn">{fmtTok(progress.tokensIn)}↑ {fmtTok(progress.tokensOut)}↓</span>
-                  ) : null}
                 </div>
                 {progress && progress.tools.length > 0 && (
                   <div className="mt-1 font-mono text-[10px] text-[var(--color-faint)]">{progress.tools.length} step{progress.tools.length > 1 ? "s" : ""} · {progress.tools.slice(-4).join(" → ")}</div>
