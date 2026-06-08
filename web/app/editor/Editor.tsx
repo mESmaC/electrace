@@ -332,15 +332,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     track({ kind: "design.lint", codes: f.map((x) => x.rule), errors: f.filter((x) => x.severity === "error").length, warns: f.filter((x) => x.severity === "warn").length });
   }, [analysis]);
 
-  const setTermCurrent = useCallback(
-    (ref: string, term: string, val: string) => {
+  // Per-instance override of a terminal's voltage or current — how you declare a source (V + max A on
+  // an out terminal) or a static load (draw A on an in terminal) on a placed block, so it budgets.
+  const setTermVal = useCallback(
+    (ref: string, term: string, field: "v" | "i", val: string) => {
       const num = parseFloat(val);
+      const cell = !Number.isFinite(num) ? undefined : field === "i" ? { max: num, unit: "A" as const } : { value: num, unit: "V" as const };
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id !== ref) return n;
           const data = n.data as BlockNodeData;
           const terminals = { ...(data.overrides?.terminals ?? {}) };
-          terminals[term] = { ...(terminals[term] ?? {}), i: Number.isFinite(num) ? { max: num, unit: "A" } : undefined };
+          terminals[term] = { ...(terminals[term] ?? {}), [field]: cell };
           return { ...n, data: { ...data, overrides: { ...(data.overrides ?? {}), terminals } } };
         }),
       );
@@ -431,7 +434,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [selectedNet, setSelectedNet] = useState<string | null>(null); // a member node "REF.term"
   const [drillRef, setDrillRef] = useState<string | null>(null);
   const [bottomOpen, setBottomOpen] = useState(true);
-  type FormTerm = { id: string; role: TerminalRole; type: NetType };
+  type FormTerm = { id: string; role: TerminalRole; type: NetType; v?: string; i?: string };
   const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; color: string; category: string; terminals: FormTerm[]; editKey?: string } | null>(null);
   const rfRef = useRef<ReactFlowInstance | null>(null);
 
@@ -617,11 +620,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const startEditBlock = (key: string) => {
     const b = allBlocks[key];
     if (!b) return;
-    setNewBlock({ name: b.name, glyph: b.glyph ?? "", color: b.glyphColor ?? GLYPH_COLORS[0], category: b.category ?? "", editKey: key, terminals: b.terminals.map((t) => ({ id: t.id, role: t.role, type: t.type })) });
+    setNewBlock({ name: b.name, glyph: b.glyph ?? "", color: b.glyphColor ?? GLYPH_COLORS[0], category: b.category ?? "", editKey: key, terminals: b.terminals.map((t) => ({ id: t.id, role: t.role, type: t.type, v: t.v?.value != null ? String(t.v.value) : "", i: t.i?.max != null ? String(t.i.max) : "" })) });
   };
   const createBlock = () => {
     if (!newBlock || !newBlock.name.trim()) return;
-    const terms: Terminal[] = newBlock.terminals.filter((t) => t.id.trim()).map((t) => ({ id: t.id.trim(), role: t.role, type: t.type }));
+    const terms: Terminal[] = newBlock.terminals.filter((t) => t.id.trim()).map((t) => {
+      const vn = parseFloat(t.v ?? ""), inum = parseFloat(t.i ?? "");
+      return {
+        id: t.id.trim(), role: t.role, type: t.type,
+        ...(Number.isFinite(vn) ? { v: { value: vn, unit: "V" as const } } : {}),
+        ...(Number.isFinite(inum) ? { i: { max: inum, unit: "A" as const } } : {}),
+      };
+    });
     if (!terms.length) return;
     if (newBlock.editKey && allBlocks[newBlock.editKey]) {
       const existing = allBlocks[newBlock.editKey];                  // preserve id/version/layout/schematic
@@ -932,20 +942,27 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                 <span key={k} className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-text)]">{k} {fmtRange(v)}</span>
               ))}
             </div>
-            {selectedBlock.terminals.some((t) => t.i?.max != null) && (
+            {selectedBlock.terminals.some((t) => t.type === "power" || t.type === "rail") && (
               <div className="mt-3 border-t border-[var(--color-border)] pt-2.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Edit current</div>
-                {selectedBlock.terminals.filter((t) => t.i?.max != null).map((t) => (
-                  <label key={t.id} className="mt-2 flex items-center justify-between gap-2 text-[11.5px]">
-                    <span className="font-mono">{t.id} · {t.role === "out" ? "max out" : "draw"} (A)</span>
-                    <input
-                      type="number" step="0.1" min="0"
-                      value={selectedOverrides?.terminals?.[t.id]?.i?.max ?? t.i!.max!}
-                      onChange={(e) => setTermCurrent(selectedId!, t.id, e.target.value)}
-                      className="w-20 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-right font-mono text-[11.5px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]"
-                    />
-                  </label>
-                ))}
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Power / load</div>
+                <p className="mt-1 text-[10px] leading-snug text-[var(--color-faint)]">Declare a source (V + max A on an <span className="font-mono">out</span>) or a static load (draw A on an <span className="font-mono">in</span>) so it shows in the budget.</p>
+                <div className="mt-1.5 grid grid-cols-[1fr_auto_auto] items-center gap-x-2 gap-y-1.5">
+                  {selectedBlock.terminals.filter((t) => t.type === "power" || t.type === "rail").map((t) => {
+                    const ov = selectedOverrides?.terminals?.[t.id];
+                    const vVal = ov?.v?.value ?? t.v?.value ?? "";
+                    const iVal = ov?.i?.max ?? t.i?.max ?? "";
+                    const fld = "w-16 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-right font-mono text-[11px] text-[var(--color-text)] outline-none focus:border-[#4c8dff] placeholder:text-[var(--color-faint)]";
+                    return (
+                      <Fragment key={t.id}>
+                        <span className="min-w-0 truncate font-mono text-[11.5px]">{t.id} <span className="text-[var(--color-faint)]">{t.role === "out" ? "src" : "load"}</span></span>
+                        <input type="number" step="0.1" placeholder="V" title="Voltage" value={vVal}
+                          onChange={(e) => setTermVal(selectedId!, t.id, "v", e.target.value)} className={fld} />
+                        <input type="number" step="0.1" min="0" placeholder="A" title={t.role === "out" ? "Max supply current" : "Current draw"} value={iVal}
+                          onChange={(e) => setTermVal(selectedId!, t.id, "i", e.target.value)} className={fld} />
+                      </Fragment>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -1096,6 +1113,12 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                       className="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-1 text-[11px] text-[var(--color-text)] outline-none">
                       <option value="power">power</option><option value="rail">rail</option><option value="signal">signal</option><option value="gnd">gnd</option>
                     </select>
+                    {(t.type === "power" || t.type === "rail") && (<>
+                      <input value={t.v ?? ""} onChange={(e) => set({ v: e.target.value })} placeholder="V" title={t.role === "out" ? "Output voltage" : "Accepted voltage"} inputMode="decimal"
+                        className="w-11 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-1 text-right font-mono text-[11px] text-[var(--color-text)] outline-none focus:border-[#4c8dff] placeholder:text-[var(--color-faint)]" />
+                      <input value={t.i ?? ""} onChange={(e) => set({ i: e.target.value })} placeholder="A" title={t.role === "out" ? "Max supply current" : "Current draw"} inputMode="decimal"
+                        className="w-11 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-1 text-right font-mono text-[11px] text-[var(--color-text)] outline-none focus:border-[#4c8dff] placeholder:text-[var(--color-faint)]" />
+                    </>)}
                     <button onClick={() => setNewBlock({ ...newBlock, terminals: newBlock.terminals.filter((_, j) => j !== i) })}
                       className="grid h-6 w-6 place-items-center rounded text-[var(--color-faint)] hover:bg-[#3a1c20] hover:text-[#e2837e]">✕</button>
                   </div>
