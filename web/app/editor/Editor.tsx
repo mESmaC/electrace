@@ -354,10 +354,12 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // Mark a correct-but-noisy finding as intended (or un-mark): mutes it + drops it from the counts.
   const toggleAck = useCallback((f: Finding) => {
     const k = findingKey(f);
-    setAcks((prev) => prev.some((a) => findingKey(a) === k)
-      ? prev.filter((a) => findingKey(a) !== k)
-      : [...prev, { rule: f.rule, at: f.at, note: (typeof window !== "undefined" ? window.prompt("Why is this intended? (optional)") : "") || undefined }]);
-  }, []);
+    // prompt() must run OUTSIDE the state updater — updaters are pure and get double-invoked under
+    // StrictMode, which would pop the dialog twice. Decide add-vs-remove from current acks, then prompt once.
+    if (acks.some((a) => findingKey(a) === k)) { setAcks((prev) => prev.filter((a) => findingKey(a) !== k)); return; }
+    const note = (typeof window !== "undefined" ? window.prompt("Why is this intended? (optional)") : "") || undefined;
+    setAcks((prev) => prev.some((a) => findingKey(a) === k) ? prev : [...prev, { rule: f.rule, at: f.at, note }]);
+  }, [acks]);
 
   const budgets = useMemo(() => railBudgets(analysis.resolved), [analysis]);
   const totalW = budgets.filter((b) => b.type === "rail").reduce((a, b) => a + (b.watts ?? 0), 0);

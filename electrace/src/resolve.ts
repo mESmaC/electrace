@@ -36,7 +36,10 @@ function netName(design: Design, members: Set<string>): string | null {
   }
   const terms = [...members].map((node) => node.slice(node.lastIndexOf(".") + 1)).filter(Boolean);
   if (!terms.length) return null;
-  const rail = terms.find((t) => /^[+-]|^(v|gnd|agnd|dgnd|vcc|vdd|vss|vin|vout)\b|\d/i.test(t));
+  // prefer a power/ground-looking name: a +/- prefix, a numeric voltage rail (5V, 3V3, 1V8…), or a known
+  // rail word. NOTE: the trailing alternative is `^\d+v` (a leading voltage), NOT a bare `\d` — a bare `\d`
+  // matched a digit ANYWHERE, so a net joining e.g. "spi0" + "vout" wrongly picked "spi0" as the rail name.
+  const rail = terms.find((t) => /^[+-]|^\d+v\d*|^(v|gnd|agnd|dgnd|vcc|vdd|vss|vin|vout)\b/i.test(t));
   return rail ?? terms[0];
 }
 

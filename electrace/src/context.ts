@@ -63,9 +63,10 @@ export function designContext(design: Design, blocks: Map<string, Block>): Desig
     const b = blocks.get(bi.block);
     return { ref: bi.ref, block: bi.block, summary: b ? blockBrief(b).summary : "(unknown block)" };
   });
+  const blockByRef = new Map(design.blocks.map((b) => [b.ref, b.block])); // O(1) lookup — was O(blocks) per connection
   const connections = design.connections.map((c) => {
     const [srcRef, srcTerm] = c.from.split(".");
-    const srcKey = design.blocks.find((b) => b.ref === srcRef)?.block;
+    const srcKey = blockByRef.get(srcRef);
     const type = srcKey ? blocks.get(srcKey)?.terminals.find((t) => t.id === srcTerm)?.type : undefined;
     return { from: c.from, to: c.to, net: c.net, type };
   });

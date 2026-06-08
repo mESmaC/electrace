@@ -313,7 +313,9 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       delete blocks[key]; eff.deleted.add(key); eff.upserts.delete(key);
       const hadInst = design.blocks.some((x) => x.block === key);
       design.blocks = design.blocks.filter((x) => x.block !== key);
-      const refs = new Set(design.blocks.map((x) => x.ref));
+      // keep connections whose endpoints still exist — INCLUDING connector pins (connectors live in
+      // design.connectors, not design.blocks), so deleting a block doesn't silently drop its connector wiring.
+      const refs = new Set([...design.blocks.map((x) => x.ref), ...(design.connectors ?? []).map((c) => c.ref)]);
       design.connections = design.connections.filter((c) => refs.has(c.from.split(".")[0]) && refs.has(c.to.split(".")[0]));
       return { text: `Deleted block ${b!.name} (${key})${hadInst ? " and its placed instances" : ""}.`, changed: hadInst };
     }

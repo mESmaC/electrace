@@ -156,31 +156,40 @@ export async function sendMessage(text: string): Promise<void> {
     // Read the NDJSON progress stream: status/tool/usage/narration events, then a final "done".
     const reader = res.body.getReader();
     const dec = new TextDecoder();
-    let buf = "", done: DoneMsg | null = null, errored = false;
-    for (;;) {
-      const { value, done: rdDone } = await reader.read();
-      if (rdDone) break;
-      buf += dec.decode(value, { stream: true });
-      let nl: number;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-        if (!line) continue;
-        let ev: { type: string; [k: string]: unknown };
-        try { ev = JSON.parse(line); } catch { continue; }
-        if (ev.type === "status") { prog.status = String(ev.text); setProgress({ ...prog }); }
-        else if (ev.type === "tool") { const name = String(ev.name); prog.tool = name; prog.status = `Running ${name}…`; if (!prog.tools.includes(name)) prog.tools.push(name); setProgress({ ...prog }); }
-        else if (ev.type === "narration") { prog.narration = String(ev.text); setProgress({ ...prog }); }
-        else if (ev.type === "usage") { prog.tokensIn = Number(ev.in) || prog.tokensIn; prog.tokensOut = Number(ev.out) || prog.tokensOut; setProgress({ ...prog }); }
-        else if (ev.type === "error") { appendChat("assistant", `⚠️ ${ev.error ?? "model error"}`); errored = true; }
-        else if (ev.type === "done") done = ev as unknown as DoneMsg;
+    let buf = "";
+    const out = { done: null as DoneMsg | null, errored: false }; // a holder so the closure's writes survive TS flow analysis
+    const handle = (line: string) => {
+      if (!line) return;
+      let ev: { type: string; [k: string]: unknown };
+      try { ev = JSON.parse(line); } catch { return; }
+      if (ev.type === "status") { prog.status = String(ev.text); setProgress({ ...prog }); }
+      else if (ev.type === "tool") { const name = String(ev.name); prog.tool = name; prog.status = `Running ${name}…`; if (!prog.tools.includes(name)) prog.tools.push(name); setProgress({ ...prog }); }
+      else if (ev.type === "narration") { prog.narration = String(ev.text); setProgress({ ...prog }); }
+      else if (ev.type === "usage") { prog.tokensIn = Number(ev.in) || prog.tokensIn; prog.tokensOut = Number(ev.out) || prog.tokensOut; setProgress({ ...prog }); }
+      else if (ev.type === "error") { appendChat("assistant", `⚠️ ${ev.error ?? "model error"}`); out.errored = true; }
+      else if (ev.type === "done") out.done = ev as unknown as DoneMsg;
+    };
+    try {
+      for (;;) {
+        const { value, done: rdDone } = await reader.read();
+        if (value) {
+          buf += dec.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) >= 0) { handle(buf.slice(0, nl).trim()); buf = buf.slice(nl + 1); }
+        }
+        if (rdDone) break;
       }
+      handle((buf + dec.decode()).trim()); // flush a final line with no trailing newline — don't drop the `done`
+    } finally {
+      try { await reader.cancel(); } catch { /* already closed */ }
     }
-    if (done) {
+    if (out.done) {
+      const done = out.done;
       appendChat("assistant", done.reply || "(done)");
       if (agentSession && (done.design || done.blocks?.length || done.deletedBlocks?.length || done.blockSchematics?.length)) {
         agentSession.apply({ design: done.design, blocks: done.blocks, deletedBlocks: done.deletedBlocks, blockSchematics: done.blockSchematics });
       }
-    } else if (!errored) {
+    } else if (!out.errored) {
       appendChat("assistant", "⚠️ The assistant stopped unexpectedly.");
     }
   } catch {

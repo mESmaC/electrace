@@ -29,7 +29,9 @@ function validateLayout(layout: SchematicLayout, terminals: { id: string }[], ou
 
   // every wire endpoint resolves to a real pin on a placed symbol
   for (const end of layout.wires.flatMap((w) => [w.from, w.to])) {
-    const sid = end.slice(0, end.indexOf(".")), pin = end.slice(end.indexOf(".") + 1);
+    const dot = end.indexOf(".");
+    if (dot < 0) { out.push({ severity: "error", code: "wire/malformed", message: `Wire endpoint "${end}" is malformed (expected "symbol.pin").`, at: end }); continue; }
+    const sid = end.slice(0, dot), pin = end.slice(dot + 1);
     const sym = byId.get(sid);
     if (!sym) { out.push({ severity: "error", code: "wire/unknown-symbol", message: `Wire references "${sid}", which isn't placed.`, at: end }); continue; }
     const def = SYMBOL_CATALOG[sym.type];

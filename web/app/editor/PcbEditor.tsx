@@ -168,6 +168,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   const selRef = useRef(sel); selRef.current = sel;
   const toolRef = useRef(tool); toolRef.current = tool;
   const fitted = useRef(false);
+  const nextId = useRef(1); // monotonic id source for traces/vias — array .length collides after a delete + re-add
 
   const autoPlaces = useMemo(() => packComponents(project.components), [project.components]);
   const placeOf = (ref: string, _i?: number): Place => places[ref] ?? autoPlaces[ref] ?? { x: 0, y: 0, rot: 0 };
@@ -283,7 +284,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
         if (!from) return;
         const g = gridRef.current, want = { x: snap(cursorRef.current.x, g), y: snap(cursorRef.current.y, g) };
         const tip = orthoRef.current ? octo(from, want) : want;
-        const id = `v-${(tip.x * 1000 | 0)}-${(tip.y * 1000 | 0)}-${tracesRef.current.length}`;
+        const id = `v-${nextId.current++}-${(tip.x * 1000 | 0)}-${(tip.y * 1000 | 0)}`;
         const seg: Trace = { id: `t-${id}`, net: dr.net, layer: layerRef.current, width: widthRef.current, a: dr.a, b: `via:${id}`, points: dr.points };
         const nv = [...viasRef.current, { id, net: dr.net, x: tip.x, y: tip.y }];
         const nt = [...tracesRef.current, seg];
@@ -436,7 +437,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     const net = nodeNet(key);
     if (!drawing) { if (!net) return; setDrawing({ a: key, net, points: [] }); return; } // must start on a pad that's on a net
     if (key === drawing.a || net !== drawing.net) return; // can only finish on a node of the SAME net (no cross-net shorts)
-    setTraces((ts) => { const next = [...ts, { id: `t-${tracesRef.current.length}-${key}`, net: drawing.net, layer, width, a: drawing.a, b: key, points: drawing.points }]; persist(places, next); return next; });
+    setTraces((ts) => { const next = [...ts, { id: `t-${nextId.current++}-${key}`, net: drawing.net, layer, width, a: drawing.a, b: key, points: drawing.points }]; persist(placesRef.current, next); return next; });
     setDrawing(null);
   };
   const onBgClick = () => {
@@ -534,8 +535,8 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   const curPlace = (ref: string) => placeOf(ref, project.components.findIndex((c) => c.ref === ref));
   const setComp = (ref: string, patch: Partial<Place>) => setPlaces((pl) => { const np = { ...pl, [ref]: { ...curPlace(ref), ...patch } }; persist(np, tracesRef.current); return np; });
   const rotateComp = (ref: string, d: number) => setComp(ref, { rot: ((curPlace(ref).rot + d) % 360 + 360) % 360 });
-  const patchTrace = (id: string, patch: Partial<Trace>) => setTraces((ts) => { const next = ts.map((t) => (t.id === id ? { ...t, ...patch } : t)); persist(places, next); return next; });
-  const deleteTrace = (id: string) => { setTraces((ts) => { const next = ts.filter((t) => t.id !== id); persist(places, next); return next; }); setSel(null); };
+  const patchTrace = (id: string, patch: Partial<Trace>) => setTraces((ts) => { const next = ts.map((t) => (t.id === id ? { ...t, ...patch } : t)); persist(placesRef.current, next); return next; });
+  const deleteTrace = (id: string) => { setTraces((ts) => { const next = ts.filter((t) => t.id !== id); persist(placesRef.current, next); return next; }); setSel(null); };
   const setBoardV = (idx: number, patch: Partial<Pos>) => { const cur = board ?? bd, next = cur.map((p, i) => (i === idx ? { ...p, ...patch } : p)); setBoard(next); persist(placesRef.current, tracesRef.current, viasRef.current, next); };
 
   const NUMCLS = "w-16 rounded bg-[#11192699] px-1.5 py-0.5 text-right font-mono text-[11px] text-[var(--color-dim)] ring-1 ring-inset ring-[#212c42] outline-none focus:ring-[#356bb0]";
