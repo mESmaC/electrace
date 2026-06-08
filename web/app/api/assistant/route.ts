@@ -535,35 +535,52 @@ export async function POST(req: Request) {
   };
 
   const eff: Effects = { upserts: new Map(), deleted: new Set(), schematics: new Map() };
-  const result = (reply: string, changed: boolean) => Response.json({
-    reply,
+  const donePayload = (reply: string, changed: boolean) => ({
+    type: "done", reply,
     ...(changed && design ? { design } : {}),
     ...(eff.upserts.size ? { blocks: [...eff.upserts.values()] } : {}),
     ...(eff.deleted.size ? { deletedBlocks: [...eff.deleted] } : {}),
     ...(eff.schematics.size ? { blockSchematics: [...eff.schematics].map(([key, layout]) => ({ id: key.split("@")[0], layout })) } : {}),
   });
 
-  try {
-    let changed = false;
-    for (let turn = 0; turn < (agentic ? MAX_TURNS : 1); turn++) {
-      const data = await call();
-      const u = data.usage ?? {};
-      console.log(`[sparky] turn ${turn}: in=${u.input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`);
-      messages.push({ role: "assistant", content: data.content });
-      const toolUses = (Array.isArray(data.content) ? data.content : []).filter((b: { type: string }) => b.type === "tool_use");
-      if (!agentic || data.stop_reason !== "tool_use" || !toolUses.length) {
-        const reply = (Array.isArray(data.content) ? data.content : []).filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("").trim();
-        return result(reply || "(done)", changed);
+  // Stream progress as NDJSON so the user sees Sparky working (its narration, the tool it's running, and
+  // running token usage) instead of a chat indicator that looks like it's hung. Final line is the result.
+  const stream = new ReadableStream({
+    async start(controller) {
+      const enc = new TextEncoder();
+      const emit = (o: object) => { try { controller.enqueue(enc.encode(JSON.stringify(o) + "\n")); } catch { /* closed */ } };
+      let changed = false, totalIn = 0, totalOut = 0, finished = false;
+      try {
+        for (let turn = 0; turn < (agentic ? MAX_TURNS : 1); turn++) {
+          emit({ type: "status", text: turn === 0 ? "Thinking…" : "Working…" });
+          const data = await call();
+          const u = data.usage ?? {};
+          totalIn += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+          totalOut += u.output_tokens ?? 0;
+          console.log(`[sparky] turn ${turn}: in=${u.input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`);
+          emit({ type: "usage", in: totalIn, out: totalOut, cacheRead: u.cache_read_input_tokens ?? 0 });
+          const content = Array.isArray(data.content) ? data.content : [];
+          const narr = content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("").trim();
+          messages.push({ role: "assistant", content: data.content });
+          const toolUses = content.filter((b: { type: string }) => b.type === "tool_use");
+          if (!agentic || data.stop_reason !== "tool_use" || !toolUses.length) {
+            emit(donePayload(narr || "(done)", changed)); finished = true; break;
+          }
+          if (narr) emit({ type: "narration", text: narr });
+          for (const tu of toolUses as { name: string }[]) emit({ type: "tool", name: tu.name });
+          const results = (toolUses as { id: string; name: string; input: Record<string, unknown> }[]).map((u) => {
+            const out = runTool(u.name, u.input ?? {}, design!, blocks, eff);
+            changed = changed || out.changed;
+            return { type: "tool_result", tool_use_id: u.id, content: out.text };
+          });
+          messages.push({ role: "user", content: results });
+        }
+        if (!finished) emit(donePayload("I made some changes but hit the step limit — ask me to continue if it's not finished.", changed));
+      } catch (e) {
+        emit({ type: "error", error: "Could not reach the model.", detail: String(e).slice(0, 300) });
       }
-      const results = toolUses.map((u: { id: string; name: string; input: Record<string, unknown> }) => {
-        const out = runTool(u.name, u.input ?? {}, design!, blocks, eff);
-        changed = changed || out.changed;
-        return { type: "tool_result", tool_use_id: u.id, content: out.text };
-      });
-      messages.push({ role: "user", content: results });
-    }
-    return result("I made some changes but hit the step limit — ask me to continue if it's not finished.", changed);
-  } catch (e) {
-    return Response.json({ error: "Could not reach the model.", detail: String(e).slice(0, 300) }, { status: 502 });
-  }
+      controller.close();
+    },
+  });
+  return new Response(stream, { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache, no-transform" } });
 }

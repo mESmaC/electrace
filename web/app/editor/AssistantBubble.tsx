@@ -17,6 +17,7 @@ const MD = [
   "[&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-border)] [&_blockquote]:pl-2 [&_blockquote]:text-[var(--color-dim)] [&_hr]:my-2 [&_hr]:border-[var(--color-border)]",
 ].join(" ");
 const renderMd = (text: string) => marked.parse(text, { async: false, gfm: true, breaks: true }) as string;
+const fmtTok = (n?: number) => (!n ? "0" : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
 /** Sparky — the floating assistant. Collapsed it's a sparkle bubble; opening slides a side pane in over
  *  the canvas (collapsible back into the bubble). Conversations are switchable like any chat app. */
@@ -25,7 +26,7 @@ export default function AssistantBubble() {
   const [histOpen, setHistOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const { messages, conversations, activeId } = useAssistant();
+  const { messages, conversations, activeId, progress } = useAssistant();
   const scroller = useRef<HTMLDivElement>(null);
 
   // Type assistant replies out instead of popping the whole message at once. Only genuinely-new
@@ -124,10 +125,22 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
           )}
           {busy && !typing && (
             <div className="flex justify-start">
-              <div className="flex items-center gap-1 rounded-lg rounded-tl-sm bg-[var(--color-surface-2)] px-3 py-2.5 text-[var(--color-faint)]">
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-faint)] [animation-delay:-0.3s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-faint)] [animation-delay:-0.15s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-faint)]" />
+              <div className="max-w-[94%] rounded-lg rounded-tl-sm bg-[var(--color-surface-2)] px-3 py-2 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="flex shrink-0 gap-0.5">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-link)] [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-link)] [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-link)]" />
+                  </span>
+                  <span className="font-medium text-[var(--color-text)]">{progress?.status ?? "Thinking…"}</span>
+                  {progress && (progress.tokensIn || progress.tokensOut) ? (
+                    <span className="ml-auto shrink-0 font-mono text-[10px] text-[var(--color-faint)]" title="tokens in / out this turn">{fmtTok(progress.tokensIn)}↑ {fmtTok(progress.tokensOut)}↓</span>
+                  ) : null}
+                </div>
+                {progress && progress.tools.length > 0 && (
+                  <div className="mt-1 font-mono text-[10px] text-[var(--color-faint)]">{progress.tools.length} step{progress.tools.length > 1 ? "s" : ""} · {progress.tools.slice(-4).join(" → ")}</div>
+                )}
+                {progress?.narration && <div className="mt-1 max-h-12 overflow-hidden text-[var(--color-dim)]">{progress.narration}</div>}
               </div>
             </div>
           )}

@@ -26,6 +26,14 @@ const read = <T,>(store: Storage | undefined, key: string): T[] => {
 };
 const emit = () => { try { window.dispatchEvent(new CustomEvent(EVT)); } catch { /* ignore */ } };
 
+/** Live progress while Sparky works — surfaced so the user sees activity (narration, current tool,
+ *  token usage) instead of a chat indicator that looks hung. Null when idle. */
+export interface Progress { status: string; tool?: string; tools: string[]; narration?: string; tokensIn?: number; tokensOut?: number }
+interface DoneMsg { reply?: string; design?: unknown; blocks?: unknown[]; deletedBlocks?: string[]; blockSchematics?: { id: string; layout: unknown }[] }
+let liveProgress: Progress | null = null;
+export const getProgress = (): Progress | null => liveProgress;
+function setProgress(p: Progress | null): void { liveProgress = p; emit(); }
+
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 const titleOf = (text: string) => text.replace(/\s+/g, " ").trim().slice(0, 40) || "New chat";
 const readChats = (): Conversation[] => read<Conversation>(ls(), CHATS_KEY);
@@ -134,35 +142,67 @@ export async function sendMessage(text: string): Promise<void> {
   appendChat("user", t);
   const body: Record<string, unknown> = { context, history, message: t };
   if (agentSession) { body.design = agentSession.getDesign(); body.blocks = agentSession.getBlocks(); }
+  const prog: Progress = { status: "Thinking…", tools: [] };
+  setProgress(prog);
   try {
     const res = await fetch("/api/assistant", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     });
-    const data = await res.json().catch(() => ({} as { reply?: string; error?: string; design?: unknown; blocks?: unknown[]; deletedBlocks?: string[]; blockSchematics?: { id: string; layout: unknown }[] }));
-    if (res.ok && data.reply) appendChat("assistant", data.reply);
-    else appendChat("assistant", `⚠️ ${data.error ?? "The assistant is unavailable."}`);
-    if (res.ok && agentSession && (data.design || data.blocks?.length || data.deletedBlocks?.length || data.blockSchematics?.length)) {
-      agentSession.apply({ design: data.design, blocks: data.blocks, deletedBlocks: data.deletedBlocks, blockSchematics: data.blockSchematics });
+    if (!res.ok || !res.body) {
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      appendChat("assistant", `⚠️ ${data.error ?? "The assistant is unavailable."}`);
+      return;
+    }
+    // Read the NDJSON progress stream: status/tool/usage/narration events, then a final "done".
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "", done: DoneMsg | null = null, errored = false;
+    for (;;) {
+      const { value, done: rdDone } = await reader.read();
+      if (rdDone) break;
+      buf += dec.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+        if (!line) continue;
+        let ev: { type: string; [k: string]: unknown };
+        try { ev = JSON.parse(line); } catch { continue; }
+        if (ev.type === "status") { prog.status = String(ev.text); setProgress({ ...prog }); }
+        else if (ev.type === "tool") { const name = String(ev.name); prog.tool = name; prog.status = `Running ${name}…`; if (!prog.tools.includes(name)) prog.tools.push(name); setProgress({ ...prog }); }
+        else if (ev.type === "narration") { prog.narration = String(ev.text); setProgress({ ...prog }); }
+        else if (ev.type === "usage") { prog.tokensIn = Number(ev.in) || prog.tokensIn; prog.tokensOut = Number(ev.out) || prog.tokensOut; setProgress({ ...prog }); }
+        else if (ev.type === "error") { appendChat("assistant", `⚠️ ${ev.error ?? "model error"}`); errored = true; }
+        else if (ev.type === "done") done = ev as unknown as DoneMsg;
+      }
+    }
+    if (done) {
+      appendChat("assistant", done.reply || "(done)");
+      if (agentSession && (done.design || done.blocks?.length || done.deletedBlocks?.length || done.blockSchematics?.length)) {
+        agentSession.apply({ design: done.design, blocks: done.blocks, deletedBlocks: done.deletedBlocks, blockSchematics: done.blockSchematics });
+      }
+    } else if (!errored) {
+      appendChat("assistant", "⚠️ The assistant stopped unexpectedly.");
     }
   } catch {
     appendChat("assistant", "⚠️ Couldn't reach the assistant. Is ANTHROPIC_API_KEY set in web/.env.local (and the dev server restarted)?");
+  } finally {
+    setProgress(null);
   }
 }
 
 /** Subscribe to the conversation + context window (synced across bubbles and tabs). */
-export function useAssistant(): { messages: ChatMessage[]; context: ContextItem[]; conversations: Conversation[]; activeId: string } {
+export function useAssistant(): { messages: ChatMessage[]; context: ContextItem[]; conversations: Conversation[]; activeId: string; progress: Progress | null } {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [context, setContext] = useState<ContextItem[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string>("");
+  const [progress, setProgressState] = useState<Progress | null>(null);
   useEffect(() => {
-    const sync = () => { setMessages(getChat()); setContext(getContext()); setConversations(getConversations()); setActiveId(getActiveId()); };
+    const sync = () => { setMessages(getChat()); setContext(getContext()); setConversations(getConversations()); setActiveId(getActiveId()); setProgressState(getProgress()); };
     sync();
     window.addEventListener(EVT, sync);
     window.addEventListener("storage", sync); // cross-tab history sync
     return () => { window.removeEventListener(EVT, sync); window.removeEventListener("storage", sync); };
   }, []);
-  return { messages, context, conversations, activeId };
+  return { messages, context, conversations, activeId, progress };
 }
