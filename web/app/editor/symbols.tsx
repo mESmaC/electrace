@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Dims, ChipSpec } from "./schematic-model";
 
@@ -829,7 +829,9 @@ export interface SymbolData {
   [k: string]: unknown;
 }
 
-export function SymbolNode(props: NodeProps) {
+// memo: ReactFlow re-renders every node on any graph change; without this, sym.draw() rebuilds the whole
+// SVG element tree for every placed symbol on each change. Props are stable (data/selected), so shallow-eq holds.
+export const SymbolNode = memo(function SymbolNode(props: NodeProps) {
   const d = props.data as unknown as SymbolData;
   const sym = SYMBOLS[d.symType];
   if (!sym) return null;
@@ -852,7 +854,7 @@ export function SymbolNode(props: NodeProps) {
       ))}
     </div>
   );
-}
+});
 
 export const symbolNodeTypes = { symbol: SymbolNode };
 

@@ -416,21 +416,22 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     },
   }), []);
   const [stressV, setStressV] = useState(24); // what-if input voltage for the stress test
-  // part-value consolidation: distinct values per passive family (from the BOM)
-  const consolidation = ([["res", "Resistors"], ["cap", "Capacitors"], ["inductor", "Inductors"]] as const)
+  // part-value consolidation: distinct values per passive family (from the BOM). Memoized — this filter/
+  // reduce over the whole BOM otherwise re-runs on every render, including every drag tick.
+  const consolidation = useMemo(() => ([["res", "Resistors"], ["cap", "Capacitors"], ["inductor", "Inductors"]] as const)
     .map(([t, label]) => {
       const rows = analysis.bom.filter((r) => r.type === t);
       const values = [...new Set(rows.map((r) => r.value).filter(Boolean) as string[])];
       return { label, distinct: values.length, qty: rows.reduce((a, r) => a + r.qty, 0), values };
     })
-    .filter((c) => c.qty > 0);
+    .filter((c) => c.qty > 0), [analysis.bom]);
   // stress test: authored voltage limits across the design, ranked by headroom at the what-if input
-  const stressLimits = nodes
+  const stressLimits = useMemo(() => nodes
     .filter((n) => n.type === "block")
     .flatMap((n) => ((n.data as unknown as BlockNodeData).block.limits ?? [])
       .filter((l) => l.unit === "V" || /\bv|vin|vac/i.test(l.field))
       .map((l) => ({ ref: n.id, ...l, margin: l.value - stressV })))
-    .sort((a, b) => a.margin - b.margin);
+    .sort((a, b) => a.margin - b.margin), [nodes, stressV]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNet, setSelectedNet] = useState<string | null>(null); // a member node "REF.term"
