@@ -2,6 +2,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setSymbolStyle, type SymStyle } from "@/app/editor/symbols";
+import RequireAuth from "@/app/RequireAuth";
+
+export default function WelcomePage() {
+  return <RequireAuth><WelcomeWizard /></RequireAuth>;
+}
 
 type Theme = "dark" | "mid" | "light";
 const ACCENTS = [
@@ -16,7 +21,7 @@ const ROLES = [
 const applyTheme = (t: Theme) => { try { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("electrace:theme", t); } catch { /* ignore */ } };
 const applyAccent = (c: string) => { try { const d = document.documentElement; d.style.setProperty("--color-accent", c); d.style.setProperty("--color-accent-hi", c); localStorage.setItem("electrace:accent", c); } catch { /* ignore */ } };
 
-export default function WelcomePage() {
+function WelcomeWizard() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [role, setRole] = useState("learn");

@@ -1,4 +1,5 @@
 import Editor from "./Editor";
+import RequireAuth from "../RequireAuth";
 import { loadDesign, blockLibrary } from "@/lib/blocks";
 import type { Design } from "@electrace/core";
 
@@ -14,5 +15,5 @@ export default async function EditorPage({ searchParams }: { searchParams: Promi
   const design: Design = projectId
     ? { id: projectId, name: "Untitled project", visibility: "private", blocks: [], connections: [] }
     : loadDesign("buck-supply");
-  return <Editor design={design} blocks={blocks} projectId={projectId} />;
+  return <RequireAuth><Editor design={design} blocks={blocks} projectId={projectId} /></RequireAuth>;
 }
