@@ -6,31 +6,39 @@ Decisions locked where marked. Builds on the verified wedge in
 
 ## Locked decisions
 - **Primary revenue engine:** Freemium SaaS **+ BOM affiliate** revenue.
-- **Paywall axis: public-free, private-paid** (GitHub / Thingiverse model). **No raw
-  project/block count caps** — we never tax tinkering. Teams/commercial tier is *planned now,
-  built later.*
+- **Paywall axis: public-free, private-paid** (GitHub / Thingiverse model), **plus a free
+  design-count cap**. The cap is on **designs, not blocks**: designs carry real per-user
+  storage cost, while blocks are mostly text (cheap), so blocks are never capped. Set the
+  design cap generous enough to learn and prototype freely. Teams/commercial tier is *planned
+  now, built later.*
 - **Beachhead customer:** individual **hobbyist-to-intermediate makers** who want to
   *understand* their circuits, not just place parts.
 - Marketplace and hardware/kitting are **later expansion layers**, not launch.
 
 ## The revenue engine (detail)
 
-### The paywall: public-free, private-paid
-The line is drawn on **privacy and commercial value**, never on raw counts — so the
-understand-loop stays a genuine gift and free users *strengthen* the product.
+### The paywall: public-free, private-paid (+ a free design cap)
+The line is drawn on **privacy and commercial value**, plus a **generous design cap** that
+keeps free storage cost bounded. The balance to hold: **don't lose money on free users, but
+don't limit them so hard the understand-loop stops feeling like a gift.** Real value *and*
+perceived value both matter — a cap high enough to learn and prototype without friction reads
+as generous while still protecting unit economics. Blocks are never capped (cheap text, and
+free users authoring blocks *strengthen* the product).
 
 - **Free (Hobby) — generous, forever.** The whole understand-loop (blocks, hover/drill,
-  expand-to-discrete, lint, ANSI/IEC, themes), **unlimited *public* designs**, community
-  blocks, basic export. Passively funded by BOM affiliate. **No project/block caps.**
+  expand-to-discrete, lint, ANSI/IEC, themes), **up to 10 public designs**, community blocks,
+  basic export, and **no cap on blocks**. Passively funded by BOM affiliate.
   - *Public = discoverable like a public repo* → feeds the SEO flywheel, the community, the
     marketplace, and social proof. Free hobbyists who design in the open make the corpus
     bigger and the product better.
-  - A *small allowance of private designs* is free (tune the number) so anyone not ready to
-    share isn't forced to.
-- **Pro (individual) — for privacy + shipping.** Unlimited **private** designs,
-  manufacturing-grade exports (Gerber / BOM / CPL), version history, advanced checks, a
-  private block library, priority. The people who pay are the ones with commercial intent or
-  who need to actually ship. *Price TBD — set from the validation pricing probe.*
+  - The **10-design cap** is the one real limit. Designs carry per-user storage cost, so the
+    cap bounds what a free user costs us; it's set high enough that hitting it means you're a
+    real user, not a tinkerer being taxed — the natural, fair nudge toward Pro. *(Tune the
+    number from cost + conversion data.)*
+- **Pro (individual) — for privacy + shipping.** **Unlimited designs (cap lifted) + private
+  projects**, manufacturing-grade exports (Gerber / BOM / CPL), version history, advanced
+  checks, a private block library, priority. The people who pay are the ones with commercial
+  intent or who need to actually ship. *Price TBD — set from the validation pricing probe.*
 - **Team / Org — planned, built later.** Shared workspaces, collaboration, roles, SSO,
   admin/billing. Likely the largest recurring line eventually; not a launch concern.
 - **Transactions — all tiers, from launch.** BOM affiliate commissions now; PCB/kitting
@@ -38,8 +46,10 @@ understand-loop stays a genuine gift and free users *strengthen* the product.
   regardless of tier.
 
 **Risks to manage:** (1) public-by-default can spook makers worried about IP — make the
-*value* of sharing obvious, keep a few free private slots, and ship clear licensing/
-attribution; (2) tune the free-private allowance so upgrading feels fair, not coerced.
+*value* of sharing obvious and ship clear licensing/attribution; private projects are the Pro
+answer. (2) Tune the 10-design cap so it reads generous, not coercive — high enough that
+hitting it means you're a real user, not a tinkerer being taxed — and watch that free
+storage cost stays comfortably below BOM-affiliate revenue per free user.
 
 ### Second stream from day one: BOM affiliate
 - Because Electrace is **vendor-neutral** and helps pick parts, it can earn referral
