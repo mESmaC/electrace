@@ -8,6 +8,24 @@ import type { ChatMessage, ContextItem } from "@/lib/assistant";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
 const MAX_TURNS = 24; // big ports (e.g. an Arduino Nano: many blocks + wires) need more tool turns
+const SPARK_MAX_TURNS = 12; // a spark builds ONE block — fewer steps than the orchestrator
+
+// A "spark" is a focused sub-agent Sparky dispatches to build ONE block in its own small, cheap context.
+const SPARK_SYSTEM = `You are a Spark — a focused builder dispatched by Sparky to do ONE job, fast and well.
+Your job is a single instruction, usually: author ONE block as a real functional subcircuit — several parts
+wired together via author_schematic (or a chip via author_block) — exposing only the pins the rest of the
+design will connect to. BUILD it with the tools; don't just describe it. A block is a functional unit (fold
+its support parts — decoupling/load caps, gate resistors, shunts, pull-ups — inside it), not one part per
+block.
+
+You share the design with other sparks. Do ONLY your assigned block: do not place instances, wire the
+design, or touch other blocks — Sparky does placement + wiring. Be efficient: minimal tool calls.
+
+End with ONE short line: the block KEY you created (id@version) + what's in it (key parts + exposed
+terminals), so Sparky can place and wire it. e.g. "Built @user/gate-driver@1.0.0 — DRV8323 + charge-pump/
+bypass caps; exposed VM, GND, INHx/INLx, GHx/GLx, SOx, nFAULT."`;
+// the building tools a spark gets — no placement/wiring/analysis/delegation (orchestrator-only)
+const SPARK_TOOL_NAMES = new Set(["list_blocks", "get_block", "create_block", "update_block", "author_block", "author_schematic", "expose_pins", "set_value", "electrace_help"]);
 
 const SYSTEM = `You are Sparky, the friendly assistant embedded in Electrace — a transparent, block-based
 EE IDE (schematic + PCB design). If asked your name, you're Sparky. Help the user reason about and BUILD
@@ -93,6 +111,15 @@ and isn't what they want). Say the full pinout maps onto the chip footprint in t
 editor, and only add a terminal for a pin when the user wants it exposed. To break out many pins at once
 (e.g. a D0–D13 / A0–A7 header), use expose_pins with the list of function names — it adds them in one
 call without re-authoring (so it won't rename or orphan anything), rather than exposing them one by one.
+
+DELEGATION (sparks): for a BIG build — several independent blocks/subsystems (roughly 3+ distinct blocks to
+author, or a multi-channel controller / full board port) — DELEGATE instead of building serially. Call
+delegate with one focused task per block; the sparks author them in PARALLEL, each in its own small, cheap
+context, so the build is faster and costs less. Then YOU do the integration: place the blocks (add_block),
+wire them (connect), place any connectors, and analyze_design. After the sparks return, OVERSEE their work —
+get_block to confirm each landed as intended, and fix anything off. Each task must be a self-contained
+instruction to author ONE block (name it, list its parts + which pins to expose). For a SMALL job (a couple
+of blocks, a handful of steps) just build it yourself — delegation has overhead and isn't worth it.
 
 Rules: only connect terminals that exist (use the terminals returned by list_blocks/add_block).
 Don't invent block keys — use the exact keys from list_blocks. Prefer minimal, correct changes.`;
@@ -470,6 +497,7 @@ const TOOLS = [
   { name: "remove_block", description: "Remove a placed block (and its connections).", input_schema: { type: "object", properties: { ref: { type: "string" } }, required: ["ref"] } },
   { name: "connect", description: "Wire two terminals together (e.g. PWR1.vout ↔ REG1.vin). An endpoint may be REF.terminal, a connector pin (J1.D+), or an existing net name (e.g. GND, VCC) — a net name is resolved to a member of that net, so you can wire straight onto a net without naming a specific terminal on it.", input_schema: { type: "object", properties: { from: { type: "string", description: "REF.terminal, a connector pin (J1.VBUS), or a net name like GND" }, to: { type: "string", description: "REF.terminal, a connector pin (J1.VBUS), or a net name like GND" } }, required: ["from", "to"] } },
   { name: "electrace_help", description: "Get the current Electrace feature reference + recent changelog — what the app can do, how features work, and what's new. Call this to answer 'how do I…?', 'can Electrace…?', or 'what changed?' about the APP itself (not the user's circuit), so you answer from fact instead of guessing.", input_schema: { type: "object", properties: {} } },
+  { name: "delegate", description: "Fan out a LARGE build to parallel 'sparks' (focused sub-agents). Use ONLY for big jobs with several independent blocks/subsystems (a multi-channel controller, a full board port). Pass one focused, self-contained task per block to author — the sparks build them in parallel, each in its own cheap context. Then YOU place (add_block), wire (connect), and analyze. For a small job (a couple of blocks), build it yourself instead — don't delegate.", input_schema: { type: "object", properties: { tasks: { type: "array", items: { type: "string" }, description: "one focused build instruction per block — name the block, list its parts, and which pins to expose. e.g. ['Author a DRV8323 gate-driver block: the DRV8323 chip + charge-pump cap, flying cap, VGLS/DVDD bypass, VM bulk, nFAULT pull-up; expose VM, GND, INHA/INLA/INHB/INLB/INHC/INLC, GHA/GLA/SHA/…, SOA/SOB/SOC, nFAULT', 'Author a 3-phase power stage block: 6 N-MOSFETs (3 half-bridges) + per-gate resistors + 3 low-side shunts + DC-bus bulk caps; expose VM, PGND, GHx/GLx/SHx, PHA/PHB/PHC, SPx/SNx']" } }, required: ["tasks"] } },
   { name: "list_connectors", description: "List the physical connectors you can place on the board (USB, headers, barrel jack, screw terminals, RJ45…), with their pins. Connectors are the board-edge home for off-board nets — e.g. a USB jack for the data lines.", input_schema: { type: "object", properties: {} } },
   { name: "add_connector", description: "Place a physical connector on the board (e.g. usb-mini-b for the Nano's USB, barrel for DC power). Then wire block terminals to its pins with connect (FT232.USBDP ↔ J1.D+). Use this so board I/O (USB data, power input) lands on a real connector instead of dangling as exposed terminals.", input_schema: { type: "object", properties: { connector: { type: "string", description: "connector id from list_connectors, e.g. usb-mini-b, usb-c, barrel, hdr-2x5" }, ref: { type: "string", description: "reference designator, e.g. J1 (optional)" } }, required: ["connector"] } },
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
@@ -518,16 +546,18 @@ export async function POST(req: Request) {
     else if (Array.isArray(c) && c.length) { const arr = c as object[]; content = arr.map((b, i) => (i === arr.length - 1 ? { ...b, cache_control: { type: "ephemeral" } } : b)); }
     return [...msgs.slice(0, -1), { ...last, content }];
   };
-  const post = (tools: unknown[]) => fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 4096, system, messages: cacheTail(messages), ...(tools.length ? { tools } : {}) }),
-  });
-  const call = async () => {
-    let r = await post([WEB_SEARCH, ...baseTools]);
+  // One model call (used by both Sparky and the sparks). Web search is offered; if the host rejects it,
+  // retry without it. cacheTail caches the conversation prefix.
+  const headers = { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" };
+  const anthropic = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[]) => {
+    const send = (ts: unknown[]) => fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", headers,
+      body: JSON.stringify({ model: MODEL, max_tokens: 4096, system: sys, messages: cacheTail(msgs), ...(ts.length ? { tools: ts } : {}) }),
+    });
+    let r = await send([WEB_SEARCH, ...tools]);
     if (r.status === 400) {
       const t = await r.text();
-      if (/web.?search|tool/i.test(t)) r = await post(baseTools); // web search not available here → drop it, keep going
+      if (/web.?search|tool/i.test(t)) r = await send(tools);
       else throw new Error(`Model error 400: ${t.slice(0, 300)}`);
     }
     if (!r.ok) throw new Error(`Model error ${r.status}: ${(await r.text().catch(() => "")).slice(0, 300)}`);
@@ -535,6 +565,34 @@ export async function POST(req: Request) {
   };
 
   const eff: Effects = { upserts: new Map(), deleted: new Set(), schematics: new Map() };
+
+  // A spark: a focused sub-agent that builds ONE block in its own small context, mutating the SHARED
+  // design/blocks/eff (parallel-safe — tool execution is synchronous; sparks author distinct blocks).
+  const sparkBase = TOOLS.filter((t) => SPARK_TOOL_NAMES.has(t.name));
+  const sparkTools = sparkBase.map((t, i) => (i === sparkBase.length - 1 ? { ...t, cache_control: { type: "ephemeral" } } : t));
+  const sparkSys = [{ type: "text", text: SPARK_SYSTEM, cache_control: { type: "ephemeral" } }];
+  const runSpark = async (goal: string, onTool?: (name: string) => void): Promise<{ summary: string; changed: boolean }> => {
+    const msgs: { role: string; content: unknown }[] = [{ role: "user", content: goal }];
+    let changed = false;
+    for (let t = 0; t < SPARK_MAX_TURNS; t++) {
+      const data = await anthropic(sparkSys, msgs, sparkTools);
+      const content = Array.isArray(data.content) ? data.content : [];
+      msgs.push({ role: "assistant", content: data.content });
+      const toolUses = content.filter((b: { type: string }) => b.type === "tool_use");
+      if (data.stop_reason !== "tool_use" || !toolUses.length) {
+        const text = content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("").trim();
+        return { summary: text || "(built; no summary)", changed };
+      }
+      const results = (toolUses as { id: string; name: string; input: Record<string, unknown> }[]).map((u) => {
+        const out = runTool(u.name, u.input ?? {}, design!, blocks, eff);
+        changed = changed || out.changed; onTool?.(u.name);
+        return { type: "tool_result", tool_use_id: u.id, content: out.text };
+      });
+      msgs.push({ role: "user", content: results });
+    }
+    return { summary: "(spark hit its step limit)", changed };
+  };
+
   const donePayload = (reply: string, changed: boolean) => ({
     type: "done", reply,
     ...(changed && design ? { design } : {}),
@@ -553,7 +611,7 @@ export async function POST(req: Request) {
       try {
         for (let turn = 0; turn < (agentic ? MAX_TURNS : 1); turn++) {
           emit({ type: "status", text: turn === 0 ? "Thinking…" : "Working…" });
-          const data = await call();
+          const data = await anthropic(system, messages, baseTools);
           const u = data.usage ?? {};
           totalIn += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
           totalOut += u.output_tokens ?? 0;
@@ -568,11 +626,23 @@ export async function POST(req: Request) {
           }
           if (narr) emit({ type: "narration", text: narr });
           for (const tu of toolUses as { name: string }[]) emit({ type: "tool", name: tu.name });
-          const results = (toolUses as { id: string; name: string; input: Record<string, unknown> }[]).map((u) => {
-            const out = runTool(u.name, u.input ?? {}, design!, blocks, eff);
-            changed = changed || out.changed;
-            return { type: "tool_result", tool_use_id: u.id, content: out.text };
-          });
+          const results: { type: string; tool_use_id: string; content: string }[] = [];
+          for (const u of toolUses as { id: string; name: string; input: Record<string, unknown> }[]) {
+            if (u.name === "delegate") {
+              const tasks = Array.isArray(u.input?.tasks) ? (u.input.tasks as unknown[]).map(String).map((s) => s.trim()).filter(Boolean) : [];
+              if (!tasks.length) { results.push({ type: "tool_result", tool_use_id: u.id, content: "delegate needs tasks[] — one focused build instruction per block." }); continue; }
+              emit({ type: "status", text: `⚡ Dispatching ${tasks.length} spark${tasks.length > 1 ? "s" : ""}…` });
+              const outs = await Promise.all(tasks.map((task, i) => runSpark(task, (tool) => emit({ type: "status", text: `⚡ Spark ${i + 1}/${tasks.length} · ${tool}` }))));
+              outs.forEach((s) => { changed = changed || s.changed; });
+              const text = outs.map((s, i) => `Spark ${i + 1} — ${s.summary}`).join("\n\n");
+              results.push({ type: "tool_result", tool_use_id: u.id, content: text });
+              emit({ type: "status", text: "Reviewing the sparks' work…" });
+            } else {
+              const out = runTool(u.name, u.input ?? {}, design!, blocks, eff);
+              changed = changed || out.changed;
+              results.push({ type: "tool_result", tool_use_id: u.id, content: out.text });
+            }
+          }
           messages.push({ role: "user", content: results });
         }
         if (!finished) emit(donePayload("I made some changes but hit the step limit — ask me to continue if it's not finished.", changed));
