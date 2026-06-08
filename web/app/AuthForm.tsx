@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signIn } from "@/lib/auth";
 
 /** Sign-in / sign-up UI (faithful to mockups/auth.html). NOTE: no real backend yet — submit stores a
  *  LOCAL profile (electrace:profile) and continues; real accounts arrive with the Supabase phase. */
@@ -15,11 +16,8 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   const continueLocal = (n?: string, e?: string) => {
     setBusy(true);
-    try {
-      const profile = { name: (n ?? name).trim() || "You", email: (e ?? email).trim() };
-      localStorage.setItem("electrace:profile", JSON.stringify(profile));
-      if (!signup) localStorage.setItem("electrace:onboarded", "1"); // a returning login skips first-run
-    } catch { /* ignore */ }
+    signIn({ name: (n ?? name).trim() || "You", email: (e ?? email).trim() });
+    try { if (!signup) localStorage.setItem("electrace:onboarded", "1"); } catch { /* ignore */ } // a returning login skips first-run
     const onboarded = (() => { try { return !!localStorage.getItem("electrace:onboarded"); } catch { return false; } })();
     router.push(signup && !onboarded ? "/welcome" : "/projects");
   };

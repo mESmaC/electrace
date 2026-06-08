@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listProjects, createProject, deleteProject, renameProject, getDesign, setStar, type ProjectMeta, type LintSummary } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
+import { isLoggedIn, getProfile } from "@/lib/auth";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
 import type { Design } from "@electrace/core";
@@ -72,8 +73,9 @@ export default function Dashboard() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const refresh = () => setProjects(listProjects());
   useEffect(() => {
+    if (!isLoggedIn()) { router.replace("/login"); return; } // your designs are account-specific
     try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ }
-    try { const p = localStorage.getItem("electrace:profile"); if (p) setProfile(JSON.parse(p)); } catch { /* ignore */ }
+    setProfile(getProfile());
     setMounted(true); refresh(); return onHydrated(refresh);
   }, [router]);
   const who = profile?.name?.trim() || "You";
@@ -127,6 +129,9 @@ export default function Dashboard() {
     { separator: true as const },
     { label: "Delete", icon: "🗑", danger: true, onSelect: () => onDelete(p.id, p.name) },
   ];
+
+  // until the session check passes, render nothing (logged-out users are mid-redirect to /login)
+  if (!mounted) return <div style={{ height: "calc(100vh - 3.5rem)" }} />;
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 3.5rem)" }}>

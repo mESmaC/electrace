@@ -192,7 +192,7 @@ export default function Home() {
             <Eyebrow>Early access</Eyebrow><h2 className="text-[42px] font-extrabold leading-[1.08] tracking-tight">Start understanding<br />your circuits.</h2>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Link href="/signup" className="rounded-xl bg-accent px-6 py-3.5 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Get early access</Link>
-              <Link href="/projects" className="rounded-xl border border-border-strong px-6 py-3.5 font-semibold transition hover:border-accent hover:text-accent">Open the editor</Link>
+              <Link href="/editor" className="rounded-xl border border-border-strong px-6 py-3.5 font-semibold transition hover:border-accent hover:text-accent">Open the editor</Link>
             </div>
             <div className="mt-4 text-[13px] text-faint">Built by US Nylon · no spam, just launch news</div>
           </div>

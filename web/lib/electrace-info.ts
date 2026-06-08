@@ -18,6 +18,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Site look:** a subtle **schematic dot-grid + ambient glow** backdrop across the pages, so the background has a bit more depth instead of reading flat.",
       "**Themed dialogs & right-click menus:** the browser's plain prompt/confirm boxes are replaced with **in-app themed dialogs** (Escape/Enter, click-away to cancel). **Right-click** now opens a themed menu — on a block (open · duplicate · delete), on empty canvas (fit to view · clear selection), and on a dashboard design (open · star · rename · delete).",
       "**Dashboard:** each design now shows its **lint status** at a glance (Ready / N issues / N warnings), an **Open issues** total across your designs, **sort** (last edited / name / issues) and a **grid ↔ list** toggle, plus **starring** designs with a working **Starred** filter (and a **Drafts** view for empty boards).",
+      "**Accounts (local):** a real **log in / sign up / log out** flow. The top bar shows **Log in / Sign up** when signed out and your **avatar menu** (your designs · settings · log out) when signed in; your **dashboard and settings now require being signed in**, while the editor stays open to try. (Real cloud accounts still arrive with the backend — this is a local profile for now.)",
     ],
   },
   {

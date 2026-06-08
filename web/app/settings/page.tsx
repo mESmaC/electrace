@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { setSymbolStyle, getSymbolStyle, type SymStyle } from "@/app/editor/symbols";
 import { telemetryEnabled, setTelemetry, getEvents, clearEvents } from "@/lib/telemetry";
+import { isLoggedIn, getProfile, updateProfile, signOut } from "@/lib/auth";
 
 type Theme = "dark" | "mid" | "light";
 const THEMES: { k: Theme; label: string }[] = [{ k: "light", label: "Light" }, { k: "mid", label: "Mid" }, { k: "dark", label: "Dark" }];
@@ -37,6 +39,7 @@ const pill = (active: boolean) =>
   `rounded-lg border px-3 py-1.5 text-sm transition ${active ? "border-accent bg-accent/15 text-accent" : "border-border-strong text-dim hover:border-accent hover:text-text"}`;
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [name, setName] = useState("You");
   const [email, setEmail] = useState("");
@@ -48,9 +51,10 @@ export default function SettingsPage() {
   const [evtCount, setEvtCount] = useState(0);
 
   useEffect(() => {
+    if (!isLoggedIn()) { router.replace("/login"); return; } // settings are account-specific
     setMounted(true);
     try {
-      const p = localStorage.getItem("electrace:profile"); if (p) { const o = JSON.parse(p); setName(o.name || "You"); setEmail(o.email || ""); }
+      const o = getProfile(); if (o) { setName(o.name || "You"); setEmail(o.email || ""); }
       const t = localStorage.getItem("electrace:theme") as Theme | null; if (t) setTheme(t);
       const a = localStorage.getItem("electrace:accent"); if (a) setAccent(a);
       setSym(getSymbolStyle());
@@ -62,7 +66,8 @@ export default function SettingsPage() {
     return () => window.removeEventListener("electrace:telemetry", sync);
   }, []);
 
-  const saveName = (n: string) => { setName(n); try { localStorage.setItem("electrace:profile", JSON.stringify({ name: n.trim() || "You", email })); } catch { /* ignore */ } };
+  const saveName = (n: string) => { setName(n); updateProfile({ name: n.trim() || "You" }); };
+  const logout = () => { signOut(); router.push("/"); };
   const pickTheme = (t: Theme) => { setTheme(t); applyTheme(t); };
   const pickAccent = (c: string) => { setAccent(c); applyAccent(c); };
   const pickSym = (s: SymStyle) => { setSym(s); setSymbolStyle(s); };
@@ -85,6 +90,9 @@ export default function SettingsPage() {
         </Row>
         <Row title="Email" hint={email ? "From your local sign-in." : "Set when you sign in."}>
           <span className="text-sm text-dim">{email || "—"}</span>
+        </Row>
+        <Row title="Session" hint="Sign out of this local profile on this device.">
+          <button onClick={logout} className="rounded-lg border border-[#e2837e]/45 px-4 py-1.5 text-sm font-medium text-[#e2837e] transition hover:bg-[#e2554b]/10">Log out</button>
         </Row>
       </Card>
 

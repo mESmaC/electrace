@@ -6,6 +6,7 @@ import ThemeToggle from "./ThemeToggle";
 import SiteBackdrop from "./SiteBackdrop";
 import { DialogHost } from "./ui/dialog";
 import { ContextMenuHost } from "./ui/contextMenu";
+import NavAccount from "./NavAccount";
 
 // Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
 const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
@@ -46,8 +47,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
             <Link href="/help" className="text-sm text-dim hover:text-text">Help</Link>
             <div className="ml-auto flex items-center gap-4">
-              <Link href="/login" className="text-sm text-dim hover:text-text">Log in</Link>
               <ThemeToggle />
+              <NavAccount />
             </div>
           </div>
         </nav>
