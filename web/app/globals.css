@@ -83,3 +83,27 @@ body {
 .schematic-svg .why  { fill: var(--color-faint); font-size: 11px; font-style: italic; }
 .schematic-svg .part { cursor: help; }
 .schematic-svg .part:hover .sym, .schematic-svg .part:hover .box { stroke: var(--color-accent); }
+
+/* ── Landing-page motion ─────────────────────────────────────────────────── */
+@keyframes ec-blink { 50% { opacity: 0 } }
+@keyframes ec-float { 50% { transform: translateY(-9px) } }
+@keyframes ec-pop   { to { opacity: 1; transform: none } }
+@keyframes ec-draw  { to { stroke-dashoffset: 0 } }
+@keyframes ec-tip   { 0%,26% { opacity: 0; transform: translateY(5px) } 38%,62% { opacity: 1; transform: none } 74%,100% { opacity: 0 } }
+@keyframes ec-cursor {
+  0%   { transform: translate(520px, 14px); opacity: 0 }
+  9%   { opacity: 1 }
+  28%  { transform: translate(366px, 138px); opacity: 1 }
+  66%  { transform: translate(366px, 138px); opacity: 1 }
+  80%  { transform: translate(366px, 138px); opacity: 0 }
+  100% { transform: translate(520px, 14px); opacity: 0 }
+}
+.ec-blink  { animation: ec-blink 1.1s steps(1) infinite }
+.ec-float  { animation: ec-float 7s ease-in-out infinite }
+.ec-bubble { opacity: 0; transform: scale(.92) translateY(6px); animation: ec-pop .5s ease forwards 1.4s }
+.ec-wire   { stroke-dasharray: 220; stroke-dashoffset: 220; animation: ec-draw 1.1s ease forwards .3s }
+.ec-cursor { animation: ec-cursor 7s ease-in-out infinite }
+.ec-tip    { opacity: 0; animation: ec-tip 7s ease-in-out infinite }
+.ec-reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s ease }
+.ec-reveal.in { opacity: 1; transform: none }
+@media (prefers-reduced-motion: reduce) { .ec-reveal { opacity: 1; transform: none; transition: none } .ec-float, .ec-cursor, .ec-tip, .ec-bubble, .ec-wire { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0 } }

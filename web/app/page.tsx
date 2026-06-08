@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RevealScript from "./RevealScript";
 
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <div className="mb-3 text-[12.5px] font-bold uppercase tracking-[1.4px] text-accent">{children}</div>
@@ -13,7 +14,7 @@ export default function Home() {
           style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent)" }} />
         <div className="relative mx-auto max-w-[1140px]">
           <span className="mb-6 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold text-accent" style={{ background: "color-mix(in srgb, var(--color-accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>⚡ The electrical engineer&apos;s IDE</span>
-          <h1 className="text-[54px] font-black leading-[0.98] tracking-[-2px] sm:text-[74px] sm:tracking-[-2.5px]">See inside<br />every circuit.<span className="ml-1.5 inline-block h-9 w-2 translate-y-1 rounded-[1px] bg-accent align-middle sm:h-14" /></h1>
+          <h1 className="text-[54px] font-black leading-[0.98] tracking-[-2px] sm:text-[74px] sm:tracking-[-2.5px]">See inside<br />every circuit.<span className="ec-blink ml-1.5 inline-block h-9 w-2 translate-y-1 rounded-[1px] bg-accent align-middle sm:h-14" /></h1>
           <p className="mx-auto mt-5 max-w-[560px] text-[20px] text-dim">Blocks that explain themselves — and catch what doesn&apos;t add up.</p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <Link href="/signup" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Get early access</Link>
@@ -22,7 +23,7 @@ export default function Home() {
           <div className="mt-4 text-[13px] text-faint">No simulation · no guessing · vendor-neutral</div>
 
           {/* product window */}
-          <div className="mx-auto mt-14 max-w-[900px] overflow-hidden rounded-2xl border border-border-strong bg-surface text-left shadow-2xl">
+          <div className="ec-float mx-auto mt-14 max-w-[900px] overflow-hidden rounded-2xl border border-border-strong bg-surface text-left shadow-2xl">
             <div className="flex h-11 items-center gap-2 border-b border-border bg-surface-2 px-4">
               <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" /><span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" /><span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
               <span className="ml-2.5 font-mono text-[12px] text-dim">buck-supply.elec — Electrace</span>
@@ -31,12 +32,38 @@ export default function Home() {
             <div className="relative grid h-[300px] place-items-center bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 5%, transparent) 1.4px, transparent 1.4px)", backgroundSize: "22px 22px" }}>
               <div className="relative h-[210px] w-[560px] scale-[0.78] sm:scale-100">
                 <svg viewBox="0 0 560 210" className="pointer-events-none absolute inset-0 h-full w-full">
-                  <path d="M212 96 C246 96 252 112 286 112" stroke="var(--color-amber)" strokeWidth={2.5} fill="none" />
-                  <path d="M212 120 C246 120 252 136 286 136" stroke="var(--color-gray)" strokeWidth={2.5} fill="none" />
+                  <path className="ec-wire" d="M212 96 C246 96 252 112 286 112" stroke="var(--color-amber)" strokeWidth={2.5} fill="none" />
+                  <path className="ec-wire" style={{ animationDelay: "0.5s" }} d="M212 120 C246 120 252 136 286 136" stroke="var(--color-gray)" strokeWidth={2.5} fill="none" />
                 </svg>
-                <WindowBlock x={20} y={48} glyph="⎓" tone="amber" name="Power Entry" tag="disc" spec="9–18 V DC in" />
-                <WindowBlock x={290} y={60} glyph="⇄" tone="cyan" name="Buck Regulator" tag="IC" spec="9–18 V → 5 V · 3 A">
-                  <div className="absolute left-[-26px] top-[140px] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-surface px-2.5 py-2 text-[11.5px] shadow-xl">
+                {/* hover-to-explain demo */}
+                <div className="ec-tip pointer-events-none absolute left-[300px] top-[96px] z-10 max-w-[210px] rounded-xl border border-border-strong bg-surface px-3 py-2.5 text-[11.5px] shadow-xl">
+                  <b className="font-semibold text-accent">✦ U1 — buck controller.</b> Holds 5 V from a 9–18 V input; R1/R2 set the voltage.
+                </div>
+                <svg className="ec-cursor pointer-events-none absolute z-20 h-5 w-5 drop-shadow" viewBox="0 0 20 20"><path d="M2 2 L2 16 L6 12 L9 18 L11 17 L8 11 L14 11 Z" fill="#fff" stroke="#0e1015" strokeWidth={1.2} /></svg>
+                <WindowBlock x={20} y={48} glyph="⎓" tone="amber" name="Power Entry" tag="disc" spec="9–18 V DC in"
+                  ports={[{ side: "out", top: 52, tone: "amber", label: "VBUS" }, { side: "out", top: 74, tone: "gray", label: "GND" }]}
+                  preview={<>
+                    <circle cx={16} cy={26} r={8} fill="none" stroke="currentColor" strokeWidth={1.5} /><line x1={13} y1={23} x2={19} y2={29} stroke="currentColor" strokeWidth={1.5} />
+                    <line x1={24} y1={26} x2={48} y2={26} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <polygon points="48,19 48,33 62,26" fill="currentColor" /><line x1={62} y1={19} x2={62} y2={33} stroke="currentColor" strokeWidth={1.7} />
+                    <line x1={62} y1={26} x2={186} y2={26} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <line x1={124} y1={26} x2={124} y2={40} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={114} y1={40} x2={134} y2={40} stroke="currentColor" strokeWidth={1.7} /><line x1={114} y1={46} x2={134} y2={46} stroke="currentColor" strokeWidth={1.7} /><line x1={124} y1={46} x2={124} y2={62} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <line x1={62} y1={62} x2={150} y2={62} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <g stroke="currentColor" strokeWidth={1.7}><line x1={98} y1={62} x2={98} y2={68} /><line x1={90} y1={68} x2={106} y2={68} /><line x1={94} y1={71} x2={102} y2={71} /></g>
+                    <text x={150} y={20} className="fill-green font-mono text-[9px]">VBUS</text>
+                  </>} />
+                <WindowBlock x={290} y={60} glyph="⇄" tone="cyan" name="Buck Regulator" tag="IC" spec="9–18 V → 5 V · 3 A"
+                  ports={[{ side: "in", top: 52, tone: "amber", label: "VIN" }, { side: "in", top: 74, tone: "gray", label: "GND" }, { side: "out", top: 52, tone: "green", label: "+5 V" }]}
+                  preview={<>
+                    <line x1={8} y1={22} x2={46} y2={22} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <line x1={26} y1={22} x2={26} y2={34} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={18} y1={34} x2={34} y2={34} stroke="currentColor" strokeWidth={1.7} /><line x1={18} y1={38} x2={34} y2={38} stroke="currentColor" strokeWidth={1.7} /><line x1={26} y1={38} x2={26} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <rect x={46} y={12} width={46} height={40} rx={3} fill="var(--color-surface-3)" stroke="currentColor" strokeWidth={1.7} /><text x={69} y={36} textAnchor="middle" className="fill-current font-mono text-[10px]">U1</text>
+                    <line x1={92} y1={22} x2={104} y2={22} stroke="var(--color-accent)" strokeWidth={1.7} /><path d="M104 22 q5 -8 10 0 q5 -8 10 0 q5 -8 10 0" stroke="currentColor" strokeWidth={1.7} fill="none" /><line x1={134} y1={22} x2={188} y2={22} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <line x1={152} y1={22} x2={152} y2={34} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={144} y1={34} x2={160} y2={34} stroke="currentColor" strokeWidth={1.7} /><line x1={144} y1={38} x2={160} y2={38} stroke="currentColor" strokeWidth={1.7} /><line x1={152} y1={38} x2={152} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <line x1={26} y1={60} x2={152} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} /><line x1={69} y1={52} x2={69} y2={60} stroke="var(--color-accent)" strokeWidth={1.7} />
+                    <text x={170} y={16} className="fill-green font-mono text-[9px]">+5V</text>
+                  </>}>
+                  <div className="ec-bubble absolute left-[-26px] top-[140px] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-surface px-2.5 py-2 text-[11.5px] shadow-xl">
                     <span className="text-accent">✦</span><span className="text-green">●</span>Plenty of headroom — 9 W of 15 W
                   </div>
                 </WindowBlock>
@@ -47,7 +74,7 @@ export default function Home() {
       </header>
 
       {/* ===== PROBLEM ===== */}
-      <section className="px-7 py-[70px] text-center">
+      <section className="ec-reveal px-7 py-[70px] text-center">
         <div className="mx-auto max-w-[1140px]">
           <h2 className="text-[34px] font-extrabold tracking-tight">Other tools stay silent — or just guess.</h2>
           <p className="mx-auto mt-2 max-w-[560px] text-[18px] text-dim">Electrace is the one that makes you <span className="text-accent">understand</span>.</p>
@@ -55,7 +82,7 @@ export default function Home() {
       </section>
 
       {/* ===== HOW IT WORKS ===== */}
-      <section id="how" className="border-y border-border bg-bg2 px-7 py-[92px]">
+      <section id="how" className="ec-reveal border-y border-border bg-bg2 px-7 py-[92px]">
         <div className="mx-auto max-w-[1140px] text-center">
           <Eyebrow>How it works</Eyebrow><h2 className="text-[42px] font-extrabold tracking-tight">An IDE — for circuits.</h2>
         </div>
@@ -74,7 +101,7 @@ export default function Home() {
       </section>
 
       {/* ===== SEE INSIDE ===== */}
-      <section id="inside" className="px-7 py-[92px]">
+      <section id="inside" className="ec-reveal px-7 py-[92px]">
         <div className="mx-auto grid max-w-[1140px] items-center gap-14 md:grid-cols-2">
           <div>
             <Eyebrow>Transparency</Eyebrow><h2 className="text-[42px] font-extrabold leading-[1.08] tracking-tight">Open any block.<br />Read every part.</h2>
@@ -100,7 +127,7 @@ export default function Home() {
       </section>
 
       {/* ===== TYPED NETS ===== */}
-      <section className="border-y border-border bg-bg2 px-7 py-[92px]">
+      <section className="ec-reveal border-y border-border bg-bg2 px-7 py-[92px]">
         <div className="mx-auto grid max-w-[1140px] items-center gap-14 md:grid-cols-2">
           <div className="rounded-2xl border border-border-strong bg-surface p-5 shadow-2xl">
             <div className="mx-auto flex max-w-[300px] flex-col gap-2.5">
@@ -119,7 +146,7 @@ export default function Home() {
       </section>
 
       {/* ===== WHY ===== */}
-      <section id="why" className="px-7 py-[92px]">
+      <section id="why" className="ec-reveal px-7 py-[92px]">
         <div className="mx-auto max-w-[1140px] text-center">
           <Eyebrow>Why Electrace</Eyebrow><h2 className="text-[42px] font-extrabold leading-[1.08] tracking-tight">Not guessing. Not SPICE.<br />Not locked in.</h2>
         </div>
@@ -139,7 +166,7 @@ export default function Home() {
       </section>
 
       {/* ===== ORDER ===== */}
-      <section className="border-y border-border bg-bg2 px-7 py-[92px] text-center">
+      <section className="ec-reveal border-y border-border bg-bg2 px-7 py-[92px] text-center">
         <div className="mx-auto max-w-[1140px]">
           <Eyebrow>And when you&apos;re done</Eyebrow><h2 className="text-[42px] font-extrabold tracking-tight">Design it. Understand it. Build it.</h2>
           <div className="mt-11 flex flex-wrap items-center justify-center gap-3">
@@ -153,7 +180,7 @@ export default function Home() {
       </section>
 
       {/* ===== CTA ===== */}
-      <section className="px-7 py-[92px]">
+      <section className="ec-reveal px-7 py-[92px]">
         <div className="relative mx-auto max-w-[1140px] overflow-hidden rounded-3xl border border-border-strong px-7 py-[70px] text-center" style={{ background: "linear-gradient(180deg, var(--color-surface), var(--color-bg2))" }}>
           <div className="pointer-events-none absolute left-1/2 top-[-180px] h-[430px] w-[760px] -translate-x-1/2" style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) 20%, transparent), transparent)" }} />
           <div className="relative">
@@ -175,11 +202,14 @@ export default function Home() {
           <span>© 2026 US Nylon</span>
         </div>
       </footer>
+      <RevealScript />
     </main>
   );
 }
 
-function WindowBlock({ x, y, glyph, tone, name, tag, spec, children }: { x: number; y: number; glyph: string; tone: "amber" | "cyan"; name: string; tag: string; spec: string; children?: React.ReactNode }) {
+type Port = { side: "in" | "out"; top: number; tone: "amber" | "gray" | "green"; label: string };
+const NUB = { amber: "var(--color-amber)", gray: "var(--color-gray)", green: "var(--color-green)" };
+function WindowBlock({ x, y, glyph, tone, name, tag, spec, preview, ports = [], children }: { x: number; y: number; glyph: string; tone: "amber" | "cyan"; name: string; tag: string; spec: string; preview: React.ReactNode; ports?: Port[]; children?: React.ReactNode }) {
   const toneCls = tone === "amber" ? "text-amber" : "text-[#3fd0e6]";
   const toneBg = tone === "amber" ? "color-mix(in srgb, var(--color-amber) 16%, transparent)" : "rgba(34,211,238,.16)";
   const toneBd = tone === "amber" ? "color-mix(in srgb, var(--color-amber) 40%, transparent)" : "rgba(34,211,238,.4)";
@@ -191,7 +221,14 @@ function WindowBlock({ x, y, glyph, tone, name, tag, spec, children }: { x: numb
         <span className="rounded border border-border bg-surface-3 px-1.5 py-0.5 text-[9px] font-bold uppercase text-faint">{tag}</span>
       </div>
       <div className="px-3 pb-2 font-mono text-[11.5px] text-dim">{spec}</div>
-      <div className="mx-2.5 mb-2.5 h-[60px] rounded-lg border border-border-strong bg-bg" />
+      <div className="mx-2.5 mb-2.5 h-[72px] overflow-hidden rounded-lg border border-border-strong bg-bg" style={{ color: "var(--color-text)" }}>
+        <svg viewBox="0 0 200 72" className="h-full w-full">{preview}</svg>
+      </div>
+      {ports.map((p, i) => (
+        <span key={i} className={`absolute flex items-center gap-1.5 font-mono text-[10px] text-text ${p.side === "in" ? "left-[-6px]" : "right-[-6px] flex-row-reverse"}`} style={{ top: p.top }}>
+          <i className="h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: NUB[p.tone], background: `color-mix(in srgb, ${NUB[p.tone]} 25%, transparent)` }} />{p.label}
+        </span>
+      ))}
       {children}
     </div>
   );
