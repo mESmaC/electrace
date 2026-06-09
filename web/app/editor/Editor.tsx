@@ -134,6 +134,8 @@ function BlockNode(props: NodeProps) {
             <Fragment key={t.id}>
               <Handle id={t.id} type={t.role === "out" ? "source" : "target"} position={posOf[side]}
                 style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 9, height: 9, background: "#454e62", border: `2px solid ${NET_COLOR[t.type]}` }} />
+              <Handle id={t.id} type={t.role === "out" ? "target" : "source"} position={posOf[side]}
+                style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 9, height: 9, opacity: 0 }} />
               <div className={lblBase} style={lbl}>{t.id}</div>
             </Fragment>
           );
@@ -171,6 +173,10 @@ function BlockNode(props: NodeProps) {
                   width: 10, height: 10, background: "#4e586f", border: `2px solid ${NET_COLOR[t.type]}`,
                 }}
               />
+              {/* universal: also expose the opposite-direction handle so a terminal can sit on either end
+                  of a connection (it's the net that matters; the lint enforces driver/load direction) */}
+              <Handle id={t.id} type={out ? "target" : "source"} position={out ? Position.Right : Position.Left}
+                style={{ top: "50%", ...(out ? { right: 0, transform: "translate(50%,-50%)" } : { left: 0, transform: "translate(-50%,-50%)" }), width: 10, height: 10, opacity: 0 }} />
               <span style={{ color: NET_COLOR[t.type] }}>●</span>
               <span className="font-mono text-[11px]">{t.id}</span>
               {docked.has(t.id) && (
