@@ -26,7 +26,7 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
   const derived = useMemo(() => {
     if (!model.syms.length) return null;
     const m = orientPorts(model); // ports auto-face their wire — no hand-set rotation needed
-    const conns = m.wires.map((w) => ({ id: w.id, a: toSchEndpoint(m.syms, w.a, `${w.id}:a`), b: toSchEndpoint(m.syms, w.b, `${w.id}:b`) }));
+    const conns = m.wires.map((w) => ({ id: w.id, a: toSchEndpoint(m.syms, w.a, `${w.id}:a`, m.wires), b: toSchEndpoint(m.syms, w.b, `${w.id}:b`, m.wires) }));
     const twoPin = m.syms.filter((s) => SYMBOLS[s.type]?.pins.length === 2).map((s) => s.id);
     return { m, b: modelBounds(m), nets: deriveSchematicNets(conns, twoPin) };
   }, [model]);
@@ -43,7 +43,7 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
   const pad = 12;
   const vb = `${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}`;
   const wireState = (w: Wire): WireState => {
-    const ea = toSchEndpoint(m.syms, w.a, `${w.id}:a`), eb = toSchEndpoint(m.syms, w.b, `${w.id}:b`);
+    const ea = toSchEndpoint(m.syms, w.a, `${w.id}:a`, m.wires), eb = toSchEndpoint(m.syms, w.b, `${w.id}:b`, m.wires);
     if (ea.kind === "broken" || eb.kind === "broken") return "error";
     if (ea.kind === "free" || eb.kind === "free") return "floating";
     const nid = nets.netOfConn.get(w.id);
@@ -54,7 +54,7 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
     <svg viewBox={vb} preserveAspectRatio="xMidYMid meet" width="100%" height={height}
       className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)]" style={{ display: "block", color: "var(--color-text)" }}>
       {m.wires.map((w) => {
-        const a = endAbs(m.syms, w.a), b2 = endAbs(m.syms, w.b);
+        const a = endAbs(m.syms, w.a, m.wires), b2 = endAbs(m.syms, w.b, m.wires);
         if (!a || !b2) return null;
         return <path key={w.id} d={ortho([a, ...w.mid, b2])} fill="none" stroke={WIRE_COLOR[wireState(w)]} strokeWidth={2} strokeLinejoin="round" />;
       })}

@@ -107,7 +107,7 @@ Noted for completeness — add-to-cart / BOM-aware sourcing (distributor PN), bl
 
 ## §6 — Known limitations (shipped features with rough edges)
 
-- [ ] **Wire-to-wire junction taps don't track their host wire.** A tap is stored as a fixed coordinate that *lies on* the other wire, not *bound* to it. So when the host wire moves — dragging its symbols, or the **Align** button re-snapping symbols to grid — the tap point stays put and can slide off the wire (breaking the connection / leaving the trace stranded). Align therefore does nothing to those traces. *Fix:* bind a junction to its host wire (store "on wire W at param t", recompute its coordinate when W moves; Align/move should reposition taps too). *(Model change; M.)*
+- [x] **Wire-to-wire junction taps don't track their host wire.** ✅ fixed 2026-06-09: taps are now BOUND endpoints (`{ wire, t }` — arc-length param along the host's path) resolved at render time, so they follow the host through drags and Align; deleting the host detaches the tap to a fixed point (visibly floating, not silently broken). Legacy fixed-coordinate taps in saved drafts still work via the old geometric path.
 
 ---
 

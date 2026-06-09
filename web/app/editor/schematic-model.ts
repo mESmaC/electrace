@@ -5,7 +5,11 @@ import { type SchematicLayout, type SchEndpoint } from "@electrace/core";
 
 export type Pt = { x: number; y: number };
 export interface PinRef { sym: string; pin: string }
-export type Endpoint = PinRef | Pt; // a wire end is either a symbol pin or a free (floating) point
+/** A junction tap BOUND to its host wire: `t` is the fraction (0..1, by arc length) along the host's
+ *  drawn path. Bound taps move WITH the host when its symbols drag or Align re-snaps — unlike the
+ *  legacy fixed-coordinate taps (a free Pt that merely lies on the wire), which strand when it moves. */
+export interface WireTap { wire: string; t: number }
+export type Endpoint = PinRef | Pt | WireTap; // a wire end: a symbol pin, a bound tap, or a free (floating) point
 export interface Pin { id: string; x: number; y: number; label?: string }
 export interface Dims { w: number; h: number; pins: Pin[]; body?: { x: number; y: number; w: number; h: number }; pin1?: Pt }
 /** A parametric chip: a package profile + pin count + (optionally AI/user-filled) pin names and MPN. */
@@ -15,6 +19,7 @@ export interface Wire { id: string; a: Endpoint; b: Endpoint; mid: Pt[] }
 export interface Model { syms: Sym[]; wires: Wire[] }
 
 export const isPin = (e: Endpoint): e is PinRef => "sym" in e;
+export const isTap = (e: Endpoint): e is WireTap => "wire" in e;
 
 export const WIRE_COLOR = { ok: "#46dca6", floating: "#f7b13c", error: "#ef5d6b" } as const;
 export type WireState = keyof typeof WIRE_COLOR;
@@ -125,8 +130,34 @@ export function pinAbs(syms: Sym[], r: PinRef): Pt | null {
   return symPoint(s, pin.x, pin.y, d.w, d.h);
 }
 
-export function endAbs(syms: Sym[], e: Endpoint): Pt | null {
-  return isPin(e) ? pinAbs(syms, e) : { x: e.x, y: e.y };
+export function endAbs(syms: Sym[], e: Endpoint, wires: Wire[] = [], seen?: Set<string>): Pt | null {
+  if (isPin(e)) return pinAbs(syms, e);
+  if (isTap(e)) {
+    if (seen?.has(e.wire)) return null; // tap cycle (A taps B taps A) — treat as broken
+    const host = wires.find((w) => w.id === e.wire);
+    if (!host) return null; // host wire deleted
+    const s = new Set(seen); s.add(e.wire);
+    return pointAt(expand(wireAbsPath(syms, host, wires, s)), e.t);
+  }
+  return { x: e.x, y: e.y };
+}
+
+/** The point a fraction `t` (0..1, by arc length) along an orthogonal point run. */
+function pointAt(pts: Pt[], t: number): Pt | null {
+  if (!pts.length) return null;
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) total += Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+  if (!total) return pts[0];
+  let want = Math.max(0, Math.min(1, t)) * total;
+  for (let i = 1; i < pts.length; i++) {
+    const L = Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+    if (want <= L || i === pts.length - 1) {
+      const f = L ? Math.min(1, want / L) : 0;
+      return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * f, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * f };
+    }
+    want -= L;
+  }
+  return pts[pts.length - 1];
 }
 
 /** Auto-orient every port so its pin faces the wire it connects to (snapped to the nearest cardinal).
@@ -139,7 +170,7 @@ export function orientPorts(model: Model): Model {
     for (const w of model.wires) {
       const other: Endpoint | null = isPin(w.a) && w.a.sym === p.id ? w.b : isPin(w.b) && w.b.sym === p.id ? w.a : null;
       if (!other) continue;
-      const o = endAbs(model.syms, other);
+      const o = endAbs(model.syms, other, model.wires);
       if (!o) continue;
       const dx = o.x - cx, dy = o.y - cy;
       // pin-side by rotation: 0 → left, 180 → right, 90 → top, 270 → bottom
@@ -194,12 +225,20 @@ export function anchorOrigin(s: Sym, x: number, y: number, grid = 10): Pt {
   return { x: x + (r(ap.x) - ap.x), y: y + (r(ap.y) - ap.y) };
 }
 
-/** Resolve an editor wire end to a core endpoint: a real pin, a floating point, or a broken ref. */
-export function toSchEndpoint(syms: Sym[], e: Endpoint, key: string): SchEndpoint {
+/** Resolve an editor wire end to a core endpoint: a real pin, a floating point, or a broken ref.
+ *  A bound tap resolves to its HOST wire's `a` endpoint — electrically the tap IS the host's net. */
+export function toSchEndpoint(syms: Sym[], e: Endpoint, key: string, wires: Wire[] = [], seen?: Set<string>): SchEndpoint {
   if (isPin(e)) {
     const s = syms.find((x) => x.id === e.sym);
     const ok = !!(s && symDims(s)?.pins.some((p) => p.id === e.pin));
     return ok ? { kind: "pin", sym: e.sym, pin: e.pin } : { kind: "broken", key };
+  }
+  if (isTap(e)) {
+    if (seen?.has(e.wire)) return { kind: "broken", key };
+    const host = wires.find((w) => w.id === e.wire);
+    if (!host) return { kind: "broken", key };
+    const s = new Set(seen); s.add(e.wire);
+    return toSchEndpoint(syms, host.a, `${host.id}:a`, wires, s);
   }
   const hit = pinAtCoord(syms, e.x, e.y);
   return hit ? { kind: "pin", sym: hit.sym, pin: hit.pin } : { kind: "free", key: `${e.x},${e.y}` };
@@ -247,8 +286,8 @@ export function layoutToModel(layout?: SchematicLayout): Model {
 }
 
 /** The absolute orthogonal point run of a wire: [start, …waypoints, end]. */
-export function wireAbsPath(syms: Sym[], w: Wire): Pt[] {
-  const a = endAbs(syms, w.a), b = endAbs(syms, w.b);
+export function wireAbsPath(syms: Sym[], w: Wire, wires: Wire[] = [], seen?: Set<string>): Pt[] {
+  const a = endAbs(syms, w.a, wires, seen), b = endAbs(syms, w.b, wires, seen);
   if (!a || !b) return [];
   return [a, ...w.mid, b];
 }
@@ -256,17 +295,29 @@ export function wireAbsPath(syms: Sym[], w: Wire): Pt[] {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** The closest point lying ON any wire's segment within `tol` (a junction tap point), or null. Skips
- *  `excludeId` (the wire being drawn) so it can't tap itself. */
-export function nearestWirePoint(syms: Sym[], wires: Wire[], p: Pt, tol: number, excludeId?: string): { x: number; y: number; wireId: string } | null {
-  let best: { x: number; y: number; wireId: string } | null = null;
+ *  `excludeId` (the wire being drawn) so it can't tap itself. `t` is the arc-length fraction of that
+ *  point along the wire's drawn path — store `{ wire, t }` so the tap stays bound when the wire moves. */
+export function nearestWirePoint(syms: Sym[], wires: Wire[], p: Pt, tol: number, excludeId?: string): { x: number; y: number; wireId: string; t: number } | null {
+  let best: { x: number; y: number; wireId: string; t: number } | null = null;
   let bestD = tol * tol;
   for (const w of wires) {
     if (w.id === excludeId) continue;
-    for (const s of segmentsOf(wireAbsPath(syms, w))) {
-      const qx = s.h ? clamp(p.x, Math.min(s.x1, s.x2), Math.max(s.x1, s.x2)) : s.x1;
-      const qy = s.h ? s.y1 : clamp(p.y, Math.min(s.y1, s.y2), Math.max(s.y1, s.y2));
+    const pts = expand(wireAbsPath(syms, w, wires));
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) total += Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+    let cum = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const h = a.y === b.y;
+      const L = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+      const qx = h ? clamp(p.x, Math.min(a.x, b.x), Math.max(a.x, b.x)) : a.x;
+      const qy = h ? a.y : clamp(p.y, Math.min(a.y, b.y), Math.max(a.y, b.y));
       const dd = (qx - p.x) ** 2 + (qy - p.y) ** 2;
-      if (dd <= bestD) { bestD = dd; best = { x: qx, y: qy, wireId: w.id }; }
+      if (dd <= bestD) {
+        const along = Math.abs(qx - a.x) + Math.abs(qy - a.y);
+        bestD = dd; best = { x: qx, y: qy, wireId: w.id, t: total ? (cum + along) / total : 0 };
+      }
+      cum += L;
     }
   }
   return best;
@@ -280,7 +331,7 @@ const ptOnSeg = (P: Pt, s: { h: boolean; x1: number; y1: number; x2: number; y2:
 export function wireAtPoint(syms: Sym[], wires: Wire[], P: Pt, excludeId?: string): string | null {
   for (const v of wires) {
     if (v.id === excludeId) continue;
-    if (segmentsOf(wireAbsPath(syms, v)).some((s) => ptOnSeg(P, s))) return v.id;
+    if (segmentsOf(wireAbsPath(syms, v, wires)).some((s) => ptOnSeg(P, s))) return v.id;
   }
   return null;
 }
@@ -292,20 +343,32 @@ export function junctionBridges(model: Model): { from: string; to: string }[] {
   const { syms, wires } = model;
   const pinOf = (e: Endpoint): string | null => {
     if (isPin(e)) return `${e.sym}.${e.pin}`;
+    if (isTap(e)) return null; // bound taps connect via their host, below
     const hit = pinAtCoord(syms, e.x, e.y);
     return hit ? `${hit.sym}.${hit.pin}` : null;
   };
-  const keyOf = (e: Endpoint): string => pinOf(e) ?? `@${(e as Pt).x},${(e as Pt).y}`;
+  const keyOf = (e: Endpoint): string => {
+    const p = pinOf(e);
+    if (p) return p;
+    if (isTap(e)) { const at = endAbs(syms, e, wires); return at ? `@${at.x},${at.y}` : `~broken:${e.wire}:${e.t}`; }
+    return `@${(e as Pt).x},${(e as Pt).y}`;
+  };
 
   // geometric union-find over every endpoint node (pin keys + free-coord keys)
   const par = new Map<string, string>();
   const find = (x: string): string => { if (!par.has(x)) par.set(x, x); let r = x; while (par.get(r) !== r) r = par.get(r)!; return r; };
   const union = (a: string, b: string) => { par.set(find(a), find(b)); };
   for (const w of wires) union(keyOf(w.a), keyOf(w.b)); // two ends of a wire (and coincident free ends, by shared key)
-  // a free end lying on another wire's segment taps it
   for (const w of wires) {
     for (const e of [w.a, w.b]) {
+      if (isTap(e)) {
+        // a BOUND tap joins its host wire's net by reference — no geometry involved
+        const host = wires.find((x) => x.id === e.wire);
+        if (host) union(keyOf(e), keyOf(host.a));
+        continue;
+      }
       if (pinOf(e) !== null) continue; // pin / on-a-pin ends already connect by key
+      // legacy fixed-coordinate tap: a free end lying on another wire's segment taps it
       const hit = wireAtPoint(syms, wires, e as Pt, w.id);
       if (hit) { const v = wires.find((x) => x.id === hit)!; union(keyOf(e), keyOf(v.a)); }
     }
@@ -363,7 +426,7 @@ export function modelBounds(model: Model): { x: number; y: number; w: number; h:
     note(b.minX, b.minY); note(b.maxX, b.maxY);
   }
   for (const w of model.wires) {
-    for (const e of [w.a, w.b]) { const p = endAbs(model.syms, e); if (p) note(p.x, p.y); }
+    for (const e of [w.a, w.b]) { const p = endAbs(model.syms, e, model.wires); if (p) note(p.x, p.y); }
     for (const m of w.mid) note(m.x, m.y);
   }
   if (minX === Infinity) return { x: 0, y: 0, w: 1, h: 1 };

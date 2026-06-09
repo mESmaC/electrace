@@ -17,6 +17,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**No lost last edits:** your work is now saved immediately when you close the tab or leave the editor — previously the very last moments of editing could miss the autosave window.",
       "**Import feedback:** importing a file that isn't a valid design now tells you so, instead of silently doing nothing.",
       "**Undo correctness:** undoing past a block edit no longer brings back the block's old terminal layout.",
+      "**Junction taps stay connected:** a wire tapped onto another wire is now **bound to it** — drag the host wire's parts around or hit **Align** and the junction rides along, keeping the connection. Deleting the host wire leaves the tapped wire visibly floating instead of silently broken.",
     ],
   },
   {
