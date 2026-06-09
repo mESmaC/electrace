@@ -40,9 +40,31 @@ discrete:
       - { ref: Cout, type: cap,   value: 10uF,    footprint: C0805,   why: "output stability + transient response" }
     nets:
       - { name: VIN,  connect: [Q1.C, R1.1, Cin.1, "@vin"] }
-      - { name: VREF, connect: [R1.2, D1.K, Q1.B] }
+      - { name: VREF, connect: [R1.2, D1.2, Q1.B] }
       - { name: VOUT, connect: [Q1.E, Cout.1, "@vout"] }
-      - { name: GND,  connect: [D1.A, Cin.2, Cout.2, "@gnd"] }
+      - { name: GND,  connect: [D1.1, Cin.2, Cout.2, "@gnd"] }
+  # Drawn discrete schematic (for the "break into discrete" view). npn pins B/C/E; zener/R/C pins 1/2.
+  layout:
+    symbols:
+      - { id: P_vin,  type: port,      ref: vin,  x: 20,  y: 40 }
+      - { id: Cin,    type: capacitor, ref: Cin,  value: 1µF,  x: 30,  y: 150 }
+      - { id: R1,     type: resistor,  ref: R1,   value: 1k,   x: 150, y: 46 }
+      - { id: D1,     type: zener,     ref: D1,   value: 3.9V, x: 170, y: 150 }
+      - { id: Q1,     type: npn,       ref: Q1,   x: 330, y: 70 }
+      - { id: Cout,   type: capacitor, ref: Cout, value: 10µF, x: 450, y: 150 }
+      - { id: P_vout, type: port,      ref: vout, x: 500, y: 88 }
+      - { id: P_gnd,  type: port,      ref: gnd,  x: 250, y: 250 }
+    wires:
+      - { from: P_vin.1, to: R1.1 }
+      - { from: R1.1,    to: Q1.C }
+      - { from: Cin.1,   to: R1.1 }
+      - { from: R1.2,    to: D1.2 }
+      - { from: D1.2,    to: Q1.B }
+      - { from: Q1.E,    to: Cout.1 }
+      - { from: Cout.1,  to: P_vout.1 }
+      - { from: Cin.2,   to: P_gnd.1 }
+      - { from: D1.1,    to: P_gnd.1 }
+      - { from: Cout.2,  to: P_gnd.1 }
 layout:
   symbols:
     - { id: P_vin,  type: port,      ref: vin,  x: 40,  y: 110, rot: 180 }

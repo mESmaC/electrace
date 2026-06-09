@@ -12,6 +12,7 @@ import { onHydrated } from "@/lib/serverSync";
 import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
+import DiscreteModal from "./DiscreteModal";
 import { modelToLayout, layoutToModel } from "./schematic-model";
 import { track } from "@/lib/telemetry";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
@@ -47,9 +48,8 @@ function abbrev(key: string): string {
 const RH = 22; // per-terminal row height
 
 function BlockNode(props: NodeProps) {
-  const { block, instanceRef, overrides } = props.data as unknown as BlockNodeData;
+  const { block, instanceRef } = props.data as unknown as BlockNodeData;
   const sel = props.selected;
-  const expanded = !!overrides?.discreteExpanded && !!block.discrete; // showing the discrete equivalent
   const edges = useEdges();
   const nodes = useNodes();
   const connectorIds = useMemo(() => new Set(nodes.filter((n) => n.type === "connector").map((n) => n.id)), [nodes]);
@@ -151,26 +151,17 @@ function BlockNode(props: NodeProps) {
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
         <span className="grid h-6 w-6 place-items-center rounded-md border text-sm" style={glyphChip(block.glyphColor)}>{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
-        {/* disc/IC tag — only on reducible blocks (those with an authored discrete equivalent) */}
+        {/* break-into-discrete affordance — only on reducible blocks (those with an authored equivalent) */}
         {block.discrete && (
-          <span title={expanded ? "Showing the discrete equivalent" : "An IC block — right-click to expand to discrete"}
-            className={`rounded px-1 py-px text-[8px] font-bold uppercase tracking-wide ${expanded ? "bg-[#8b6cff]/25 text-[#a98bff]" : "border border-[var(--color-border)] text-[var(--color-faint)]"}`}>
-            {expanded ? "discrete" : "IC"}
-          </span>
+          <button onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("electrace:discrete", { detail: { ref: instanceRef } })); }}
+            title="See this IC built from discrete components"
+            className="nodrag rounded border border-[#8b6cff]/40 bg-[#8b6cff]/10 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-[#a98bff] transition hover:bg-[#8b6cff]/20">◆ discrete</button>
         )}
         <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}</span>
       </div>
       <div className="px-3 pb-2 font-mono text-[11px] text-[var(--color-text)]">{block.topology ?? block.category ?? ""}</div>
       <div className="px-3 pb-2">
-        {expanded ? (
-          // No misleading IC schematic while expanded — show the discrete parts + the honesty/tradeoff line.
-          <div className="rounded-md border border-dashed border-[#8b6cff]/45 bg-[#8b6cff]/[0.06] p-2">
-            <div className="font-mono text-[10px] text-[var(--color-dim)]">{block.discrete!.schematic.parts.map((p) => p.ref).join(" · ")}</div>
-            {block.discrete!.note && <div className="mt-1 line-clamp-3 text-[9px] leading-snug text-[var(--color-faint)]">{block.discrete!.note}</div>}
-          </div>
-        ) : (
-          <SchematicPreview blockId={block.id} layout={block.layout} />
-        )}
+        <SchematicPreview blockId={block.id} layout={block.layout} />
       </div>
       <div className="border-t border-[var(--color-border)] py-1">
         {free.map((t) => {
@@ -424,18 +415,20 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     [setNodes],
   );
 
-  // Expand-to-discrete: flip a placed instance between its IC form and the authored discrete equivalent.
-  // Terminals are identical, so wiring is preserved; designLive re-derives and analysis re-runs from this.
-  const toggleDiscrete = useCallback((ref: string) => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id !== ref) return n;
-        const data = n.data as BlockNodeData;
-        const discreteExpanded = !data.overrides?.discreteExpanded;
-        return { ...n, data: { ...data, overrides: { ...(data.overrides ?? {}), discreteExpanded } } };
-      }),
-    );
-  }, [setNodes]);
+  // Break-into-discrete: a read-only modal showing a supported IC block built from discrete components
+  // (drawn schematic + parts + how it works). Does NOT change the design — an in-place swap comes later.
+  const [discreteBlock, setDiscreteBlock] = useState<Block | null>(null);
+  const openDiscrete = useCallback((ref: string) => {
+    const n = nodes.find((x) => x.id === ref);
+    const b = n && (n.data as BlockNodeData).block;
+    if (b?.discrete) setDiscreteBlock(b);
+  }, [nodes]);
+  // the node's "◆ discrete" chip dispatches this; the context menu calls openDiscrete directly
+  useEffect(() => {
+    const onOpen = (e: Event) => { const ref = (e as CustomEvent).detail?.ref; if (ref) openDiscrete(ref); };
+    window.addEventListener("electrace:discrete", onOpen);
+    return () => window.removeEventListener("electrace:discrete", onOpen);
+  }, [openDiscrete]);
 
   // Mark a correct-but-noisy finding as intended (or un-mark): mutes it + drops it from the counts.
   const toggleAck = useCallback(async (f: Finding) => {
@@ -635,13 +628,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     setSelectedId(n.id); setSelectedNet(null);
     if (n.type === "block") {
       const data = n.data as BlockNodeData;
-      const expanded = !!data.overrides?.discreteExpanded;
-      // Only reducible blocks (an authored discrete equivalent exists) offer the swap.
-      const canExpand = !!data.block.discrete;
       openContextMenu(e, [
         { label: "Open block", icon: "⌖", onSelect: () => setDrillRef(n.id) },
-        ...(canExpand
-          ? [{ label: expanded ? "Collapse to IC" : "Expand to discrete", icon: "◆", onSelect: () => toggleDiscrete(n.id) }]
+        // Only reducible blocks (an authored discrete equivalent exists) offer the discrete view.
+        ...(data.block.discrete
+          ? [{ label: "Break into discrete", icon: "◆", onSelect: () => openDiscrete(n.id) }]
           : []),
         { label: "Duplicate", icon: "⧉", onSelect: () => duplicateNode(n.id) },
         { separator: true },
@@ -650,7 +641,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     } else {
       openContextMenu(e, [{ label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) }]);
     }
-  }, [duplicateNode, deleteNode, toggleDiscrete]);
+  }, [duplicateNode, deleteNode, openDiscrete]);
   const onPaneContextMenu = useCallback((e: MouseEvent | ReactMouseEvent) => {
     openContextMenu(e as ReactMouseEvent, [
       { label: "Fit to view", icon: "⤢", onSelect: () => rfRef.current?.fitView({ duration: 200 }) },
@@ -1276,6 +1267,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           </div>
         </div>
       )}
+
+      {/* break-into-discrete: read-only look at a supported IC as discrete components */}
+      {discreteBlock && <DiscreteModal block={discreteBlock} onClose={() => setDiscreteBlock(null)} />}
     </div>
   );
 }
