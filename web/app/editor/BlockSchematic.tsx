@@ -25,6 +25,10 @@ const uid = () => `${Math.floor(performance.now())}-${_uidSeq++}`;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 const NET_COLOR: Record<string, string> = { power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff" };
+// locate-flash colours by severity: [fill, edge]. error = red, warning = amber, info = blue.
+const FLASH_COLOR: Record<"error" | "warn" | "info", [string, string]> = {
+  error: ["#f87171", "#fca5a5"], warn: ["#fbbf24", "#fde68a"], info: ["#4c8dff", "#9ec5ff"],
+};
 
 type Problem = { sev: "error" | "warn" | "info"; msg: string; target?: { kind: "sym" | "wire"; id: string } };
 
@@ -85,7 +89,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   const [hoverNet, setHoverNet] = useState<number | null>(null);
   const [bandRect, setBandRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [bottomOpen, setBottomOpen] = useState(true);
-  const [flash, setFlash] = useState<{ kind: "sym" | "wire"; id: string; n: number } | null>(null);
+  const [flash, setFlash] = useState<{ kind: "sym" | "wire"; id: string; n: number; sev: "error" | "warn" | "info" } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const symStyle = useSymbolStyle();
 
@@ -270,7 +274,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   }, []);
 
   // select a problem's target (symbol or wire) and pan it to the centre of the view
-  const locate = useCallback((target?: { kind: "sym" | "wire"; id: string }) => {
+  const locate = useCallback((target?: { kind: "sym" | "wire"; id: string }, sev: "error" | "warn" | "info" = "error") => {
     if (!target) return;
     const m = modelRef.current; let cx: number, cy: number;
     if (target.kind === "sym") {
@@ -284,7 +288,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     }
     const z = zoomRef.current;
     setPan({ x: cx - size.w / z / 2, y: cy - size.h / z / 2 });
-    setFlash({ kind: target.kind, id: target.id, n: Date.now() }); // pulse the located thing
+    setFlash({ kind: target.kind, id: target.id, n: Date.now(), sev }); // pulse the located thing, coloured by severity
     clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 1500);
   }, [size]);
@@ -967,13 +971,15 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
               fill="#4c8dff22" stroke="#4c8dff" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} pointerEvents="none" />
           )}
 
-          {/* locate flash — a bright pulsing highlight on the thing a Problem points to */}
+          {/* locate flash — a pulsing highlight on the thing a Problem points to, coloured by severity
+              (error = red, warning = amber, info = blue) so the located part reads as the issue */}
           {flash?.kind === "sym" && (() => {
             const s = model.syms.find((x) => x.id === flash.id), d = s && symDims(s); if (!s || !d) return null;
             const bb = symBounds(s, d.w, d.h);
+            const [fill, edge] = FLASH_COLOR[flash.sev];
             return (
               <rect key={flash.n} x={bb.minX - 8} y={bb.minY - 8} width={bb.maxX - bb.minX + 16} height={bb.maxY - bb.minY + 16} rx="6"
-                fill="#4c8dff" stroke="#9ec5ff" strokeWidth={3} pointerEvents="none">
+                fill={fill} stroke={edge} strokeWidth={3} pointerEvents="none">
                 <animate attributeName="fill-opacity" values="0.45;0.12;0" dur="1.5s" fill="freeze" />
                 <animate attributeName="stroke-opacity" values="1;1;0" dur="1.5s" fill="freeze" />
                 <animate attributeName="stroke-width" values="3;9;3;9;3" dur="1.5s" fill="freeze" />
@@ -984,7 +990,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
             const w = model.wires.find((x) => x.id === flash.id), a = w && endAbs(model.syms, w.a), b = w && endAbs(model.syms, w.b);
             if (!a || !b) return null;
             return (
-              <path key={flash.n} d={ortho([a, ...w!.mid, b])} fill="none" stroke="#9ec5ff" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
+              <path key={flash.n} d={ortho([a, ...w!.mid, b])} fill="none" stroke={FLASH_COLOR[flash.sev][1]} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
                 <animate attributeName="stroke-opacity" values="0.95;0.95;0" dur="1.5s" fill="freeze" />
                 <animate attributeName="stroke-width" values="8;16;8;16;8" dur="1.5s" fill="freeze" />
               </path>
@@ -1168,7 +1174,7 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
               <ul className="space-y-0.5">
                 {problems.map((p, i) => (
                   <li key={i}>
-                    <button onClick={() => locate(p.target)} disabled={!p.target}
+                    <button onClick={() => locate(p.target, p.sev)} disabled={!p.target}
                       className="flex w-full items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[var(--color-surface)] disabled:cursor-default">
                       <span style={{ color: p.sev === "error" ? "#ef5d6b" : p.sev === "warn" ? "#f7b13c" : "#9aa3b5" }}>{p.sev === "error" ? "✕" : p.sev === "warn" ? "▲" : "ℹ"}</span>
                       <span className="text-[var(--color-text)]">{p.msg}</span>

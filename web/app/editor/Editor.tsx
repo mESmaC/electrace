@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent as RDragEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent as RDragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import {
   ReactFlow, Background, Controls, Handle, Position, addEdge, ConnectionMode, useNodes, useEdges,
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
@@ -33,6 +33,11 @@ const SEV_ICON: Record<Severity, string> = {
 // User-assignable glyph colors for blocks; first = the default theme accent.
 const GLYPH_COLORS = ["#4c8dff", "#8b6cff", "#46dca6", "#f7b13c", "#ff6c9c", "#f87171", "#38bdf8", "#9aa3b5"];
 const glyphChip = (color?: string): React.CSSProperties => { const c = color || "#4c8dff"; return { color: c, borderColor: `${c}55`, background: `${c}26` }; };
+
+// Worst live-lint severity per placed block → a coloured ring + glow on the node, so clicking a finding
+// jumps to the block AND the block itself shows the problem (error = red, warn = amber). Provided around
+// the canvas so BlockNode can read it without threading severity through node data (which would loop).
+const BlockStatusContext = createContext<Map<string, "error" | "warn">>(new Map());
 
 interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; [k: string]: unknown }
 interface ConnectorNodeData { connectorId: string; ref: string; [k: string]: unknown }
@@ -70,7 +75,13 @@ function BlockNode(props: NodeProps) {
   const free = terminals;
   const dockedTerms = terminals.filter((t) => docked.has(t.id));
   const undock = (terminal: string, target?: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal, target } }));
-  const shadow = sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)";
+  // a block with a live error/warning wears a coloured ring + glow (red/amber); selection adds a blue halo.
+  const status = useContext(BlockStatusContext).get(instanceRef);
+  const statusColor = status === "error" ? "#f87171" : status === "warn" ? "#fbbf24" : undefined;
+  const shadow = statusColor
+    ? `0 0 0 2.5px ${statusColor}, 0 0 20px ${statusColor}b3${sel ? ", 0 0 0 5px rgba(76,141,255,.4)" : ""}, 0 10px 24px rgba(0,0,0,.5)`
+    : sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)"
+    : "0 8px 20px rgba(0,0,0,.4)";
 
   // hover-to-explain: a short delay, then a tooltip with the block's spec / I/O / inside / a key limit note
   const [hover, setHover] = useState(false);
@@ -108,7 +119,7 @@ function BlockNode(props: NodeProps) {
     const vertical = (s: string) => s === "left" || s === "right";
     const posOf = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
     return (
-      <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow }} {...tipHandlers}
+      <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow, ...(statusColor ? { borderColor: statusColor } : {}) }} {...tipHandlers}
         className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface)] text-[var(--color-text)]`}>
         {tip}
         <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center text-center">
@@ -146,7 +157,7 @@ function BlockNode(props: NodeProps) {
   }
 
   return (
-    <div style={{ width: 210, boxShadow: shadow }} {...tipHandlers}
+    <div style={{ width: 210, boxShadow: shadow, ...(statusColor ? { borderColor: statusColor } : {}) }} {...tipHandlers}
       className={`relative rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface-2)] text-[var(--color-text)]`}>
       {tip}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
@@ -534,6 +545,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     for (const a of f.at) { const net = analysis.resolved.nets.find((n) => n.id === a); const pin = net?.sources[0] ?? net?.members[0]; if (pin) return pin.instance; }
     return undefined;
   };
+  // worst unacknowledged severity per block → the coloured ring the canvas draws (error wins over warn)
+  const blockSeverity = useMemo(() => {
+    const m = new Map<string, "error" | "warn">();
+    for (const f of analysis.findings) {
+      if (f.acknowledged || (f.severity !== "error" && f.severity !== "warn")) continue;
+      const blk = findingBlock(f);
+      if (blk && (f.severity === "error" || m.get(blk) !== "error")) m.set(blk, f.severity);
+    }
+    return m;
+  // findingBlock closes over nodes + analysis; both are in the dep set already
+  }, [analysis, nodes]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pcbOpen, setPcbOpen] = useState(false);
   const passportNet = selectedNet ? analysis.resolved.nets.find((n) => n.members.some((m) => m.node === selectedNet)) : undefined;
   const passportBudget = passportNet ? budgets.find((b) => b.net === passportNet.id) : undefined;
@@ -957,6 +979,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)"
             className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">↷</button>
         </div>
+        <BlockStatusContext.Provider value={blockSeverity}>
         <ReactFlow
           nodes={nodes} edges={edges} nodeTypes={nodeTypes} connectionMode={ConnectionMode.Loose}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
@@ -972,6 +995,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <Background color="#54607a" gap={22} />
           <Controls />
         </ReactFlow>
+        </BlockStatusContext.Provider>
         <AssistantBubble />
       </div>
 

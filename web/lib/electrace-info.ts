@@ -12,6 +12,7 @@ export const CHANGELOG: ChangeEntry[] = [
     items: [
       "**Net labels:** a block's internal schematic now has **net labels / power flags** (in the Power palette) — drop one on a pin and name it (`+5V`, `+3V3`, `GND`…), and **every label, port, or power symbol with that same name is the same net, with no wire between them**. So a row of bypass caps can fan out to a rail without a single wire crossing the whole row, and multiple ground symbols collapse to one ground — the way a real schematic tool works. Crucially, **differently-named labels stay separate even when drawn collinear**, so two rails laid out as one visual row don't short together.",
       "**Clearer short detection:** when a block's own internal wiring ties two incompatible terminals together (say a 5 V rail to a 3.3 V rail, or a rail to ground), the checker now flags the **block that's internally shorted** and names the two terminals — instead of blaming your top-level wiring — and it suppresses the cascade of phantom over-voltage / dueling-driver warnings that the one short was causing.",
+      "**Findings highlight where they are:** a block with a live issue now **lights up in its severity color** — a red ring + glow for an error, amber for a warning — right on the canvas, and **clicking a finding jumps to that block** and highlights it. Inside a block, locating a problem pulses the affected part or wire in the same red/amber so you can see *exactly* what it's pointing at instead of hunting for it.",
     ],
   },
   {
