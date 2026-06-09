@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import ServerSync from "./ServerSync";
 import ThemeToggle from "./ThemeToggle";
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <DialogHost />
         <ContextMenuHost />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
