@@ -56,3 +56,7 @@ For each vendor: look up `electrace.net`, then **request review / suggest catego
 - **2026-06-08** — FortiGuard SDNS blocking `electrace.net` (newly registered / unrated). Identified via
   the served cert (`O=Fortinet, CN=Fortiguard SDNS Blocked Page`). Real Vercel deployment confirmed
   healthy (Google Trust Services `*.vercel.app` cert, app serving normally). Submissions pending — see §1.
+- **Root cause = NRD window, confirmed by registration dates:** `electrace.net` registered **2026-06-07**
+  (days old); `usnylon.com` registered **2026-04-22** (~7 weeks, never blocked). Filters auto-block
+  domains younger than ~30 days (some 14/90) regardless of content. Expect the standard NRD block to
+  **age out on its own ~2026-07-07**; the §1 submissions clear it sooner and cover longer-window filters.
