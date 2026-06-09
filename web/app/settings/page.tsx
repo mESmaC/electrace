@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { setSymbolStyle, getSymbolStyle, type SymStyle } from "@/app/editor/symbols";
 import { telemetryEnabled, setTelemetry, getEvents, clearEvents } from "@/lib/telemetry";
-import { isLoggedIn, getProfile, updateProfile, signOut } from "@/lib/auth";
+import { useProfile, updateProfile, signOut } from "@/lib/auth";
+import RequireAuth from "@/app/RequireAuth";
 
 type Theme = "dark" | "mid" | "light";
 const THEMES: { k: Theme; label: string }[] = [{ k: "light", label: "Light" }, { k: "mid", label: "Mid" }, { k: "dark", label: "Dark" }];
@@ -38,8 +39,9 @@ const Card = ({ title, children }: { title: string; children: React.ReactNode })
 const pill = (active: boolean) =>
   `rounded-lg border px-3 py-1.5 text-sm transition ${active ? "border-accent bg-accent/15 text-accent" : "border-border-strong text-dim hover:border-accent hover:text-text"}`;
 
-export default function SettingsPage() {
+function Settings() {
   const router = useRouter();
+  const { profile } = useProfile();
   const [mounted, setMounted] = useState(false);
   const [name, setName] = useState("You");
   const [email, setEmail] = useState("");
@@ -51,10 +53,8 @@ export default function SettingsPage() {
   const [evtCount, setEvtCount] = useState(0);
 
   useEffect(() => {
-    if (!isLoggedIn()) { router.replace("/login"); return; } // settings are account-specific
     setMounted(true);
     try {
-      const o = getProfile(); if (o) { setName(o.name || "You"); setEmail(o.email || ""); }
       const t = localStorage.getItem("electrace:theme") as Theme | null; if (t) setTheme(t);
       const a = localStorage.getItem("electrace:accent"); if (a) setAccent(a);
       setSym(getSymbolStyle());
@@ -66,8 +66,11 @@ export default function SettingsPage() {
     return () => window.removeEventListener("electrace:telemetry", sync);
   }, []);
 
+  // Reflect the signed-in account (Supabase user or local profile) into the editable fields.
+  useEffect(() => { if (profile) { setName(profile.name || "You"); setEmail(profile.email || ""); } }, [profile]);
+
   const saveName = (n: string) => { setName(n); updateProfile({ name: n.trim() || "You" }); };
-  const logout = () => { signOut(); router.push("/"); };
+  const logout = () => { signOut().finally(() => router.push("/")); };
   const pickTheme = (t: Theme) => { setTheme(t); applyTheme(t); };
   const pickAccent = (c: string) => { setAccent(c); applyAccent(c); };
   const pickSym = (s: SymStyle) => { setSym(s); setSymbolStyle(s); };
@@ -139,5 +142,13 @@ export default function SettingsPage() {
         </Row>
       </Card>
     </main>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <RequireAuth>
+      <Settings />
+    </RequireAuth>
   );
 }

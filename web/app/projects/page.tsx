@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listProjects, createProject, deleteProject, renameProject, getDesign, setStar, type ProjectMeta, type LintSummary } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
-import { isLoggedIn, getProfile } from "@/lib/auth";
+import { useProfile } from "@/lib/auth";
+import RequireAuth from "@/app/RequireAuth";
 import { HOBBY_DESIGN_CAP } from "@/lib/plans";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
@@ -62,21 +63,20 @@ function Thumb({ design }: { design: Design | null }) {
 type Nav = "recent" | "starred" | "drafts";
 type Sort = "recent" | "name" | "issues";
 
-export default function Dashboard() {
+function Dashboard() {
   const router = useRouter();
+  const { profile } = useProfile();
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [promo, setPromo] = useState(true);
-  const [profile, setProfile] = useState<{ name: string; email: string } | null>(null);
   const [nav, setNav] = useState<Nav>("recent");
   const [sort, setSort] = useState<Sort>("recent");
   const [view, setView] = useState<"grid" | "list">("grid");
   const refresh = () => setProjects(listProjects());
   useEffect(() => {
-    if (!isLoggedIn()) { router.replace("/login"); return; } // your designs are account-specific
+    // RequireAuth gates the login; here we just send brand-new users through onboarding once.
     try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ }
-    setProfile(getProfile());
     setMounted(true); refresh(); return onHydrated(refresh);
   }, [router]);
   const who = profile?.name?.trim() || "You";
@@ -307,5 +307,13 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <RequireAuth>
+      <Dashboard />
+    </RequireAuth>
   );
 }

@@ -32,7 +32,7 @@ export default function NavAccount() {
   }
 
   const initials = profile.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "YOU";
-  const logout = () => { signOut(); setOpen(false); router.push("/"); };
+  const logout = () => { setOpen(false); signOut().finally(() => router.push("/")); };
   const item = "block w-full px-3 py-2 text-left text-[13px] text-text transition hover:bg-surface-2";
 
   return (

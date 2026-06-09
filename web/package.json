@@ -4,16 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run sync-core && next build",
     "start": "next start",
-    "sync-core": "cd ../electrace && npm run build && cd ../web && node -e \"const fs=require('fs'),cp=require('child_process'),d='node_modules/@electrace/core';fs.existsSync(d)?(fs.cpSync('../electrace/dist',d+'/dist',{recursive:true}),console.log('synced dist in place')):cp.execSync('npm install',{stdio:'inherit'})\""
+    "sync-core": "cd ../electrace && npm install --no-audit --no-fund && npm run build && cd ../web && node -e \"const fs=require('fs'),cp=require('child_process'),d='node_modules/@electrace/core';fs.existsSync(d)?(fs.cpSync('../electrace/dist',d+'/dist',{recursive:true}),console.log('synced dist in place')):cp.execSync('npm install',{stdio:'inherit'})\""
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
     "@electrace/core": "file:../electrace",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.108.0",
     "@xyflow/react": "^12.11.0",
+    "drizzle-orm": "^0.45.2",
     "marked": "^18.0.4",
     "next": "16.2.6",
+    "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "yaml": "^2.9.0"
@@ -23,6 +27,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
