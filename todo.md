@@ -9,6 +9,10 @@ work) — those are in §0 so they don't get "fixed" by mistake. Everything else
 whether it depends on the deferred cloud backend. Size = rough effort (S/M/L). Items marked **⟂ decide**
 need an owner intent call before building.
 
+> **GTM / ops, not a spec gap:** corporate web filters block `electrace.net` as a newly-registered
+> domain (FortiGuard hit it 2026-06-08), limiting corporate reach. Recategorization checklist +
+> domain-hygiene steps live in [domain-reputation.md](domain-reputation.md).
+
 ---
 
 ## §0 — Intentional / accepted deviations (NOT to-do; documented so we stop re-flagging)
