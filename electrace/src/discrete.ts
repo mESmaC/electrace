@@ -32,22 +32,27 @@ export const DISCRETE_LIBRARY: Record<string, DiscreteEquivalent> = {
         { name: "GND", connect: ["D1.1", "@GND"] },
       ],
     },
+    // Clean series-pass drawing: VIN rail across the top, a vertical R1-over-D1 reference divider at
+    // x≈180 dropping to the GND rail, the base tapped off the divider into Q1, emitter → OUT.
+    // Geometry note: port pin is at (0,10) — rot 180 puts it on the right (left-side IN), rot 0 on the
+    // left (right-side OUT), rot 90 on top (bottom GND). rot 90/270 makes 2-pin parts vertical.
     layout: {
       symbols: [
-        { id: "P_in",  type: "port",     ref: "IN",  x: 30,  y: 60 },
-        { id: "R1",    type: "resistor", ref: "R1",  value: "1k",   x: 130, y: 40 },
-        { id: "D1",    type: "zener",    ref: "D1",  value: "3.9V", x: 150, y: 140 },
-        { id: "Q1",    type: "npn",      ref: "Q1",  x: 300, y: 70 },
+        // ports carry no rotation — the renderer auto-faces each one toward its wire
+        { id: "P_in",  type: "port",     ref: "IN",  x: 30,  y: 40 },
+        { id: "R1",    type: "resistor", ref: "R1",  value: "1k",   x: 135, y: 81,  rot: 90 },  // pin1 (180,50) VIN · pin2 (180,140) REF
+        { id: "D1",    type: "zener",    ref: "D1",  value: "3.9V", x: 145, y: 201, rot: 270 }, // pin2 (180,180) REF · pin1 (180,250) GND
+        { id: "Q1",    type: "npn",      ref: "Q1",  x: 320, y: 48 },                            // C(360,50) B(320,80) E(360,110)
         { id: "P_out", type: "port",     ref: "OUT", x: 440, y: 100 },
-        { id: "P_gnd", type: "port",     ref: "GND", x: 200, y: 240 },
+        { id: "P_gnd", type: "port",     ref: "GND", x: 165, y: 275 },
       ],
       wires: [
-        { from: "P_in.1", to: "R1.1" },
-        { from: "R1.1",   to: "Q1.C" },
-        { from: "R1.2",   to: "D1.2" },
-        { from: "D1.2",   to: "Q1.B" },
-        { from: "Q1.E",   to: "P_out.1" },
-        { from: "D1.1",   to: "P_gnd.1" },
+        { from: "P_in.1", to: "R1.1" },    // VIN rail
+        { from: "R1.1",   to: "Q1.C" },    // VIN rail → collector
+        { from: "R1.2",   to: "D1.2" },    // reference divider
+        { from: "R1.2",   to: "Q1.B" },    // reference tap → base
+        { from: "Q1.E",   to: "P_out.1" }, // emitter → OUT
+        { from: "D1.1",   to: "P_gnd.1" }, // zener anode → GND
       ],
     },
   },

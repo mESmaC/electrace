@@ -129,6 +129,28 @@ export function endAbs(syms: Sym[], e: Endpoint): Pt | null {
   return isPin(e) ? pinAbs(syms, e) : { x: e.x, y: e.y };
 }
 
+/** Auto-orient every port so its pin faces the wire it connects to (snapped to the nearest cardinal).
+ *  Authors — and AI — shouldn't have to hand-set port rotation; getting it wrong is the usual cause of
+ *  "ports point the wrong way / look disconnected". We compare the port's (rotation-invariant) center to
+ *  the OTHER end of its wire, so there's no chicken-and-egg with the pin position. Non-ports untouched. */
+export function orientPorts(model: Model): Model {
+  const rotFor = (p: Sym): number | undefined => {
+    const cx = p.x + 15, cy = p.y + 10; // port symbol is 30×20
+    for (const w of model.wires) {
+      const other: Endpoint | null = isPin(w.a) && w.a.sym === p.id ? w.b : isPin(w.b) && w.b.sym === p.id ? w.a : null;
+      if (!other) continue;
+      const o = endAbs(model.syms, other);
+      if (!o) continue;
+      const dx = o.x - cx, dy = o.y - cy;
+      // pin-side by rotation: 0 → left, 180 → right, 90 → top, 270 → bottom
+      if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 180 : 0;
+      return dy >= 0 ? 270 : 90;
+    }
+    return undefined;
+  };
+  return { ...model, syms: model.syms.map((s) => (s.type === "port" ? { ...s, rot: rotFor(s) ?? s.rot ?? 0 } : s)) };
+}
+
 /** A pin sitting exactly at (x, y), if any — lets a wire dropped on a pin count as connected. */
 export function pinAtCoord(syms: Sym[], x: number, y: number): { sym: string; pin: string } | null {
   for (const s of syms) {
