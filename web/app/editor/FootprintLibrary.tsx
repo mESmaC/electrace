@@ -25,12 +25,13 @@ export function FootprintPreview({ footprint, size = 72 }: { footprint: Footprin
 
 /** Import + browse the footprint library. When `assignTo` is set, each footprint can be applied to that
  *  selected PCB component. */
-export default function FootprintLibrary({ onClose, assignTo, currentId, onAssign, onClear }: {
+export default function FootprintLibrary({ onClose, assignTo, currentId, onAssign, onClear, onAutoMatch }: {
   onClose: () => void;
   assignTo?: string;
   currentId?: string;
   onAssign?: (id: string) => void;
   onClear?: () => void;
+  onAutoMatch?: () => number;
 }) {
   const fps = useFootprints();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -52,6 +53,10 @@ export default function FootprintLibrary({ onClose, assignTo, currentId, onAssig
           <h2 className="text-[15px] font-bold text-text">{assignTo ? `Footprint for ${assignTo}` : "Footprint library"}</h2>
           <span id="fp-status" className="text-[12px] text-faint">{fps.length} imported</span>
           <div className="ml-auto flex items-center gap-2">
+            {onAutoMatch && fps.length > 0 && (
+              <button onClick={() => { const n = onAutoMatch(); const el = document.getElementById("fp-status"); if (el) el.textContent = n ? `Auto-matched ${n} part${n > 1 ? "s" : ""}.` : "No parts matched the library."; }}
+                className="rounded-lg border border-border-strong px-3 py-1.5 text-[13px] font-medium text-dim transition hover:border-accent hover:text-text" title="Assign library footprints to every part that matches by package">Auto-match parts</button>
+            )}
             {assignTo && onClear && <button onClick={onClear} className="rounded-lg border border-border-strong px-3 py-1.5 text-[13px] text-dim transition hover:border-accent hover:text-text">Use default</button>}
             <button onClick={() => fileRef.current?.click()} className="rounded-lg bg-accent px-3 py-1.5 text-[13px] font-semibold text-white transition hover:bg-accent-hi">Import .kicad_mod…</button>
             <button onClick={onClose} className="text-faint hover:text-text">✕</button>

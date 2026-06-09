@@ -1,10 +1,36 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pcbProject, drcCheck, toKicadPcb, type Block, type Design, type PcbProject, type PcbPad, type Footprint, type DrcViolation, type DrcTrace, type DrcPad, type DrcVia, type DrcComp, type DrcUnrouted, type KicadComp, type KicadTrace, type KicadVia } from "@electrace/core";
+import { pcbProject, drcCheck, toKicadPcb, type Block, type Design, type PcbProject, type PcbComponent, type PcbPad, type Footprint, type DrcViolation, type DrcTrace, type DrcPad, type DrcVia, type DrcComp, type DrcUnrouted, type KicadComp, type KicadTrace, type KicadVia } from "@electrace/core";
 import AssistantBubble from "./AssistantBubble";
 import FootprintLibrary from "./FootprintLibrary";
 import { setContextItem } from "@/lib/assistant";
 import { useFootprints } from "@/lib/footprints";
+
+/** Best-effort: match each part to a library footprint by its package code + pad count (with a type hint
+ *  to pick C_0805 over R_0805). Returns ref→footprintId for confident matches only. */
+function autoMatchFootprints(components: PcbComponent[], library: { name: string; footprint: Footprint }[]): Record<string, string> {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const PREFIX: Record<string, string> = { cap: "c", "cap-pol": "c", res: "r", inductor: "l", ferrite: "fb", diode: "d", led: "d", tvs: "d", crystal: "y" };
+  const out: Record<string, string> = {};
+  for (const c of components) {
+    const code = norm(c.footprint || "");
+    if (!code) continue;
+    const pref = PREFIX[c.type] ?? "";
+    let best: { id: string; score: number } | null = null;
+    for (const lf of library) {
+      if (lf.footprint.pads.length !== c.pads.length) continue; // pad count must match
+      const ln = norm(lf.name);
+      if (!ln.includes(code)) continue;
+      let score = ln === code ? 100 : ln.startsWith(code) ? 60 : 30;
+      if (pref && ln.startsWith(pref + code)) score += 50;       // type-correct chip (c0805, not r0805)
+      else if (pref && ln.startsWith(pref)) score += 10;
+      score -= Math.abs(ln.length - code.length);                // prefer the closest name
+      if (!best || score > best.score) best = { id: lf.footprint.id, score };
+    }
+    if (best) out[c.ref] = best.id;
+  }
+  return out;
+}
 
 /** Swap a component's pads for an assigned (imported) footprint, keeping pin→net by re-keying the
  *  ratsnest. Pins map to the imported pads by pad number, falling back to position order. */
@@ -231,6 +257,15 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     const next = { ...fpOverridesRef.current }; delete next[ref];
     setFpOverrides(next); fpOverridesRef.current = next;
     persist(placesRef.current, tracesRef.current);
+  };
+  // auto-assign library footprints to every part that matches by package code (returns #matched)
+  const autoMatchAll = (): number => {
+    const matches = autoMatchFootprints(baseProject.components, fpLibrary);
+    if (!Object.keys(matches).length) return 0;
+    const next = { ...fpOverridesRef.current, ...matches };
+    setFpOverrides(next); fpOverridesRef.current = next;
+    persist(placesRef.current, tracesRef.current);
+    return Object.keys(matches).length;
   };
   const undo = () => { const h = histRef.current; if (!h.past.length) return; h.future.push(presentRef.current); const s = h.past.pop()!; presentRef.current = s; applySnap(s); setHistTick((t) => t + 1); };
   const redo = () => { const h = histRef.current; if (!h.future.length) return; h.past.push(presentRef.current); const s = h.future.pop()!; presentRef.current = s; applySnap(s); setHistTick((t) => t + 1); };
@@ -894,6 +929,7 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
             currentId={sel?.kind === "comp" ? fpOverrides[sel.id] : undefined}
             onAssign={(id) => { if (sel?.kind === "comp") { assignFootprint(sel.id, id); setFpLib(false); } }}
             onClear={() => { if (sel?.kind === "comp") { clearFootprint(sel.id); setFpLib(false); } }}
+            onAutoMatch={autoMatchAll}
           />
         )}
         </div>
