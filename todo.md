@@ -9,9 +9,9 @@ work) — those are in §0 so they don't get "fixed" by mistake. Everything else
 whether it depends on the deferred cloud backend. Size = rough effort (S/M/L). Items marked **⟂ decide**
 need an owner intent call before building.
 
-> **GTM / ops, not a spec gap:** corporate web filters block `electrace.net` as a newly-registered
-> domain (FortiGuard hit it 2026-06-08), limiting corporate reach. Recategorization checklist +
-> domain-hygiene steps live in [domain-reputation.md](domain-reputation.md).
+> **GTM / ops, not a spec gap:** ~~corporate web filters block `electrace.net`~~ **resolved
+> 2026-06-09** — FortiGuard recategorization confirmed open + mail records in DNS. Remaining
+> vendor submissions are opportunistic; see [domain-reputation.md](domain-reputation.md).
 
 ---
 
@@ -52,7 +52,7 @@ These are the spec'd things that actually move the product, deferred while the e
 - [x] **Discrete-equivalent data model** — ✅ shipped with the above (`Block.irreducible` + the authored-equivalent path in `discrete.ts`).
 - [x] **Spec-search / `find_blocks(spec)`** — ✅ shipped 2026-06-09: core matcher (`spec-search.ts`, tested — parses "18 V → 5 V at 3 A", gates on DECLARED specs only, every match carries the why built from declared numbers, missing declarations reported per lint.md principle 4), a `find_blocks` Sparky tool, and the editor palette's spec-search box (also name-filters connectors). The `/blocks` index search stays name/category for now — wire `searchBlocks` in there when touching that page.
 - [ ] **Tradeoff readout + cost/area data** — no declared cost/board-area fields, so no part-count/area/cost/perf delta on swaps or in the assistant's tradeoff suggestions. *(concept.md, ideas.md, ai.md; M — needs new declared fields)*
-- [ ] **On-canvas block status** — block node cards are missing the **declared-spec line** (shows one word, not e.g. "9–18 V → 5 V · 3 A"), a **status chip** (icon+color+text), per-block **lint status/bubble**, and the **disc/IC tag**. The mockup leans hard on at-a-glance canvas status; today findings live only in side/bottom panels. *(design.md, mockups/editor.html; M)*
+- [x] **On-canvas block status** — ✅ shipped 2026-06-09: declared-spec line ("9–18 V → 5 V · 3 A"), status chip (icon+colour+text with error/warning counts, fed by live findings), and IC/DISC tag on every card (incl. the QFP many-pin variant). Verified live against the sample design.
 - [ ] **Flat "Schematic view" + Blocks|Schematic toggle** — read-only whole-design schematic (nets stitched across blocks), the export source, click-a-part-jumps-to-block, "edit in Blocks" banner. `flatten()` + a `SchematicView.tsx` shell exist but are **not wired into the editor** (only the per-block preview is). *(design.md; L)*
 - [ ] **`declaration/missing` (severity `unknown`) findings** — lint.md Principle 4: when a check needs an undeclared value, say "can't check — X not declared," never a silent pass. The `unknown` severity has UI support but **no rule emits it**; rules silently `return []`. *(lint.md; M)*
 - [ ] **Open-net visual flag on canvas** — open nets are detected + listed but not drawn as the dashed "open net" stub w/ warning dot at the terminal. *(design.md, mockups; S–M)*
