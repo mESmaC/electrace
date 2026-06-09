@@ -519,11 +519,15 @@ export async function POST(req: Request) {
 
   // Sparky is a paid (Pro) feature, and every call costs real Claude API spend — enforce the gate
   // HERE so it can't be bypassed by hitting the endpoint directly (a hidden UI button isn't enough).
-  // When Supabase isn't configured (local dev with no auth backend) there's no identity to gate on.
   if (supabaseConfigured) {
     const { data: { user } } = await (await supabaseServer()).auth.getUser();
     if (!user) return Response.json({ error: "Please sign in to use Sparky." }, { status: 401 });
     if (!canUseSparky(user.email)) return Response.json({ error: "Sparky is a Pro feature — upgrade to let it build and explain your designs.", code: "upgrade" }, { status: 403 });
+  } else if (process.env.NODE_ENV === "production") {
+    // Fail CLOSED: never serve a paid endpoint unauthenticated in production. If we get here in prod the
+    // Supabase env vars are missing/misconfigured — deny rather than leave the cost wide open. (Local dev
+    // without a backend still works: NODE_ENV !== "production" there.)
+    return Response.json({ error: "Sparky is temporarily unavailable." }, { status: 503 });
   }
 
   let body: Payload;
