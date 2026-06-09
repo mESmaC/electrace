@@ -65,7 +65,9 @@ function BlockNode(props: NodeProps) {
     return m;
   }, [edges, connectorIds, instanceRef]);
   const terminals = block.terminals.filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i);
-  const free = terminals.filter((t) => !docked.has(t.id));
+  // Every terminal keeps its real (draggable) handle — even docked ones — so one terminal can be wired to
+  // SEVERAL connectors. The docked section below is just a summary + undock; it no longer hides the pin.
+  const free = terminals;
   const dockedTerms = terminals.filter((t) => docked.has(t.id));
   const undock = (terminal: string, target?: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal, target } }));
   const shadow = sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)";
@@ -80,23 +82,17 @@ function BlockNode(props: NodeProps) {
   };
   const tip = hover ? <BlockTip block={block} /> : null;
 
-  // docked terminals collapse to chips; their handles stay in the DOM (hidden) so the hidden
-  // dock-edges remain valid. Click a chip to undock.
+  // A summary of where docked terminals are wired, with per-connector undock. The terminals themselves
+  // keep their real handles above (so they stay draggable to add more connectors) — no hidden handles here.
   const dockCount = dockedTerms.reduce((n, t) => n + (docked.get(t.id)?.length ?? 0), 0);
   const dockedSection = dockedTerms.length > 0 ? (
     <div className="border-t border-dashed border-[var(--color-border)] px-3 py-1.5">
-      <div className="mb-1 text-[8px] uppercase tracking-wide text-[var(--color-faint)]">{dockCount} docked</div>
+      <div className="mb-1 text-[8px] uppercase tracking-wide text-[var(--color-faint)]">{dockCount} docked · click to undock</div>
       <div className="flex flex-wrap gap-1">
         {dockedTerms.flatMap((t) => (docked.get(t.id) ?? []).map((target) => (
           <button key={`${t.id}>${target}`} onClick={() => undock(t.id, target)} title={`${t.id} → ${target} · click to undock`}
             className="rounded bg-[var(--color-bg2)] px-1 font-mono text-[9px] text-[var(--color-link)] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{target.split(".")[1]}</button>
         )))}
-      </div>
-      <div style={{ height: 0, overflow: "hidden" }} aria-hidden>
-        {dockedTerms.map((t) => (
-          <Handle key={t.id} id={t.id} type={t.role === "out" ? "source" : "target"}
-            position={t.role === "out" ? Position.Right : Position.Left} style={{ width: 1, height: 1, opacity: 0 }} />
-        ))}
       </div>
     </div>
   ) : null;
@@ -177,6 +173,10 @@ function BlockNode(props: NodeProps) {
               />
               <span style={{ color: NET_COLOR[t.type] }}>●</span>
               <span className="font-mono text-[11px]">{t.id}</span>
+              {docked.has(t.id) && (
+                <span title={`docked → ${(docked.get(t.id) ?? []).map((d) => d.split(".")[1]).join(", ")}`}
+                  className="rounded bg-[#4c8dff1a] px-1 font-mono text-[8px] text-[var(--color-link)]">⊟{(docked.get(t.id) ?? []).length}</span>
+              )}
               <span className="ml-auto text-[9px] uppercase text-[var(--color-faint)]">{t.role}</span>
             </div>
           );
