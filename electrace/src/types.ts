@@ -150,7 +150,7 @@ export interface ConnectorInstance {
 export interface Design {
   id: string;
   name: string;
-  visibility?: "public" | "private";
+  visibility?: "public" | "unlisted" | "private"; // unlisted = link-shareable, not indexed (the free default)
   blocks: BlockInstance[];
   connections: Connection[];
   connectors?: ConnectorInstance[];

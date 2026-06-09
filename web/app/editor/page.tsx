@@ -13,7 +13,7 @@ export default async function EditorPage({ searchParams }: { searchParams: Promi
   const pid = (await searchParams)?.p;
   const projectId = typeof pid === "string" ? pid : undefined;
   const design: Design = projectId
-    ? { id: projectId, name: "Untitled project", visibility: "private", blocks: [], connections: [] }
+    ? { id: projectId, name: "Untitled project", visibility: "unlisted", blocks: [], connections: [] }
     : loadDesign("buck-supply");
   return <RequireAuth><Editor design={design} blocks={blocks} projectId={projectId} /></RequireAuth>;
 }

@@ -30,8 +30,11 @@ const readJson = <T,>(k: string): T | null => {
 };
 const metaOf = (id: string): ProjectMeta | undefined => (readJson<ProjectMeta[]>(INDEX) ?? []).find((p) => p.id === id);
 
-/** Push one design (graph + dashboard meta + any saved board) up to the account. */
-async function pushDesign(id: string): Promise<void> {
+/** Push one design (graph + dashboard meta + any saved board) up to the account.
+ *  Deliberately NEVER sends visibility — an autosave must not change how a design is shared
+ *  (and the local value is a stale stub artifact anyway). Visibility changes are an explicit
+ *  user action: the editor's Share dialog PATCHes it. */
+export async function pushDesignNow(id: string): Promise<void> {
   if (signedOut) return;
   const d = readJson<Design>(`electrace:design:${id}`);
   if (!d) return;
@@ -39,7 +42,7 @@ async function pushDesign(id: string): Promise<void> {
   const r = await api("/api/designs", {
     method: "POST",
     body: JSON.stringify({
-      id, name: d.name || m?.name, visibility: d.visibility,
+      id, name: d.name || m?.name,
       graph: d, pcb: readJson(`electrace:pcb:${id}`) ?? undefined,
       meta: { lint: m?.lint, starred: m?.starred, updatedAt: m?.updatedAt },
     }),
@@ -57,14 +60,14 @@ export function syncDesignKey(key: string, value: string | null): boolean {
   const dm = key.match(DESIGN_RE);
   if (dm) {
     if (value === null) void api(`/api/designs/${encodeURIComponent(dm[1])}`, { method: "DELETE" });
-    else void pushDesign(dm[1]);
+    else void pushDesignNow(dm[1]);
     return true;
   }
   const pm = key.match(PCB_RE);
   if (pm) {
     if (value !== null) {
       void api(`/api/designs/${encodeURIComponent(pm[1])}`, { method: "PATCH", body: JSON.stringify({ pcb: JSON.parse(value) }) })
-        .then((r) => { if (r?.status === 404) void pushDesign(pm[1]); }); // board saved before the design row — create it
+        .then((r) => { if (r?.status === 404) void pushDesignNow(pm[1]); }); // board saved before the design row — create it
     }
     return true;
   }
@@ -117,7 +120,7 @@ export async function reconcileDesigns(rawWrite: (k: string, v: string) => void)
 
   // import/push: local designs the account doesn't have yet (the pre-account work)
   const remoteIds = new Set(remote.map((d) => d.id));
-  for (const p of index) if (!remoteIds.has(p.id)) await pushDesign(p.id);
+  for (const p of index) if (!remoteIds.has(p.id)) await pushDesignNow(p.id);
 
   for (const p of localById.values()) lastIndex.set(p.id, p);
   return changed;

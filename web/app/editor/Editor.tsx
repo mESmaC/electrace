@@ -9,6 +9,7 @@ import { analyze, railBudgets, deriveBlockSchematic, designReport, flatten, toKi
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
+import { pushDesignNow } from "@/lib/designsSync";
 import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
@@ -74,6 +75,97 @@ function blockKind(block: Block): "IC" | "disc" | undefined {
   const parts = block.schematic?.parts;
   if (!parts?.length) return block.irreducible ? "IC" : undefined;
   return parts.some((p) => p.type === "ic" || p.type === "chip") || block.irreducible ? "IC" : "disc";
+}
+
+type Vis = "public" | "unlisted" | "private";
+const VIS_COPY: Record<Vis, { label: string; hint: string }> = {
+  public: { label: "Public", hint: "anyone can find and view it" },
+  unlisted: { label: "Unlisted", hint: "anyone with the link can view it" },
+  private: { label: "Private", hint: "only you can open it" },
+};
+
+/** The Share control: pick who can see this design (PATCHes the server — autosaves never touch
+ *  visibility) and copy the /share link. Only rendered for saved projects, which are the ones
+ *  that live in the account. */
+function ShareMenu({ designId }: { designId: string }) {
+  const [open, setOpen] = useState(false);
+  const [vis, setVis] = useState<Vis | null>(null); // null = cloud copy not reachable (signed out / offline)
+  const [pro, setPro] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const openMenu = async () => {
+    setOpen((o) => !o);
+    if (open) return;
+    setNote(null);
+    try {
+      const me = await fetch("/api/me").then((r) => r.json()).catch(() => ({ pro: false }));
+      setPro(!!me.pro);
+      let r = await fetch(`/api/designs/${encodeURIComponent(designId)}`);
+      if (r.status === 404) { await pushDesignNow(designId); r = await fetch(`/api/designs/${encodeURIComponent(designId)}`); }
+      if (r.ok) { const { design } = await r.json(); setVis(design.visibility as Vis); }
+      else setVis(null);
+    } catch { setVis(null); }
+  };
+
+  const choose = async (v: Vis) => {
+    if (busy || v === vis) return;
+    setBusy(true); setNote(null);
+    const r = await fetch(`/api/designs/${encodeURIComponent(designId)}`, {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ visibility: v }),
+    }).catch(() => null);
+    setBusy(false);
+    if (r?.ok) setVis(v);
+    else if (r?.status === 403) setNote("Private designs are part of Pro.");
+    else setNote("Couldn't update — try again in a moment.");
+  };
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(`${location.origin}/share/${designId}`); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
+  };
+
+  return (
+    <span className="relative">
+      <button onClick={openMenu} title="Who can see this design + the share link"
+        className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Share</button>
+      {open && (
+        <div className="absolute left-0 top-full z-30 mt-1.5 w-[260px] rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2.5 shadow-2xl">
+          {vis === null ? (
+            <p className="px-1 py-1 text-[11.5px] leading-relaxed text-[var(--color-faint)]">
+              Sharing needs the design in your account — sign in (and check your connection), then reopen this menu.
+            </p>
+          ) : (
+            <>
+              {(Object.keys(VIS_COPY) as Vis[]).map((v) => {
+                const locked = v === "private" && !pro;
+                return (
+                  <button key={v} onClick={() => !locked && choose(v)} disabled={busy || locked}
+                    className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left ${vis === v ? "bg-[#4c8dff1f]" : "hover:bg-[var(--color-surface-2)]"} ${locked ? "opacity-55" : ""}`}>
+                    <span className={`mt-0.5 text-[10px] ${vis === v ? "text-[#4c8dff]" : "text-[var(--color-faint)]"}`}>{vis === v ? "●" : "○"}</span>
+                    <span className="flex-1">
+                      <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-text)]">
+                        {VIS_COPY[v].label}
+                        {locked && <span className="rounded border border-[var(--color-border)] px-1 text-[8px] font-bold uppercase text-[var(--color-faint)]">Pro</span>}
+                      </span>
+                      <span className="block text-[10.5px] text-[var(--color-faint)]">{VIS_COPY[v].hint}</span>
+                    </span>
+                  </button>
+                );
+              })}
+              {note && <p className="px-2 pt-1 text-[10.5px] text-[#fbbf24]">{note}</p>}
+              {vis !== "private" && (
+                <button onClick={copy}
+                  className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 font-mono text-[10.5px] text-[var(--color-link)] hover:border-[#4c8dff]">
+                  {copied ? "Copied ✓" : `Copy link · /share/${designId.slice(0, 14)}…`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </span>
+  );
 }
 
 interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; [k: string]: unknown }
@@ -1071,6 +1163,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={exportDesign} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Export</button>
           <button onClick={downloadReport} title="Generate a Markdown design report" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
           <button onClick={downloadNetlist} title="Export a KiCad netlist (.net) of the whole stitched design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
+          {projectId && <ShareMenu designId={design.id} />}
           <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset schematics</button>
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
           {savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
