@@ -20,6 +20,9 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   const afterAuth = () => {
     const onboarded = (() => { try { return !!localStorage.getItem("electrace:onboarded"); } catch { return false; } })();
+    // Honor ?next= from the server-side auth gate, but only same-origin paths (no open redirect).
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) { router.push(next); return; }
     router.push(signup && !onboarded ? "/welcome" : "/projects");
   };
   const onEmail = async (ev: React.FormEvent) => {
