@@ -26,3 +26,4 @@ Thumbs.db
 
 # file-backed local store (web/.data)
 .data/
+.vercel
