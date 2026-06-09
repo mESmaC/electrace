@@ -5,6 +5,9 @@
 import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, CONNECTOR_CATALOG, connectorPart, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
 import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
+import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseConfigured } from "@/lib/supabase/config";
+import { canUseSparky } from "@/lib/entitlements";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
 const MAX_TURNS = 24; // big ports (e.g. an Arduino Nano: many blocks + wires) need more tool turns
@@ -513,6 +516,15 @@ const TOOLS = [
 export async function POST(req: Request) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return Response.json({ error: "ANTHROPIC_API_KEY is not set — add it to web/.env.local and restart the dev server." }, { status: 500 });
+
+  // Sparky is a paid (Pro) feature, and every call costs real Claude API spend — enforce the gate
+  // HERE so it can't be bypassed by hitting the endpoint directly (a hidden UI button isn't enough).
+  // When Supabase isn't configured (local dev with no auth backend) there's no identity to gate on.
+  if (supabaseConfigured) {
+    const { data: { user } } = await (await supabaseServer()).auth.getUser();
+    if (!user) return Response.json({ error: "Please sign in to use Sparky." }, { status: 401 });
+    if (!canUseSparky(user.email)) return Response.json({ error: "Sparky is a Pro feature — upgrade to let it build and explain your designs.", code: "upgrade" }, { status: 403 });
+  }
 
   let body: Payload;
   try { body = await req.json(); } catch { return Response.json({ error: "Bad request" }, { status: 400 }); }

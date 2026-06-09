@@ -44,6 +44,7 @@ export const PLANS: Plan[] = [
     highlight: true,
     featuresLead: "Everything in Hobby, plus:",
     features: [
+      "Sparky — the AI assistant that builds, wires, and explains your design",
       "Unlimited designs — no cap",
       "Private designs",
       "Manufacturing-grade export — Gerber, BOM, pick-and-place",
