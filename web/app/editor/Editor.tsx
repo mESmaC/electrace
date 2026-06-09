@@ -53,18 +53,21 @@ function BlockNode(props: NodeProps) {
   const nodes = useNodes();
   const connectorIds = useMemo(() => new Set(nodes.filter((n) => n.type === "connector").map((n) => n.id)), [nodes]);
   // terminal id → "J1.2" when it's docked onto a connector pin (a hidden edge to a connector node)
+  // a terminal can dock to SEVERAL connector pins (e.g. one GND/power terminal feeding multiple
+  // connectors) — collect every connector pin a terminal is wired to, not just the last.
   const docked = useMemo(() => {
-    const m = new Map<string, string>();
+    const m = new Map<string, string[]>();
+    const add = (term: string, target: string) => m.set(term, [...(m.get(term) ?? []), target]);
     for (const e of edges) {
-      if (e.source === instanceRef && e.sourceHandle && connectorIds.has(e.target)) m.set(e.sourceHandle, `${e.target}.${e.targetHandle}`);
-      else if (e.target === instanceRef && e.targetHandle && connectorIds.has(e.source)) m.set(e.targetHandle, `${e.source}.${e.sourceHandle}`);
+      if (e.source === instanceRef && e.sourceHandle && connectorIds.has(e.target)) add(e.sourceHandle, `${e.target}.${e.targetHandle}`);
+      else if (e.target === instanceRef && e.targetHandle && connectorIds.has(e.source)) add(e.targetHandle, `${e.source}.${e.sourceHandle}`);
     }
     return m;
   }, [edges, connectorIds, instanceRef]);
   const terminals = block.terminals.filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i);
   const free = terminals.filter((t) => !docked.has(t.id));
   const dockedTerms = terminals.filter((t) => docked.has(t.id));
-  const undock = (terminal: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal } }));
+  const undock = (terminal: string, target?: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal, target } }));
   const shadow = sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)";
 
   // hover-to-explain: a short delay, then a tooltip with the block's spec / I/O / inside / a key limit note
@@ -79,14 +82,15 @@ function BlockNode(props: NodeProps) {
 
   // docked terminals collapse to chips; their handles stay in the DOM (hidden) so the hidden
   // dock-edges remain valid. Click a chip to undock.
+  const dockCount = dockedTerms.reduce((n, t) => n + (docked.get(t.id)?.length ?? 0), 0);
   const dockedSection = dockedTerms.length > 0 ? (
     <div className="border-t border-dashed border-[var(--color-border)] px-3 py-1.5">
-      <div className="mb-1 text-[8px] uppercase tracking-wide text-[var(--color-faint)]">{dockedTerms.length} docked</div>
+      <div className="mb-1 text-[8px] uppercase tracking-wide text-[var(--color-faint)]">{dockCount} docked</div>
       <div className="flex flex-wrap gap-1">
-        {dockedTerms.map((t) => (
-          <button key={t.id} onClick={() => undock(t.id)} title={`${t.id} → ${docked.get(t.id)} · click to undock`}
-            className="rounded bg-[var(--color-bg2)] px-1 font-mono text-[9px] text-[var(--color-link)] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{docked.get(t.id)?.split(".")[1]}</button>
-        ))}
+        {dockedTerms.flatMap((t) => (docked.get(t.id) ?? []).map((target) => (
+          <button key={`${t.id}>${target}`} onClick={() => undock(t.id, target)} title={`${t.id} → ${target} · click to undock`}
+            className="rounded bg-[var(--color-bg2)] px-1 font-mono text-[9px] text-[var(--color-link)] hover:bg-[#4a2a2e] hover:text-[#e2837e]">{t.id}→{target.split(".")[1]}</button>
+        )))}
       </div>
       <div style={{ height: 0, overflow: "hidden" }} aria-hidden>
         {dockedTerms.map((t) => (
@@ -249,8 +253,12 @@ function ConnectorNode(props: NodeProps) {
           const d = dockOf.get(pin);
           return (
             <div key={pin} className="relative flex items-center gap-1.5 px-2.5" style={{ height: 17 }}>
+              {/* A connector pin has no inherent direction — render BOTH a source and a target handle (same
+                  id, same spot) so it can sit on either end of a connection (block out→pin, or pin→block in). */}
               <Handle id={pin} type="target" position={Position.Left}
                 style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, background: "#3c4658", border: `2px solid ${d ? "#4c8dff" : "#677494"}` }} />
+              <Handle id={pin} type="source" position={Position.Left}
+                style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, opacity: 0 }} />
               <span className="w-5 shrink-0 font-mono text-[9px] text-[var(--color-faint)]">{pin}</span>
               <span className="flex-1 truncate font-mono text-[9.5px]" style={{ color: d ? "#fff" : "#566177" }}>{d ?? "—"}</span>
             </div>
@@ -283,13 +291,24 @@ function buildFlow(design: Design, blockMap: Map<string, Block>): { nodes: Node[
   const nodes = [...blockNodes, ...connNodes];
   const connRefs = new Set(connNodes.map((n) => n.id));
   const refs = new Set(nodes.map((n) => n.id));
+  // Direction normalization. React Flow needs the source endpoint to have a source handle and the target
+  // a target handle. A block `out` terminal is source-only, an `in` is target-only, a connector pin is
+  // both. So orient each connection so it's renderable; otherwise React Flow drops the edge (error #008).
+  const termOf = (ref: string, term: string) => {
+    const key = design.blocks.find((b) => b.ref === ref)?.block;
+    return key ? blockMap.get(key)?.terminals.find((t) => t.id === term) : undefined;
+  };
+  const canSource = (ref: string, term: string) => connRefs.has(ref) || termOf(ref, term)?.role === "out";
+  const canTarget = (ref: string, term: string) => connRefs.has(ref) || termOf(ref, term)?.role === "in";
+  const ok = (sR: string, sT: string, dR: string, dT: string) => canSource(sR, sT) && canTarget(dR, dT);
   const edges: Edge[] = design.connections
     .filter((c) => refs.has(c.from.split(".")[0]) && refs.has(c.to.split(".")[0]))
     .map((c, i) => {
-      const [srcRef, srcTerm] = c.from.split(".");
-      const [dstRef, dstTerm] = c.to.split(".");
-      const srcKey = design.blocks.find((b) => b.ref === srcRef)?.block;
-      const type = (srcKey && blockMap.get(srcKey)?.terminals.find((t) => t.id === srcTerm)?.type) || "signal";
+      let [srcRef, srcTerm] = c.from.split(".");
+      let [dstRef, dstTerm] = c.to.split(".");
+      // if the stored direction isn't renderable but the reverse is, flip it (the net is the same)
+      if (!ok(srcRef, srcTerm, dstRef, dstTerm) && ok(dstRef, dstTerm, srcRef, srcTerm)) [srcRef, srcTerm, dstRef, dstTerm] = [dstRef, dstTerm, srcRef, srcTerm];
+      const type = termOf(srcRef, srcTerm)?.type ?? termOf(dstRef, dstTerm)?.type ?? "signal";
       const dock = connRefs.has(srcRef) || connRefs.has(dstRef); // dock edges are hidden (terminal lives on the connector)
       return { id: `e${i}`, source: srcRef, sourceHandle: srcTerm, target: dstRef, targetHandle: dstTerm, hidden: dock, style: { stroke: NET_COLOR[type] ?? "#4c8dff", strokeWidth: 2 } };
     });
@@ -558,8 +577,16 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // undock a terminal (from a block chip): drop the hidden dock edge for that block.terminal
   useEffect(() => {
     const onUndock = (e: Event) => {
-      const { block, terminal } = (e as CustomEvent).detail as { block: string; terminal: string };
-      setEdges((eds) => eds.filter((ed) => !((ed.source === block && ed.sourceHandle === terminal) || (ed.target === block && ed.targetHandle === terminal))));
+      const { block, terminal, target } = (e as CustomEvent).detail as { block: string; terminal: string; target?: string };
+      const [tRef, tPin] = target ? target.split(".") : [];
+      setEdges((eds) => eds.filter((ed) => {
+        const onTerm = (ed.source === block && ed.sourceHandle === terminal) || (ed.target === block && ed.targetHandle === terminal);
+        if (!onTerm) return true;
+        if (!target) return false; // no specific pin → undock the terminal entirely (back-compat)
+        // keep this terminal's dock edges to OTHER connector pins; drop only the one to `target`
+        const toTarget = (ed.source === tRef && ed.sourceHandle === tPin) || (ed.target === tRef && ed.targetHandle === tPin);
+        return !toTarget;
+      }));
     };
     window.addEventListener("electrace:undock", onUndock);
     return () => window.removeEventListener("electrace:undock", onUndock);
