@@ -5,6 +5,7 @@ category: digital
 author: electrace
 license: CC-BY-4.0
 glyph: "⊞"
+irreducible: true   # an MCU is a silicon primitive — there's no discrete equivalent to expand into
 spec:
   vdd: { value: 5.0, unit: V }
   i_typ: { value: 1.8, unit: A }

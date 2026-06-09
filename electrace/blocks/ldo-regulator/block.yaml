@@ -27,6 +27,22 @@ schematic:
     - { name: VIN,  connect: [U1.IN, Cin.1, "@vin"] }
     - { name: VOUT, connect: [U1.OUT, Cout.1, "@vout"] }
     - { name: GND,  connect: [U1.GND, Cin.2, Cout.2, "@gnd"] }
+# Discrete equivalent: a series-pass linear regulator. Exposes the same vin/gnd/vout terminals, so the
+# design's wiring is preserved — only the inside changes from one IC to a visible reference + pass element.
+discrete:
+  note: "A discrete series-pass linear regulator: a zener sets the reference and an NPN emitter-follower passes the load current (Vout ≈ Vz − Vbe). Same job as the LDO chip, with the reference and pass element now visible. A real LDO adds an error amplifier for tighter regulation and lower dropout — still linear (same efficiency), but you can see exactly what it's doing."
+  schematic:
+    parts:
+      - { ref: Q1,   type: npn,   part: BC547,   footprint: SOT-23,  why: "series pass element (emitter follower) — carries the load current; the emitter follows the base, one Vbe down" }
+      - { ref: D1,   type: zener, value: "3.9V",  footprint: SOD-123, why: "voltage reference — clamps the base near 3.9 V so the emitter sits at ~3.3 V" }
+      - { ref: R1,   type: res,   value: 1k,      footprint: R0603,   why: "biases current into the zener and the transistor base" }
+      - { ref: Cin,  type: cap,   value: 1uF,     footprint: C0603,   why: "input stability / local charge" }
+      - { ref: Cout, type: cap,   value: 10uF,    footprint: C0805,   why: "output stability + transient response" }
+    nets:
+      - { name: VIN,  connect: [Q1.C, R1.1, Cin.1, "@vin"] }
+      - { name: VREF, connect: [R1.2, D1.K, Q1.B] }
+      - { name: VOUT, connect: [Q1.E, Cout.1, "@vout"] }
+      - { name: GND,  connect: [D1.A, Cin.2, Cout.2, "@gnd"] }
 layout:
   symbols:
     - { id: P_vin,  type: port,      ref: vin,  x: 40,  y: 110, rot: 180 }
