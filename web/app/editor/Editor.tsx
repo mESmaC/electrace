@@ -34,10 +34,47 @@ const SEV_ICON: Record<Severity, string> = {
 const GLYPH_COLORS = ["#4c8dff", "#8b6cff", "#46dca6", "#f7b13c", "#ff6c9c", "#f87171", "#38bdf8", "#9aa3b5"];
 const glyphChip = (color?: string): React.CSSProperties => { const c = color || "#4c8dff"; return { color: c, borderColor: `${c}55`, background: `${c}26` }; };
 
-// Worst live-lint severity per placed block → a coloured ring + glow on the node, so clicking a finding
-// jumps to the block AND the block itself shows the problem (error = red, warn = amber). Provided around
-// the canvas so BlockNode can read it without threading severity through node data (which would loop).
-const BlockStatusContext = createContext<Map<string, "error" | "warn">>(new Map());
+// Live-lint status per placed block → a coloured ring + glow AND the on-card status chip, so clicking a
+// finding jumps to the block and the block itself shows the problem (error = red, warn = amber). Provided
+// around the canvas so BlockNode can read it without threading severity through node data (which would loop).
+interface BlockStatus { sev: "error" | "warn"; errors: number; warns: number }
+const BlockStatusContext = createContext<Map<string, BlockStatus>>(new Map());
+
+const STATUS_STYLE = {
+  error: { color: "#f87171", bg: "rgba(248,113,113,.14)", dot: "⬣" },
+  warn: { color: "#fbbf24", bg: "rgba(251,191,36,.14)", dot: "▲" },
+  ok: { color: "#34d399", bg: "rgba(52,211,153,.12)", dot: "●" },
+} as const;
+
+/** The on-card status chip: icon + color + TEXT (never color alone — design.md's colour-blind rule). */
+function StatusChip({ status, compact }: { status?: BlockStatus; compact?: boolean }) {
+  const s = STATUS_STYLE[status?.sev ?? "ok"];
+  const text = !status ? "OK"
+    : [status.errors ? `${status.errors} error${status.errors > 1 ? "s" : ""}` : "", status.warns ? `${status.warns} warning${status.warns > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+  return (
+    <span title={`Live checks: ${text}`} style={{ color: s.color, background: s.bg }}
+      className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 ${compact ? "py-0" : "py-px"} text-[8.5px] font-semibold`}>
+      <span className="text-[7px] leading-none">{s.dot}</span>{text}
+    </span>
+  );
+}
+
+/** The card's declared-spec one-liner: "9–18 V → 5 V · 3 A" for transforms, else the leading spec values. */
+function specLine(block: Block): string {
+  const s = block.spec ?? {};
+  const vin = fmtSpecVal(s.vin), vout = fmtSpecVal(s.vout), iout = fmtSpecVal(s.iout_max);
+  if (vin && vout) return `${vin} → ${vout}${iout ? ` · ${iout}` : ""}`;
+  const vals = Object.entries(s).flatMap(([k, v]) => { const t = fmtSpecVal(v); return t ? [`${k} ${t}`] : []; }).slice(0, 3);
+  return vals.join(" · ");
+}
+
+/** Discrete vs. IC at a glance (design.md): does this block's function hinge on a chip, or is it all
+ *  discrete parts you can point at? Undefined when the block has no parts to speak of. */
+function blockKind(block: Block): "IC" | "disc" | undefined {
+  const parts = block.schematic?.parts;
+  if (!parts?.length) return block.irreducible ? "IC" : undefined;
+  return parts.some((p) => p.type === "ic" || p.type === "chip") || block.irreducible ? "IC" : "disc";
+}
 
 interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; [k: string]: unknown }
 interface ConnectorNodeData { connectorId: string; ref: string; [k: string]: unknown }
@@ -77,7 +114,7 @@ function BlockNode(props: NodeProps) {
   const undock = (terminal: string, target?: string) => window.dispatchEvent(new CustomEvent("electrace:undock", { detail: { block: instanceRef, terminal, target } }));
   // a block with a live error/warning wears a coloured ring + glow (red/amber); selection adds a blue halo.
   const status = useContext(BlockStatusContext).get(instanceRef);
-  const statusColor = status === "error" ? "#f87171" : status === "warn" ? "#fbbf24" : undefined;
+  const statusColor = status?.sev === "error" ? "#f87171" : status?.sev === "warn" ? "#fbbf24" : undefined;
   const shadow = statusColor
     ? `0 0 0 2.5px ${statusColor}, 0 0 20px ${statusColor}b3${sel ? ", 0 0 0 5px rgba(76,141,255,.4)" : ""}, 0 10px 24px rgba(0,0,0,.5)`
     : sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 0 22px rgba(76,141,255,.6), 0 10px 24px rgba(0,0,0,.5)"
@@ -122,10 +159,12 @@ function BlockNode(props: NodeProps) {
       <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow, ...(statusColor ? { borderColor: statusColor } : {}) }} {...tipHandlers}
         className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface)] text-[var(--color-text)]`}>
         {tip}
-        <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center text-center">
+        <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center gap-0.5 text-center">
           <span className="text-base" style={block.glyphColor ? { color: block.glyphColor } : undefined}>{block.glyph ?? "▦"}</span>
           <span className="text-[11px] font-semibold leading-tight">{block.name}</span>
-          <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}</span>
+          <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}{blockKind(block) ? ` · ${blockKind(block)}` : ""}</span>
+          {specLine(block) && <span className="max-w-full truncate font-mono text-[9px] text-[var(--color-faint)]">{specLine(block)}</span>}
+          <StatusChip status={status} compact />
         </div>
         {order.map((side) => sides[side].map((t, i, arr) => {
           const pct = `${((i + 1) / (arr.length + 1)) * 100}%`;
@@ -163,9 +202,16 @@ function BlockNode(props: NodeProps) {
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
         <span className="grid h-6 w-6 place-items-center rounded-md border text-sm" style={glyphChip(block.glyphColor)}>{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
+        {blockKind(block) && (
+          <span title={blockKind(block) === "IC" ? "Built around a chip — drill in (or break into discrete) to see how it works" : "All discrete parts — every component is visible"}
+            className="rounded border border-[var(--color-border)] bg-[var(--color-bg2)] px-1 text-[8px] font-semibold uppercase tracking-wide text-[var(--color-faint)]">{blockKind(block)}</span>
+        )}
         <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}</span>
       </div>
-      <div className="px-3 pb-2 font-mono text-[11px] text-[var(--color-text)]">{block.topology ?? block.category ?? ""}</div>
+      <div className="flex items-center gap-2 px-3 pb-2">
+        <span title={specLine(block) || undefined} className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--color-text)]">{specLine(block) || block.topology || block.category || ""}</span>
+        <StatusChip status={status} />
+      </div>
       <div className="px-3 pb-2">
         <SchematicPreview blockId={block.id} layout={block.layout} />
       </div>
@@ -555,13 +601,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     for (const a of f.at) { const net = analysis.resolved.nets.find((n) => n.id === a); const pin = net?.sources[0] ?? net?.members[0]; if (pin) return pin.instance; }
     return undefined;
   };
-  // worst unacknowledged severity per block → the coloured ring the canvas draws (error wins over warn)
+  // unacknowledged findings per block → the coloured ring + the card's status chip (error wins over warn)
   const blockSeverity = useMemo(() => {
-    const m = new Map<string, "error" | "warn">();
+    const m = new Map<string, BlockStatus>();
     for (const f of analysis.findings) {
       if (f.acknowledged || (f.severity !== "error" && f.severity !== "warn")) continue;
       const blk = findingBlock(f);
-      if (blk && (f.severity === "error" || m.get(blk) !== "error")) m.set(blk, f.severity);
+      if (!blk) continue;
+      const cur = m.get(blk) ?? { sev: f.severity, errors: 0, warns: 0 };
+      if (f.severity === "error") { cur.errors++; cur.sev = "error"; }
+      else { cur.warns++; if (cur.sev !== "error") cur.sev = "warn"; }
+      m.set(blk, cur);
     }
     return m;
   // findingBlock closes over nodes + analysis; both are in the dep set already

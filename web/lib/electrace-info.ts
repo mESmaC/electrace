@@ -18,6 +18,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Import feedback:** importing a file that isn't a valid design now tells you so, instead of silently doing nothing.",
       "**Undo correctness:** undoing past a block edit no longer brings back the block's old terminal layout.",
       "**Junction taps stay connected:** a wire tapped onto another wire is now **bound to it** — drag the host wire's parts around or hit **Align** and the junction rides along, keeping the connection. Deleting the host wire leaves the tapped wire visibly floating instead of silently broken.",
+      "**Block cards tell you more at a glance:** every block on the canvas now shows its **declared-spec line** (e.g. `9–18 V → 5 V · 3 A`), a live **status chip** (green ● OK · amber ▲ warnings · red ⬣ errors, with counts) fed by the same checks as the Problems panel, and an **IC / DISC tag** so you can see which blocks are chip-based and which are fully discrete without opening them.",
     ],
   },
   {
