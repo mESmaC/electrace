@@ -70,15 +70,6 @@ export interface Schematic {
   nets: SchematicNet[];
 }
 
-/** An authored discrete-component equivalent of a reducible IC block — the same exposed terminals
- *  (`@vin`/`@gnd`/… refs unchanged, so all design wiring is preserved) realized from discrete parts
- *  instead of the IC. Expanding to it is for *understanding + implementation*, not production-optimal,
- *  hence `note` (the honesty/tradeoff line surfaced in the UI). */
-export interface DiscreteForm {
-  schematic: Schematic;        // discrete parts + nets, exposing the same @terminals as the IC form
-  layout?: SchematicLayout;    // optional drill-in layout for the discrete form
-  note?: string;               // honesty framing, e.g. "A discrete buck — efficiency varies, but every node is visible."
-}
 
 /** Marks a block that transforms power (regulator), for future input-current
  *  propagation: P_in = P_out / efficiency. */
@@ -104,9 +95,7 @@ export interface Block {
   transform?: Transform;
   schematic?: Schematic;
   layout?: SchematicLayout;  // the editable internal schematic: placed symbols + wires (one source for view + edit)
-  // ── expand-to-discrete ──
-  irreducible?: boolean;     // silicon IS the primitive (MCU/CPU/FPGA/large ASIC) — never offer expand
-  discrete?: DiscreteForm;   // authored discrete equivalent (same terminals); absent ⇒ no equivalent authored yet
+  irreducible?: boolean;     // silicon IS the primitive (MCU/CPU/FPGA) — a hint that it has no discrete reduction
   // explain.md is loaded alongside, not part of the manifest
 }
 
@@ -136,7 +125,6 @@ export interface TerminalOverride { i?: Range; v?: Range }
 export interface InstanceOverrides {
   terminals?: Record<string, TerminalOverride>;
   efficiency?: number;
-  discreteExpanded?: boolean; // this instance is showing its discrete equivalent (see Block.discrete)
 }
 
 export interface BlockInstance {

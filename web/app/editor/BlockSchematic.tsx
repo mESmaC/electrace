@@ -6,10 +6,11 @@ import {
 import { SYMBOLS, SYMBOL_GROUPS, renderChip, useSymbolStyle } from "./symbols";
 import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
+import DiscreteModal from "./DiscreteModal";
 import { track } from "@/lib/telemetry";
 import { saveUserBlock, isUserBlock, getUserBlocks } from "@/lib/userBlocks";
 import { confirmDialog } from "@/app/ui/dialog";
-import { deriveSchematicNets, schematicInsights, type InsightComponent, type SchematicLayout, type Terminal, type Block, type NetType } from "@electrace/core";
+import { deriveSchematicNets, schematicInsights, discreteEquivalentFor, type InsightComponent, type SchematicLayout, type Terminal, type Block, type NetType } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type Endpoint, type Sym, type Wire, type Model,
   isPin, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin, nearestWirePoint, wireAtPoint, pinAtCoord,
@@ -535,6 +536,12 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   const canRedo = hidx.current < hist.current.length - 1;
   const selSymIdsArr = selSymIds();
   const selSym = sel.size === 1 && selSymIdsArr.length === 1 ? model.syms.find((s) => s.id === selSymIdsArr[0]) : undefined;
+  // Break-into-discrete: if the selected symbol is a SUPPORTED IC (its part has a discrete equivalent in
+  // the standard library), offer to view it as discrete components. Map symbol → part id via the block's
+  // schematic (ref→part), falling back to a chip's mpn. Only supported parts can be reduced.
+  const selPartId = selSym ? (block?.schematic?.parts?.find((p) => p.ref === selSym.ref)?.part ?? selSym.chip?.mpn) : undefined;
+  const discreteEq = discreteEquivalentFor(selPartId);
+  const [showDiscrete, setShowDiscrete] = useState(false);
   const updateSel = (patch: Partial<Sym>) => setModel((m) => ({ ...m, syms: m.syms.map((s) => (s.id === selSym?.id ? { ...s, ...patch } : s)) }));
   const updateChip = (patch: Partial<ChipSpec>) => {
     if (patch.mpn != null && selSym) track({ kind: "mpn.enter", block: blockId, sym: selSym.id, mpn: patch.mpn });
@@ -996,6 +1003,14 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
               </div>
             )}
             {!(sel.size > 1 || selSym) && <p className="text-[11px] text-[var(--color-border-strong)]">Select a symbol or wire to inspect it.</p>}
+            {selSym && discreteEq && (
+              <div className="rounded-lg border border-[#8b6cff]/30 bg-[#8b6cff]/[0.06] p-2.5">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#a98bff]">Supported IC</h3>
+                <p className="mt-1 text-[11px] leading-snug text-[var(--color-dim)]">{selSym.ref} can be shown as discrete components — a {discreteEq.name.replace(/^.*— /, "").toLowerCase()}.</p>
+                <button onClick={() => setShowDiscrete(true)}
+                  className="mt-2 w-full rounded-md border border-[#8b6cff]/50 bg-[#8b6cff]/15 py-1.5 text-[11px] font-semibold text-[#a98bff] transition hover:bg-[#8b6cff]/25">◆ Break into discrete</button>
+              </div>
+            )}
             {sel.size > 1 && (
               <div>
                 <h3 className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">{sel.size} selected</h3>
@@ -1147,6 +1162,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
           </div>
         )}
       </div>
+
+      {/* break-into-discrete: read-only view of a supported IC as discrete components */}
+      {showDiscrete && discreteEq && <DiscreteModal eq={discreteEq} partRef={selSym?.ref} onClose={() => setShowDiscrete(false)} />}
     </div>
   );
 }

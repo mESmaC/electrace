@@ -34,6 +34,8 @@ export { toKicadPcb } from "./export-kicad-pcb.js";
 export type { KicadPcbInput, KicadComp, KicadPad, KicadTrace, KicadVia, KicadBoard } from "./export-kicad-pcb.js";
 export { parseKicadFootprint } from "./kicad-footprint.js";
 export type { ParsedFootprint } from "./kicad-footprint.js";
+export { DISCRETE_LIBRARY, discreteEquivalentFor } from "./discrete.js";
+export type { DiscreteEquivalent } from "./discrete.js";
 export type { Footprint, LandPad } from "./footprints.js";
 
 import type { Block, Design, ResolvedDesign, Finding, BomRow } from "./types.js";

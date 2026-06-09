@@ -14,13 +14,7 @@ function applyOverrides(block: Block, ov: InstanceOverrides): Block {
   const transform = ov.efficiency != null && block.transform
     ? { ...block.transform, efficiency: ov.efficiency }
     : block.transform;
-  // Expand-to-discrete: swap the internal schematic (and drill-in layout) for the authored discrete
-  // equivalent. The terminals are unchanged, so every design-level connection is preserved automatically
-  // and flatten()/bom()/lint() all see the discrete parts instead of the IC.
-  const discrete = ov.discreteExpanded && block.discrete ? block.discrete : null;
-  const schematic = discrete ? discrete.schematic : block.schematic;
-  const layout = discrete ? discrete.layout : block.layout;
-  return { ...block, terminals, transform, schematic, layout };
+  return { ...block, terminals, transform };
 }
 
 /** Net type by precedence across its members. */

@@ -12,7 +12,6 @@ import { onHydrated } from "@/lib/serverSync";
 import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
-import DiscreteModal from "./DiscreteModal";
 import { modelToLayout, layoutToModel } from "./schematic-model";
 import { track } from "@/lib/telemetry";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
@@ -151,12 +150,6 @@ function BlockNode(props: NodeProps) {
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
         <span className="grid h-6 w-6 place-items-center rounded-md border text-sm" style={glyphChip(block.glyphColor)}>{block.glyph ?? "▦"}</span>
         <span className="flex-1 text-[13px] font-semibold">{block.name}</span>
-        {/* break-into-discrete affordance — only on reducible blocks (those with an authored equivalent) */}
-        {block.discrete && (
-          <button onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("electrace:discrete", { detail: { ref: instanceRef } })); }}
-            title="See this IC built from discrete components"
-            className="nodrag rounded border border-[#8b6cff]/40 bg-[#8b6cff]/10 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-[#a98bff] transition hover:bg-[#8b6cff]/20">◆ discrete</button>
-        )}
         <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}</span>
       </div>
       <div className="px-3 pb-2 font-mono text-[11px] text-[var(--color-text)]">{block.topology ?? block.category ?? ""}</div>
@@ -415,21 +408,6 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     [setNodes],
   );
 
-  // Break-into-discrete: a read-only modal showing a supported IC block built from discrete components
-  // (drawn schematic + parts + how it works). Does NOT change the design — an in-place swap comes later.
-  const [discreteBlock, setDiscreteBlock] = useState<Block | null>(null);
-  const openDiscrete = useCallback((ref: string) => {
-    const n = nodes.find((x) => x.id === ref);
-    const b = n && (n.data as BlockNodeData).block;
-    if (b?.discrete) setDiscreteBlock(b);
-  }, [nodes]);
-  // the node's "◆ discrete" chip dispatches this; the context menu calls openDiscrete directly
-  useEffect(() => {
-    const onOpen = (e: Event) => { const ref = (e as CustomEvent).detail?.ref; if (ref) openDiscrete(ref); };
-    window.addEventListener("electrace:discrete", onOpen);
-    return () => window.removeEventListener("electrace:discrete", onOpen);
-  }, [openDiscrete]);
-
   // Mark a correct-but-noisy finding as intended (or un-mark): mutes it + drops it from the counts.
   const toggleAck = useCallback(async (f: Finding) => {
     const k = findingKey(f);
@@ -626,22 +604,15 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // themed right-click menus: on a node (open / duplicate / delete) and on empty canvas (fit / clear)
   const onNodeContextMenu = useCallback((e: ReactMouseEvent, n: Node) => {
     setSelectedId(n.id); setSelectedNet(null);
-    if (n.type === "block") {
-      const data = n.data as BlockNodeData;
-      openContextMenu(e, [
-        { label: "Open block", icon: "⌖", onSelect: () => setDrillRef(n.id) },
-        // Only reducible blocks (an authored discrete equivalent exists) offer the discrete view.
-        ...(data.block.discrete
-          ? [{ label: "Break into discrete", icon: "◆", onSelect: () => openDiscrete(n.id) }]
-          : []),
-        { label: "Duplicate", icon: "⧉", onSelect: () => duplicateNode(n.id) },
-        { separator: true },
-        { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
-      ]);
-    } else {
-      openContextMenu(e, [{ label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) }]);
-    }
-  }, [duplicateNode, deleteNode, openDiscrete]);
+    openContextMenu(e, n.type === "block"
+      ? [
+          { label: "Open block", icon: "⌖", onSelect: () => setDrillRef(n.id) },
+          { label: "Duplicate", icon: "⧉", onSelect: () => duplicateNode(n.id) },
+          { separator: true },
+          { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
+        ]
+      : [{ label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) }]);
+  }, [duplicateNode, deleteNode]);
   const onPaneContextMenu = useCallback((e: MouseEvent | ReactMouseEvent) => {
     openContextMenu(e as ReactMouseEvent, [
       { label: "Fit to view", icon: "⤢", onSelect: () => rfRef.current?.fitView({ duration: 200 }) },
@@ -1267,9 +1238,6 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           </div>
         </div>
       )}
-
-      {/* break-into-discrete: read-only look at a supported IC as discrete components */}
-      {discreteBlock && <DiscreteModal block={discreteBlock} onClose={() => setDiscreteBlock(null)} />}
     </div>
   );
 }
