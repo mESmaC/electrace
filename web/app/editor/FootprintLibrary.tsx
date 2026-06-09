@@ -60,6 +60,17 @@ export default function FootprintLibrary({ onClose, assignTo, currentId, onAssig
         </div>
 
         <div className="overflow-auto p-5">
+          {/* tell the user how to assign, since 'Use' only appears once a part is selected */}
+          {assignTo ? (
+            <div className="mb-3 rounded-lg border px-3 py-2 text-[12.5px]" style={{ background: "color-mix(in srgb, var(--color-accent) 10%, transparent)", borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>
+              Click a footprint to assign it to <b className="font-semibold">{assignTo}</b>.
+            </div>
+          ) : fps.length > 0 ? (
+            <div className="mb-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-dim">
+              💡 To <b className="font-semibold text-text">assign</b> a footprint to a part: close this, click the part on the board, then reopen <b className="font-semibold text-text">Footprints</b>.
+            </div>
+          ) : null}
+
           {fps.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
               <div className="text-[14px] font-semibold text-text">No footprints yet</div>
@@ -67,21 +78,23 @@ export default function FootprintLibrary({ onClose, assignTo, currentId, onAssig
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {fps.map((f: StoredFootprint) => (
-                <div key={f.id} className={`group flex items-center gap-3 rounded-xl border bg-surface-2 p-3 ${currentId === f.id ? "border-accent" : "border-border"}`}>
-                  <div className="grid h-[72px] w-[72px] shrink-0 place-items-center rounded-lg border border-border bg-bg">
-                    <FootprintPreview footprint={f.footprint} />
+              {fps.map((f: StoredFootprint) => {
+                const assignable = !!(assignTo && onAssign);
+                return (
+                  <div key={f.id} onClick={assignable ? () => onAssign!(f.id) : undefined}
+                    className={`group flex items-center gap-3 rounded-xl border bg-surface-2 p-3 ${currentId === f.id ? "border-accent" : "border-border"} ${assignable ? "cursor-pointer hover:border-accent" : ""}`}>
+                    <div className="grid h-[72px] w-[72px] shrink-0 place-items-center rounded-lg border border-border bg-bg">
+                      <FootprintPreview footprint={f.footprint} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-semibold text-text">{f.name}{currentId === f.id && <span className="ml-1.5 text-[10px] text-accent">● assigned</span>}</div>
+                      <div className="mt-0.5 text-[11.5px] text-faint">{f.footprint.pads.length} pads · {f.footprint.kind.toUpperCase()} · {f.footprint.w}×{f.footprint.h} mm</div>
+                    </div>
+                    {assignable && <span className="rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white opacity-0 transition group-hover:opacity-100">Use</span>}
+                    <button onClick={(e) => { e.stopPropagation(); removeFootprint(f.id); }} title="Remove from library" className="text-faint opacity-0 transition hover:text-[#e2837e] group-hover:opacity-100">🗑</button>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-semibold text-text">{f.name}{currentId === f.id && <span className="ml-1.5 text-[10px] text-accent">● assigned</span>}</div>
-                    <div className="mt-0.5 text-[11.5px] text-faint">{f.footprint.pads.length} pads · {f.footprint.kind.toUpperCase()} · {f.footprint.w}×{f.footprint.h} mm</div>
-                  </div>
-                  {assignTo && onAssign && (
-                    <button onClick={() => onAssign(f.id)} className="rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white transition hover:bg-accent-hi">Use</button>
-                  )}
-                  <button onClick={() => removeFootprint(f.id)} title="Remove from library" className="text-faint opacity-0 transition hover:text-[#e2837e] group-hover:opacity-100">🗑</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
