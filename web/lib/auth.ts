@@ -58,6 +58,20 @@ export async function oauthSignIn(provider: "github" | "google"): Promise<{ erro
   return error ? { error: error.message } : {};
 }
 
+/** Email a password-recovery link; the link lands on /auth/callback → /reset-password with a session. */
+export async function requestPasswordReset(email: string): Promise<{ error?: string }> {
+  if (!supabaseConfigured) return { error: "Password reset isn't available in local mode." };
+  const { error } = await supabaseBrowser().auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/auth/callback?next=/reset-password` });
+  return error ? { error: error.message } : {};
+}
+
+/** Set a new password (requires a session — normally the one the recovery link just created). */
+export async function updatePassword(password: string): Promise<{ error?: string }> {
+  if (!supabaseConfigured) return { error: "Password reset isn't available in local mode." };
+  const { error } = await supabaseBrowser().auth.updateUser({ password });
+  return error ? { error: error.message } : {};
+}
+
 /** Subscribe to the current user. `mounted` flips true only once auth state is known (so guards don't
  *  redirect before the session resolves). Works for both Supabase and the local fallback. */
 export function useProfile(): { profile: Profile | null; mounted: boolean } {

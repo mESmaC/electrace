@@ -11,6 +11,8 @@
 // Cross-device live-merge of a key edited in two places is intentionally out of scope for this
 // interim — that's what the Supabase/Drizzle layer in storage.md is for.
 
+import { syncDesignKey } from "./designsSync";
+
 const PREFIX = "electrace:";
 const ENDPOINT = "/api/store";
 const HYDRATED_EVENT = "electrace:hydrated";
@@ -40,14 +42,28 @@ const pending = new Map<string, string | null>();
 function push(key: string, value: string | null): void {
   clearTimeout(timers[key]);
   // page going away (editors flush their saves on pagehide) → no time left to debounce
-  if (typeof document !== "undefined" && document.visibilityState === "hidden") { pending.delete(key); send(key, value); return; }
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+    pending.delete(key);
+    if (!syncDesignKey(key, value)) send(key, value);
+    return;
+  }
   pending.set(key, value);
-  timers[key] = setTimeout(() => { pending.delete(key); send(key, value); }, 500);
+  timers[key] = setTimeout(() => {
+    pending.delete(key);
+    // designs have a real home (/api/designs, Postgres + RLS) — route them there; everything
+    // else keeps flowing to the interim kv mirror
+    if (!syncDesignKey(key, value)) send(key, value);
+  }, 500);
 }
 
 function flushPending(): void {
-  for (const [key, value] of pending) { clearTimeout(timers[key]); send(key, value); }
+  for (const [key, value] of pending) { clearTimeout(timers[key]); if (!syncDesignKey(key, value)) send(key, value); }
   pending.clear();
+}
+
+/** Write WITHOUT mirroring (reconcile/hydration paths — server data must not echo back up). */
+export function rawWrite(key: string, value: string): void {
+  try { (origSet ?? window.localStorage.setItem.bind(window.localStorage))(key, value); } catch { /* quota */ }
 }
 
 /** Wrap localStorage so electrace:* writes mirror to the server. Idempotent + SSR-safe. */

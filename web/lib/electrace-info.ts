@@ -20,6 +20,8 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Junction taps stay connected:** a wire tapped onto another wire is now **bound to it** — drag the host wire's parts around or hit **Align** and the junction rides along, keeping the connection. Deleting the host wire leaves the tapped wire visibly floating instead of silently broken.",
       "**Block cards tell you more at a glance:** every block on the canvas now shows its **declared-spec line** (e.g. `9–18 V → 5 V · 3 A`), a live **status chip** (green ● OK · amber ▲ warnings · red ⬣ errors, with counts) fed by the same checks as the Problems panel, and an **IC / DISC tag** so you can see which blocks are chip-based and which are fully discrete without opening them.",
       "**Find blocks by spec, not name:** the palette has a **spec-search box** — type the need (`18V → 5V at 3A`, `12 to 3.3v 500ma`, or just `buck`) and it filters to blocks whose **declared specs** actually satisfy it. Matching is on authored numbers only — a block missing a declaration can't sneak in, and every match can explain exactly why it fits. Sparky got the same power: ask it to \"drop 18 V to 5 V at 3 A\" and it searches by spec instead of guessing.",
+      "**Designs live in your account:** signed-in designs now save to **real cloud storage** — your projects (schematic *and* board layout) follow you across devices, work you made before signing up is **imported automatically** on your next visit, and your browser stays a fast offline cache. Private designs are enforced down at the database layer, not just in the UI.",
+      "**Forgot your password?** The login page's *Forgot?* link now works — request a reset email and choose a new password.",
     ],
   },
   {

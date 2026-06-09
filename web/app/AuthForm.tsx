@@ -72,7 +72,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} type="text" placeholder="Cameron Emery" className="w-full bg-transparent py-3 text-[14.5px] text-text outline-none placeholder:text-faint" /></Field>
               )}
               <Field label="Email"><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="you@email.com" className="w-full bg-transparent py-3 text-[14.5px] text-text outline-none placeholder:text-faint" /></Field>
-              <Field label="Password" right={!signup ? <span className="text-[12px] font-semibold text-accent">Forgot?</span> : undefined}>
+              <Field label="Password" right={!signup ? <Link href="/forgot-password" className="text-[12px] font-semibold text-accent hover:underline">Forgot?</Link> : undefined}>
                 <input value={password} onChange={(e) => setPassword(e.target.value)} type={showPw ? "text" : "password"} required minLength={6} placeholder="••••••••" className="w-full bg-transparent py-3 text-[14.5px] text-text outline-none placeholder:text-faint" />
                 <button type="button" onClick={() => setShowPw((s) => !s)} className="text-faint" title="Show password">👁</button>
               </Field>

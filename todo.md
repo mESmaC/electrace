@@ -74,7 +74,7 @@ PCB is far more complete than pcb.md's "next phase" framing (placement, routing,
   - [ ] **Footprint storage = server-side** ✅ done (`/api/footprints` → `web/.data`), the shared-registry shape. Future: a curated standard set + per-user scoping when accounts land.
   - [ ] **IPC-7351 generation** for the common families (chip/SOIC/SOT/QFP/QFN/headers) to replace the rough procedural geometry — the generated-but-standard half of the hybrid. *(L.)*
 - [ ] **Gerber + drill (Excellon) export** — only KiCad `.kicad_pcb` is wired. KiCad is a fine interim handoff, but Gerber/drill are explicitly named. *(pcb.md; M–L)*
-- [ ] **PCB layout persisted with the design record** (currently `localStorage:electrace:pcb:${id}`) — folds into the backend phase (§4). *(pcb.md; M)*
+- [x] **PCB layout persisted with the design record** — ✅ 2026-06-09: `designs.pcb` JSONB column, synced with the design.
 
 ---
 
@@ -83,13 +83,13 @@ PCB is far more complete than pcb.md's "next phase" framing (placement, routing,
 Known-deferred, grouped so they aren't mistaken for oversights. This is the big "provision Supabase" milestone (DATABASE_URL + keys is the human step).
 
 **Storage & accounts**
-- [ ] Supabase + Drizzle + Postgres schema (`web/db/schema.ts`) — none exists today. *(storage.md; L)*
+- [x] Supabase + Drizzle + Postgres schema (`web/db/schema.ts`) — ✅ 2026-06-09: users + designs (P1 scope), migration in `web/db/migrations/0001_init.sql` **(human step: paste into the Supabase SQL editor, or set DATABASE_URL and `npx drizzle-kit push`)**.
 - [x] Real auth — ✅ shipped 2026-06-08 via **Supabase** (not Auth.js): email/password with confirmation + GitHub/Google OAuth, cross-device sessions, app routes require sign-in. Pricing page + tier UI shipped too; entitlements are an email-allowlist interim (`web/lib/entitlements.ts`) until billing lands.
-- [ ] `/forgot-password`, `/reset-password`, `/verify-email` routes. *(views.md; M)*
-- [ ] Ownership + RLS (`public OR owner = auth.uid()`); **enforce** `visibility` (public/private/unlisted) — the field is set but read by nothing; private-requires-Pro paywall/quota. *(storage.md; M–L)*
-- [ ] `/api/designs` CRUD + fork + public-by-slug SSG share view (`/app/share/[id]`); projects are localStorage-only today. *(storage.md, views.md; L)*
+- [x] `/forgot-password` + `/reset-password` — ✅ 2026-06-09 (login's Forgot? link wired; recovery flows through /auth/callback). `/verify-email` not needed as a route — Supabase confirmation lands on /auth/callback directly.
+- [x] Ownership + RLS + visibility enforcement — ✅ 2026-06-09: RLS policies in the migration enforce `public/unlisted OR owner = auth.uid()` and **private-requires-Pro in Postgres itself**; the free 10-design cap is enforced in the API route.
+- [x] `/api/designs` CRUD — ✅ 2026-06-09 (list/upsert/get/patch/delete; queries run AS the user so RLS enforces). Still open: fork endpoint + the public-by-slug SSG share view.
 - [ ] Telemetry ingestion `/api/events` + `events` table + consent→`users.settings` (client capture already exists, buffers locally). *(storage.md; M)*
-- [ ] localStorage→account import on first sign-in. *(storage.md; S once accounts exist)*
+- [x] localStorage→account import — ✅ 2026-06-09: `reconcileDesigns()` merges both directions on startup (newer updatedAt wins); pre-account local work is pushed up automatically.
 - [ ] `design_revisions` history (spec tags P3). *(storage.md; M)*
 
 **Registry & publishing**
