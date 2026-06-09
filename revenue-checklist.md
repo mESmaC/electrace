@@ -94,9 +94,10 @@ application prerequisite.
 - [ ] Every block ships with: filled internals, explanation prose, a failure-mode note,
       and a discrete equivalent where reducible (each block = product content + SEO
       page + expand-to-discrete demo, all at once)
-- [ ] Execute the domain-recategorization checklist
-      ([domain-reputation.md](domain-reputation.md)) — FortiGuard et al. blocking
-      electrace.net throttles every channel including ads
+- [x] ~~Execute the domain-recategorization checklist~~ — ✅ the observed blocker is clear:
+      FortiGuard recategorization submitted + confirmed open, mail records (SPF/DKIM/DMARC)
+      in DNS (2026-06-09). Remaining vendors in [domain-reputation.md](domain-reputation.md) §1
+      are opportunistic; the NRD window also ages out ~2026-07-07 on its own
 
 ## Phase E — Launch ops + paid channels
 

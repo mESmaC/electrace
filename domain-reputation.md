@@ -20,7 +20,7 @@ For each vendor: look up `electrace.net`, then **request review / suggest catego
 
 | Vendor | Filters it powers | Where to submit | Done |
 |---|---|---|---|
-| **Fortinet FortiGuard** | FortiGate firewalls, FortiGuard SDNS | fortiguard.com/webfilter → URL lookup → *Request Review* | [ ] |
+| **Fortinet FortiGuard** | FortiGate firewalls, FortiGuard SDNS | fortiguard.com/webfilter → URL lookup → *Request Review* | [x] ✅ submitted + **confirmed unblocked 2026-06-09** |
 | **Cisco Talos** | Cisco Secure Firewall, email/web reputation | talosintelligence.com/reputation_center → search → *Submit a Dispute* | [ ] |
 | **Cisco Umbrella / OpenDNS** | Umbrella DNS filtering | domain.opendns.com (or Umbrella console) → category request | [ ] |
 | **Palo Alto Networks** | PAN-OS, Prisma Access | urlfiltering.paloaltonetworks.com → *Test A Site* → *Request Change* | [ ] |
@@ -42,9 +42,7 @@ For each vendor: look up `electrace.net`, then **request review / suggest catego
   business (done 2026-06-08).
 - [ ] **WHOIS**: keep a consistent, real registrant/org (US Nylon). Brand-new + fully privacy-proxied
   reads as higher-risk to some heuristics; a visible org or at least consistent data helps.
-- [ ] **Email auth records even though we don't send much mail yet** — publish **SPF**
-  (`v=spf1 -all` if not sending), **DKIM**, and a **DMARC** record (`v=DMARC1; p=reject; …`).
-  A newly registered domain with no email authentication is an abuse signal to several filters.
+- [x] **Email auth records** — ✅ done 2026-06-09: mail records (SPF/DKIM/DMARC) added to DNS.
 - [ ] **Confirm not on spam/abuse blocklists** — Spamhaus DBL, SURBL, URIBL.
 - [ ] **Let it age + accrue real traffic** — newly-registered-domain blocks expire on their own over
   days–weeks; the submissions above just accelerate it.
@@ -53,6 +51,11 @@ For each vendor: look up `electrace.net`, then **request review / suggest catego
 
 ## 3. Status log
 
+- **2026-06-09** — **FortiGuard recategorization submitted and confirmed open** (the vendor that
+  actually block-paged us). Mail auth records (SPF/DKIM/DMARC) added to DNS. Remaining §1 vendors
+  (Talos, Umbrella, Palo Alto, Zscaler, Blue Coat, Forcepoint, McAfee + the two confirm-only checks)
+  not yet submitted — lower urgency now that the observed blocker is clear, and the NRD window ages
+  out ~2026-07-07 anyway; knock them out opportunistically before education/corporate outreach.
 - **2026-06-08** — FortiGuard SDNS blocking `electrace.net` (newly registered / unrated). Identified via
   the served cert (`O=Fortinet, CN=Fortiguard SDNS Blocked Page`). Real Vercel deployment confirmed
   healthy (Google Trust Services `*.vercel.app` cert, app serving normally). Submissions pending — see §1.
