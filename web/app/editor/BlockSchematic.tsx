@@ -664,7 +664,21 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       b: toSchEndpoint(model.syms, w.b, `${w.id}:b`),
     }));
     const twoPin = model.syms.filter((s) => symDims(s)?.pins.length === 2).map((s) => s.id);
-    const nets = deriveSchematicNets([...conns, ...tapConns], twoPin);
+    // name taps: net labels / power flags / ports / grounds that share a name are one net even with no
+    // wire between them (KiCad power-flag semantics) — link their pins so colouring reflects the merge.
+    // Mirrors deriveBlockSchematic's marker naming so the live picture matches the analysed netlist.
+    const nameOf = (s: Sym): string | null =>
+      s.type === "port" ? (s.ref ?? null)
+        : s.type === "ground" ? "GND"
+        : s.type === "vcc" ? (s.ref || "VCC")
+        : s.type === "netlabel" ? (s.ref || "NET")
+        : s.type === "offboard" ? (s.ref || "EXT")
+        : null;
+    const byName = new Map<string, string[]>();
+    for (const s of model.syms) { const nm = nameOf(s); if (nm) (byName.get(nm) ?? byName.set(nm, []).get(nm)!).push(s.id); }
+    const nameConns = [...byName.values()].flatMap((ids) =>
+      ids.slice(1).map((id, i) => ({ id: `name:${ids[0]}:${id}:${i}`, a: { kind: "pin" as const, sym: ids[0], pin: "1" }, b: { kind: "pin" as const, sym: id, pin: "1" } })));
+    const nets = deriveSchematicNets([...conns, ...tapConns, ...nameConns], twoPin);
     const wireState = (w: Wire): WireState => {
       const ea = toSchEndpoint(model.syms, w.a, `${w.id}:a`), eb = toSchEndpoint(model.syms, w.b, `${w.id}:b`);
       if (ea.kind === "broken" || eb.kind === "broken") return "error";
@@ -1097,9 +1111,14 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
             {selSym && selSym.type !== "port" && !selSym.chip && (
               <div>
                 <h3 className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">{SYMBOLS[selSym.type]?.label}</h3>
-                <label className="mt-2 block text-[11px] text-[var(--color-text)]">Ref
+                {(() => { const isNetMarker = selSym.type === "netlabel" || selSym.type === "vcc" || selSym.type === "offboard"; return (
+                <label className="mt-2 block text-[11px] text-[var(--color-text)]">{isNetMarker ? "Net name" : "Ref"}
                   <input value={selSym.ref ?? ""} onChange={(e) => updateSel({ ref: e.target.value })}
-                    className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" /></label>
+                    placeholder={isNetMarker ? "+5V, +3V3, GND…" : undefined}
+                    className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-border-strong)] focus:border-[#4c8dff]" />
+                  {selSym.type === "netlabel" && <span className="mt-1 block text-[10px] leading-snug text-[var(--color-border-strong)]">Every net label, port, or power symbol with this same name is one net — no wire needed.</span>}
+                </label>
+                ); })()}
                 <label className="mt-2 block text-[11px] text-[var(--color-text)]">Value
                   <input value={selSym.value ?? ""} onChange={(e) => updateSel({ value: e.target.value })}
                     className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" /></label>

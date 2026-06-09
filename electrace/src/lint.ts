@@ -1,6 +1,6 @@
 import { rmax } from "./types.js";
 import { CONNECTOR_CATALOG } from "./connectors.js";
-import type { Finding, ResolvedDesign, Rule, Range } from "./types.js";
+import type { Finding, ResolvedDesign, ResolvedNet, ResolvedPin, Rule, Range } from "./types.js";
 
 // ── Faults (deterministic arithmetic / threshold) ──────────────────────────
 
@@ -169,6 +169,50 @@ const polarityConflict: Rule = (rd) =>
     return [];
   });
 
+/** A block whose OWN terminals are shorted together inside it — the internal schematic ties two
+ *  exposed terminals of incompatible declared voltage (a 5 V rail to a 3.3 V rail) or a rail to ground
+ *  onto one net. Resolve's intra-block equivalence then collapses those rails across the whole design,
+ *  which surfaces downstream as phantom over-voltage / multiple-driver / polarity findings on the user's
+ *  wiring. This points at the actual cause — the block — so those symptoms make sense. Usually a
+ *  hollow/auto-generated block with an invalid internal net. */
+/** Find every net where one instance shorts two of its own incompatible terminals together. Shared by
+ *  the `internalShort` rule (to report it) and by `lint()` (to suppress the phantom symptoms it causes). */
+function internalShorts(rd: ResolvedDesign): { net: ResolvedNet; inst: string; a: ResolvedPin; b: ResolvedPin }[] {
+  const out: { net: ResolvedNet; inst: string; a: ResolvedPin; b: ResolvedPin }[] = [];
+  for (const net of rd.nets) {
+    const byInst = new Map<string, ResolvedPin[]>();
+    for (const p of net.members) {
+      const g = byInst.get(p.instance);
+      if (g) g.push(p); else byInst.set(p.instance, [p]);
+    }
+    for (const [inst, pins] of byInst) {
+      if (pins.length < 2) continue;
+      for (let i = 0; i < pins.length; i++)
+        for (let j = i + 1; j < pins.length; j++) {
+          const a = pins[i], b = pins[j];
+          const va = rmax(a.def.v), vb = rmax(b.def.v);
+          const vClash = va != null && vb != null && Math.abs(va - vb) > 1e-9;
+          const gndA = a.def.type === "gnd", gndB = b.def.type === "gnd";
+          const hotA = a.def.type === "power" || a.def.type === "rail";
+          const hotB = b.def.type === "power" || b.def.type === "rail";
+          if (vClash || (gndA && hotB) || (gndB && hotA)) { out.push({ net, inst, a, b }); i = pins.length; break; }
+        }
+    }
+  }
+  return out;
+}
+
+const internalShort: Rule = (rd) =>
+  internalShorts(rd).map(({ net, inst, a, b }): Finding => {
+    const lbl = (p: ResolvedPin) => { const v = rmax(p.def.v); return v != null ? `${p.terminal} (${v} V)` : `${p.terminal} (${p.def.type})`; };
+    const blk = rd.instances.find((x) => x.ref === inst);
+    return {
+      rule: "connectivity/internal-short", severity: "error", category: "connectivity",
+      at: [inst, a.node, b.node],
+      message: `${inst}${blk ? ` (${blk.def.name})` : ""} internally ties ${lbl(a)} and ${lbl(b)} to the same net (${net.id}) — the block's own terminals are shorted, so its rails collapse together across the design. Fix ${inst}'s internal schematic.`,
+    };
+  });
+
 /** A source rated far above its actual load → suggest a smaller, cheaper part. */
 const underUtilized: Rule = (rd) =>
   rd.nets
@@ -190,7 +234,7 @@ const underUtilized: Rule = (rd) =>
 // ── Registry ────────────────────────────────────────────────────────────────
 
 export const RULES: Rule[] = [
-  openNet, overCurrent, overVoltage, polarityConflict, multipleDrivers, undrivenRail, // faults
+  openNet, overCurrent, overVoltage, polarityConflict, multipleDrivers, undrivenRail, internalShort, // faults
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 
@@ -214,7 +258,13 @@ const ackCovers = (ack: { rule: string; at: string[] }, f: { rule: string; at: s
  *  from the error/warning counts — keeping the linter trustworthy instead of noisy-but-correct. */
 export function lint(rd: ResolvedDesign): Finding[] {
   const acks = rd.design.acks ?? [];
+  // Nets collapsed by a block shorting its own terminals produce phantom symptoms (over-voltage, dueling
+  // drivers, over-budget current) on the user's correct wiring. Suppress those on a shorted net — the
+  // internal-short error already names the real cause — so the report isn't drowned in derivative noise.
+  const shortedNetIds = new Set(internalShorts(rd).map((s) => s.net.id));
+  const SYMPTOMS = new Set(["voltage/over-input", "connectivity/multiple-drivers", "current/over-budget", "polarity/conflict"]);
   return RULES.flatMap((rule) => rule(rd))
+    .filter((f) => !(f.rule !== "connectivity/internal-short" && SYMPTOMS.has(f.rule) && f.at.some((x) => shortedNetIds.has(x))))
     .map((f) => { const a = acks.find((ack) => ackCovers(ack, f)); return a ? { ...f, acknowledged: { note: a.note } } : f; })
     .sort((a, b) => Number(!!a.acknowledged) - Number(!!b.acknowledged) || SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }

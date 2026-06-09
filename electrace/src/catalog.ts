@@ -62,6 +62,10 @@ export const SYMBOL_CATALOG: Record<string, CatalogEntry> = {
   // ── Power
   ground: { label: "Ground", group: "power", defaultRef: "GND", partType: "gnd", pins: ["1"] },
   vcc:    { label: "Power (V+)", group: "power", defaultRef: "VCC", partType: "power", pins: ["1"] },
+  // A net label: names the net it's attached to, and any other label/port/power-symbol with the SAME
+  // name is the same net — even with no wire between them. This is how a bypass farm fans out to a rail
+  // without one wire crossing the whole row, the way a KiCad power flag does. Its `ref` IS the net name.
+  netlabel: { label: "Net Label", group: "power", defaultRef: "NET", partType: "netlabel", pins: ["1"] },
   offboard: { label: "Off-board net", group: "power", defaultRef: "EXT", partType: "offboard", pins: ["1"], terminal: true },
   // ── Electromechanical
   switch:  { label: "Switch", group: "electromechanical", defaultRef: "SW", partType: "switch", pins: ["1", "2"] },

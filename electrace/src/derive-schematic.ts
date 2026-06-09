@@ -39,22 +39,54 @@ export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Arr
     if (g) g.push(k); else groups.set(r, [k]);
   }
 
-  const nets: SchematicNet[] = [];
-  let n = 1;
+  // Phase 1 — each wire-connected group → the pins it joins (`connect`) plus the net names it asserts
+  // (port refs + marker names). A marker (ground/vcc/netlabel/offboard) names the net but is never a pin.
+  type Raw = { connect: string[]; names: string[] };
+  const raw: Raw[] = [];
   for (const keys of groups.values()) {
     const connect: string[] = [];
-    let term: string | undefined;
+    const names: string[] = [];
     for (const k of keys) {
       const sid = symId(k);
-      if (ports.has(sid)) { const t = ports.get(sid)!; term ??= t; connect.push(`@${t}`); }
-      else if (markers.has(sid)) { term ??= markers.get(sid); } // a net marker names the net, not a part pin
+      if (ports.has(sid)) { const t = ports.get(sid)!; names.push(t); connect.push(`@${t}`); }
+      else if (markers.has(sid)) { names.push(markers.get(sid)!); }
       else if (comp.has(sid)) {
         const s = comp.get(sid)!, pid = pinId(k);
         const name = s.chip?.names?.[pid]; // a named chip pin connects as its function (U1.1 → U1.VIN)
         connect.push(`${s.ref ?? sid}.${name || pid}`);
       }
     }
-    if (connect.length) nets.push({ name: (term ?? `N${n++}`).toUpperCase(), connect });
+    if (connect.length || names.length) raw.push({ connect, names });
+  }
+
+  // Phase 2 — merge groups that share a net name. A net label / power flag joins every same-named net
+  // with NO wire between them: a `+5V` label on each bypass cap lands them all on the one `+5V` net
+  // (no rail-spanning wire), and several `GND` symbols collapse to a single ground. KiCad power-flag
+  // semantics — connectivity by name, not just by drawn wire. Different names stay distinct even when
+  // their symbols sit collinear, so two rails drawn as one visual row don't short.
+  const nameUf = new UnionFind();
+  const firstWithName = new Map<string, number>();
+  raw.forEach((r, i) => {
+    nameUf.add(`#${i}`);
+    for (const nm of r.names) {
+      const j = firstWithName.get(nm);
+      if (j === undefined) firstWithName.set(nm, i); else nameUf.union(`#${i}`, `#${j}`);
+    }
+  });
+  const merged = new Map<string, { connect: Set<string>; names: string[] }>();
+  raw.forEach((r, i) => {
+    const root = nameUf.find(`#${i}`);
+    const m = merged.get(root) ?? { connect: new Set<string>(), names: [] };
+    r.connect.forEach((c) => m.connect.add(c));
+    m.names.push(...r.names);
+    merged.set(root, m);
+  });
+
+  const nets: SchematicNet[] = [];
+  let n = 1;
+  for (const m of merged.values()) {
+    if (!m.connect.size) continue; // a label wired to nothing asserts no real net
+    nets.push({ name: (pickNetName(m.names) ?? `N${n++}`).toUpperCase(), connect: [...m.connect] });
   }
 
   const parts: Part[] = [...comp.values()].map((s) => {
@@ -74,4 +106,12 @@ export function deriveBlockSchematic(layout: SchematicLayout, authoredParts: Arr
   });
 
   return { parts, nets };
+}
+
+/** Canonical display name for a merged net: prefer a power/ground-looking rail name (a +/- prefix, a
+ *  numeric voltage rail, or a known rail word) over an arbitrary signal name; else the first asserted. */
+function pickNetName(names: string[]): string | undefined {
+  if (!names.length) return undefined;
+  const rail = names.find((t) => /^[+-]|^\d+v\d*|^(v|gnd|agnd|dgnd|vcc|vdd|vss|vin|vout)\b/i.test(t));
+  return rail ?? names[0];
 }

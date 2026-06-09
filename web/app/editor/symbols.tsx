@@ -595,6 +595,18 @@ export const SYMBOLS: Record<string, SymbolDef> = {
       </>
     ),
   },
+  // Net label / power flag: names the net it attaches to. Any other label, port, or power symbol with
+  // the SAME name is the same net — no wire needed. The ref (shown above) IS the net name (+5V, GND…).
+  netlabel: {
+    label: "Net Label", w: 40, h: 20, defaultRef: "NET",
+    pins: [{ id: "1", x: 0, y: 10 }],
+    draw: () => (
+      <>
+        <line x1="0" y1="10" x2="10" y2="10" stroke={A} strokeWidth="2" />
+        <path d="M10,10 L17,3 L40,3 L40,17 L17,17 Z" fill="#2e3a4d" stroke={A} strokeWidth="2" />
+      </>
+    ),
+  },
   antenna: {
     label: "Antenna", w: 32, h: 36, defaultRef: "ANT",
     pins: [{ id: "1", x: 16, y: 36 }],
@@ -905,7 +917,7 @@ export const SYMBOL_GROUPS: { name: string; types: string[] }[] = [
   { name: "Transistor", types: ["npn", "pnp", "nmos", "pmos", "njfet", "pjfet", "phototransistor"] },
   { name: "Integrated", types: ["chip", "ic", "opamp", "regulator"] },
   { name: "Source", types: ["battery", "isource", "acsource"] },
-  { name: "Power", types: ["ground", "vcc", "offboard"] },
+  { name: "Power", types: ["ground", "vcc", "netlabel", "offboard"] },
   { name: "Electromechanical", types: ["switch", "button", "relay", "spst", "dpdt", "ssr", "motor", "speaker", "buzzer", "lamp"] },
   { name: "Connector", types: ["header2", "header4", "testpoint", "antenna"] },
 ];
