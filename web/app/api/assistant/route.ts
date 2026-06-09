@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, CONNECTOR_CATALOG, connectorPart, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
+import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
 import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -328,6 +328,20 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
     }
     case "list_blocks":
       return { text: Object.entries(blocks).map(([k, b]) => `${k} — ${b.name}: [${termList(b)}]`).join("\n") || "(no blocks)", changed: false };
+    case "find_blocks": {
+      // spec-search over DECLARED specs (the WEBENCH answer): structured fields win, else parse the query text
+      const q = parseSpecQuery(String(input.query ?? ""));
+      if (input.vin != null) q.vin = Number(input.vin);
+      if (input.vout != null) q.vout = Number(input.vout);
+      if (input.iout != null) q.iout = Number(input.iout);
+      const byKey = new Map(Object.entries(blocks).map(([k, b]) => [b, k]));
+      const hits = findBlocks(Object.values(blocks), q);
+      if (!hits.length) return { text: "No block matches that spec. The criteria gate on declared specs only — try relaxing one (or author a new block).", changed: false };
+      return {
+        text: hits.slice(0, 8).map((m) => `${byKey.get(m.block)} — ${m.block.name}\n  ${m.why.join("\n  ")}`).join("\n"),
+        changed: false,
+      };
+    }
     case "get_block": {
       const key = String(input.block ?? ""), b = blocks[key];
       if (!b) return { text: `No block "${key}". Call list_blocks for valid keys.`, changed: false };
@@ -493,6 +507,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
 const TERMS_SCHEMA = { type: "array", description: "terminals (pins) of the block", items: { type: "object", properties: { id: { type: "string", description: "pin/terminal name, e.g. vin" }, role: { type: "string", enum: ["in", "out"] }, type: { type: "string", enum: ["power", "rail", "signal", "gnd"] } }, required: ["id", "role", "type"] } };
 const TOOLS = [
   { name: "list_blocks", description: "List the block types available to place, with their terminals. Library blocks plus any you've created.", input_schema: { type: "object", properties: {} } },
+  { name: "find_blocks", description: "Find blocks by DECLARED spec — the right tool when the user states a need like \"drop 18 V to 5 V at 3 A\". Matches only on authored spec fields (vin range, vout, iout_max) and returns WHY each block fits, built from its declared numbers. Prefer this over guessing from list_blocks.", input_schema: { type: "object", properties: { query: { type: "string", description: "free text, e.g. \"18V → 5V at 3A\" or \"3.3v ldo\"" }, vin: { type: "number", description: "supply voltage you have (V)" }, vout: { type: "number", description: "rail you want (V)" }, iout: { type: "number", description: "load current you need (A)" } } } },
   { name: "create_block", description: "Create a new custom (user) block with named terminals/pins. It appears in the palette and can be placed with add_block.", input_schema: { type: "object", properties: { name: { type: "string" }, glyph: { type: "string", description: "1–2 char icon (optional)" }, category: { type: "string", description: "optional, e.g. power/signal/custom" }, terminals: TERMS_SCHEMA }, required: ["name", "terminals"] } },
   { name: "update_block", description: "Edit a custom block you created — rename it, change its glyph/category, or relabel its terminals (pins). Library blocks can't be edited.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, name: { type: "string" }, glyph: { type: "string" }, category: { type: "string" }, terminals: TERMS_SCHEMA }, required: ["block"] } },
   { name: "get_block", description: "Inspect ONE block's current state: its terminals, whether it's been authored with a real chip (and which), and the parts in its internal schematic with their values (what's on the BOM). Use this to verify ground truth after authoring/editing instead of assuming — read-after-write.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },

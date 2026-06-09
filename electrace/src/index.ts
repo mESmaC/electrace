@@ -37,6 +37,8 @@ export type { ParsedFootprint } from "./kicad-footprint.js";
 export { DISCRETE_LIBRARY, discreteEquivalentFor } from "./discrete.js";
 export type { DiscreteEquivalent } from "./discrete.js";
 export type { Footprint, LandPad } from "./footprints.js";
+export { parseSpecQuery, findBlocks, searchBlocks } from "./spec-search.js";
+export type { SpecQuery, SpecMatch } from "./spec-search.js";
 
 import type { Block, Design, ResolvedDesign, Finding, BomRow } from "./types.js";
 import { resolve } from "./resolve.js";

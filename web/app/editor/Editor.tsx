@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, railBudgets, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
@@ -988,8 +988,22 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   }, [loadDesign]);
 
   // palette: split user-created from the standard library
-  const libEntries = Object.entries(allBlocks).filter(([k]) => !isUserBlock(k));
-  const myEntries = Object.entries(allBlocks).filter(([k]) => isUserBlock(k));
+  // palette spec-search: "18V → 5V at 3A" (or just "buck") filters the palette to blocks whose
+  // DECLARED specs satisfy it — the editor half of the WEBENCH answer (registry.md §Discovery)
+  const [paletteQ, setPaletteQ] = useState("");
+  const paletteKeys = useMemo(() => {
+    const q = paletteQ.trim();
+    if (!q) return null; // null = no filter
+    const byBlock = new Map(Object.entries(allBlocks).map(([k, b]) => [b, k]));
+    return new Set(searchBlocks(Object.values(allBlocks), q).map((m) => byBlock.get(m.block)!));
+  }, [paletteQ, allBlocks]);
+  const inPalette = ([k]: [string, Block]) => paletteKeys === null || paletteKeys.has(k);
+  const libEntries = Object.entries(allBlocks).filter(([k]) => !isUserBlock(k)).filter(inPalette);
+  const myEntries = Object.entries(allBlocks).filter(([k]) => isUserBlock(k)).filter(inPalette);
+  // connectors join the same search by name ("usb" finds the receptacles); a pure spec query hides them
+  const connEntries = Object.values(CONNECTOR_CATALOG).filter(
+    (c) => !paletteQ.trim() || c.name.toLowerCase().includes(paletteQ.trim().toLowerCase()),
+  );
   const blockTile = (key: string, b: Block) => (
     <div key={key} className="group relative">
       <button onClick={() => addBlock(key)} draggable title={b.name}
@@ -1012,6 +1026,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   return (
     <div className="relative flex bg-[var(--color-bg)]" style={{ height: "calc(100vh - 56px)" }}>
       <aside className="w-60 shrink-0 overflow-auto border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+        <input
+          value={paletteQ} onChange={(e) => setPaletteQ(e.target.value)} spellCheck={false}
+          placeholder={'Find by spec — "18V → 5V at 3A"'}
+          title='Search by need, not name: "12 to 3.3v 500ma", "5v 2a", or plain words like "buck". Matches on declared specs.'
+          className="mb-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 font-mono text-[11px] text-[var(--color-text)] placeholder:text-[var(--color-faint)] focus:border-[#4c8dff] focus:outline-none"
+        />
+        {paletteKeys !== null && libEntries.length + myEntries.length === 0 && (
+          <p className="mb-3 px-1 text-[10px] leading-relaxed text-[var(--color-faint)]">
+            No block declares a spec that satisfies this. Try relaxing a number — or ask Sparky to author one.
+          </p>
+        )}
         <CollapsibleSection title={`My blocks${myEntries.length ? ` (${myEntries.length})` : ""}`}
           action={<button onClick={startNewBlock} title="Create a custom block" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-1.5 py-0.5 text-[10px] text-[var(--color-link)] hover:border-[#4c8dff]">+ New</button>}>
           {myEntries.length
@@ -1023,9 +1048,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <div className="grid grid-cols-2 gap-1.5">{libEntries.map(([k, b]) => blockTile(k, b))}</div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Connectors">
+        <CollapsibleSection title={`Connectors${paletteQ.trim() ? ` (${connEntries.length})` : ""}`}>
           <div className="grid grid-cols-2 gap-1.5">
-            {Object.values(CONNECTOR_CATALOG).map((c) => (
+            {connEntries.map((c) => (
               <button key={c.id} onClick={() => addConnector(c.id)} title={`${c.name} · ${c.pins.length} pins`}
                 draggable onDragStart={(e) => { e.dataTransfer.setData("application/electrace-connector", c.id); e.dataTransfer.effectAllowed = "copy"; }}
                 className="flex cursor-grab flex-col items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
