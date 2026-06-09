@@ -9,7 +9,11 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { canUseSparky } from "@/lib/entitlements";
 
+// Provider switch — flip Sparky between Anthropic (default) and OpenAI for A/B comparison. Set
+// ASSISTANT_PROVIDER=openai to use OpenAI; OPENAI_API_KEY + OPENAI_MODEL drive that path.
+const PROVIDER = (process.env.ASSISTANT_PROVIDER || "anthropic").toLowerCase();
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.5"; // flagship; gpt-5.4-mini for a cheaper run
 const MAX_TURNS = 24; // big ports (e.g. an Arduino Nano: many blocks + wires) need more tool turns
 const SPARK_MAX_TURNS = 12; // a spark builds ONE block — fewer steps than the orchestrator
 
@@ -514,8 +518,8 @@ const TOOLS = [
 ];
 
 export async function POST(req: Request) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return Response.json({ error: "ANTHROPIC_API_KEY is not set — add it to web/.env.local and restart the dev server." }, { status: 500 });
+  const key = PROVIDER === "openai" ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY;
+  if (!key) return Response.json({ error: `${PROVIDER === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY"} is not set — add it to web/.env.local and restart the dev server.` }, { status: 500 });
 
   // Sparky is a paid (Pro) feature, and every call costs real Claude API spend — enforce the gate
   // HERE so it can't be bypassed by hitting the endpoint directly (a hidden UI button isn't enough).
@@ -585,6 +589,71 @@ export async function POST(req: Request) {
     return r.json();
   };
 
+  // ── OpenAI path (A/B experiment) ──────────────────────────────────────────────────────────────
+  // Translate our Anthropic-shaped request (system blocks + messages with tool_use/tool_result content)
+  // to OpenAI Chat Completions, then normalize the response BACK into Anthropic's content-block shape so
+  // the entire agentic loop / sparks / streaming downstream work unchanged. No prompt-cache control and
+  // no web search on this path (both are Anthropic-specific) — fine for comparing the build workflows.
+  type Block = { type: string; text?: string; id?: string; name?: string; input?: unknown; tool_use_id?: string; content?: unknown };
+  const oaiTools = (tools: unknown[]) =>
+    (tools as { name: string; description?: string; input_schema?: unknown }[])
+      .filter((t) => t.name) // drop the hosted web_search tool (no `name` in our schema sense / unsupported)
+      .map((t) => ({ type: "function", function: { name: t.name, description: t.description ?? "", parameters: t.input_schema ?? { type: "object", properties: {} } } }));
+  const oaiMessages = (sys: unknown[], msgs: { role: string; content: unknown }[]) => {
+    const out: Record<string, unknown>[] = [{ role: "system", content: (sys as Block[]).map((s) => s.text ?? "").join("\n\n") }];
+    for (const m of msgs) {
+      const c = m.content;
+      if (m.role === "assistant") {
+        const blocks: Block[] = Array.isArray(c) ? (c as Block[]) : [{ type: "text", text: String(c) }];
+        const text = blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
+        const calls = blocks.filter((b) => b.type === "tool_use").map((b) => ({ id: b.id!, type: "function", function: { name: b.name!, arguments: JSON.stringify(b.input ?? {}) } }));
+        out.push({ role: "assistant", content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
+      } else if (typeof c === "string") {
+        out.push({ role: "user", content: c });
+      } else {
+        const blocks: Block[] = Array.isArray(c) ? (c as Block[]) : [];
+        const text = blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
+        if (text) out.push({ role: "user", content: text });
+        for (const tr of blocks.filter((b) => b.type === "tool_result")) {
+          out.push({ role: "tool", tool_call_id: tr.tool_use_id!, content: typeof tr.content === "string" ? tr.content : JSON.stringify(tr.content) });
+        }
+      }
+    }
+    return out;
+  };
+  const openai = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[], maxTokens = 4096) => {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST", signal: req.signal,
+      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        max_completion_tokens: Math.max(maxTokens, 16000), // headroom for reasoning tokens on gpt-5.x
+        messages: oaiMessages(sys, msgs),
+        ...(tools.length ? { tools: oaiTools(tools), tool_choice: "auto" } : {}),
+      }),
+    });
+    if (!r.ok) throw new Error(`OpenAI error ${r.status}: ${(await r.text().catch(() => "")).slice(0, 300)}`);
+    const data = await r.json();
+    const m = data.choices?.[0]?.message ?? {};
+    const content: Block[] = [];
+    if (m.content) content.push({ type: "text", text: String(m.content) });
+    for (const tc of (m.tool_calls ?? []) as { id: string; function: { name: string; arguments: string } }[]) {
+      let input: unknown = {};
+      try { input = JSON.parse(tc.function.arguments || "{}"); } catch { /* leave {} */ }
+      content.push({ type: "tool_use", id: tc.id, name: tc.function.name, input });
+    }
+    const u = data.usage ?? {};
+    // Normalize into the Anthropic shape the loop expects.
+    return {
+      content,
+      stop_reason: (m.tool_calls?.length ? "tool_use" : "end_turn"),
+      usage: { input_tokens: u.prompt_tokens ?? 0, output_tokens: u.completion_tokens ?? 0, cache_read_input_tokens: u.prompt_tokens_details?.cached_tokens ?? 0, cache_creation_input_tokens: 0 },
+    };
+  };
+
+  // The active model caller — same signature + return shape either way.
+  const callModel = PROVIDER === "openai" ? openai : anthropic;
+
   const eff: Effects = { upserts: new Map(), deleted: new Set(), schematics: new Map() };
 
   // A spark: a focused sub-agent that builds ONE block in its own small context, mutating the SHARED
@@ -596,7 +665,7 @@ export async function POST(req: Request) {
     const msgs: { role: string; content: unknown }[] = [{ role: "user", content: goal }];
     let changed = false;
     for (let t = 0; t < SPARK_MAX_TURNS; t++) {
-      const data = await anthropic(sparkSys, msgs, sparkTools);
+      const data = await callModel(sparkSys, msgs, sparkTools);
       const su = data.usage ?? {};
       console.log(`[spark] turn ${t}: in=${su.input_tokens ?? 0} cache_read=${su.cache_read_input_tokens ?? 0} cache_write=${su.cache_creation_input_tokens ?? 0} out=${su.output_tokens ?? 0}`);
       const content = Array.isArray(data.content) ? data.content : [];
@@ -622,7 +691,7 @@ export async function POST(req: Request) {
   // every spark READS the prefix at ~10% cost. Non-fatal if it fails — sparks just pay the cold path.
   let sparkCacheWarmed = false;
   const warmSparkCache = async () => {
-    if (sparkCacheWarmed) return;
+    if (sparkCacheWarmed || PROVIDER !== "anthropic") return; // manual cache warming is Anthropic-only
     sparkCacheWarmed = true;
     try {
       const data = await anthropic(sparkSys, [{ role: "user", content: "ready" }], sparkTools, 4);
@@ -650,7 +719,7 @@ export async function POST(req: Request) {
         for (let turn = 0; turn < (agentic ? MAX_TURNS : 1); turn++) {
           if (req.signal.aborted) return; // client disconnected — stop the loop (and stop billing model calls)
           emit({ type: "status", text: turn === 0 ? "Thinking…" : "Working…" });
-          const data = await anthropic(system, messages, baseTools);
+          const data = await callModel(system, messages, baseTools);
           const u = data.usage ?? {};
           totalIn += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
           totalOut += u.output_tokens ?? 0;
