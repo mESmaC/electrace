@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PLANS } from "@/lib/plans";
+import UpgradeCta from "./UpgradeCta";
 
 export const metadata = {
   title: "Pricing — Electrace",
@@ -52,10 +53,14 @@ export default function PricingPage() {
                 <span className="inline-block rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-[13px] font-semibold text-accent">{p.priceNote}</span>
               </div>
             )}
-            <Link href={p.cta.href}
-              className={`mt-5 rounded-xl py-2.5 text-center font-semibold transition ${p.highlight ? "bg-accent text-white shadow-lg shadow-accent/30 hover:bg-accent-hi" : "border border-border-strong hover:border-accent hover:text-accent"}`}>
-              {p.cta.label}
-            </Link>
+            {p.key === "pro" ? (
+              <UpgradeCta />
+            ) : (
+              <Link href={p.cta.href}
+                className={`mt-5 rounded-xl py-2.5 text-center font-semibold transition ${p.highlight ? "bg-accent text-white shadow-lg shadow-accent/30 hover:bg-accent-hi" : "border border-border-strong hover:border-accent hover:text-accent"}`}>
+                {p.cta.label}
+              </Link>
+            )}
             {p.featuresLead && <div className="mt-6 text-[12.5px] font-semibold text-dim">{p.featuresLead}</div>}
             <ul className={`flex flex-col gap-2.5 text-[13.5px] text-dim ${p.featuresLead ? "mt-2.5" : "mt-6"}`}>
               {p.features.map((f) => (

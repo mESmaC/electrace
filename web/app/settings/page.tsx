@@ -71,6 +71,29 @@ function Settings() {
 
   const saveName = (n: string) => { setName(n); updateProfile({ name: n.trim() || "You" }); };
   const logout = () => { signOut().finally(() => router.push("/")); };
+
+  // plan & billing — read the plan, notice a fresh ?billing=success return from checkout
+  const [plan, setPlan] = useState<"free" | "pro" | null>(null);
+  const [billingNote, setBillingNote] = useState<string | null>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
+  useEffect(() => {
+    fetch("/api/me").then((r) => r.json()).then((m) => setPlan(m.pro ? "pro" : "free")).catch(() => setPlan(null));
+    try {
+      if (new URLSearchParams(location.search).get("billing") === "success") {
+        setBillingNote("Welcome to Pro! It can take a few seconds for the upgrade to land — refresh if it hasn't.");
+      }
+    } catch { /* ignore */ }
+  }, []);
+  const openPortal = async () => {
+    setPortalBusy(true);
+    try {
+      const r = await fetch("/api/billing/portal", { method: "POST" });
+      if (r.ok) { const { url } = await r.json(); if (url) { location.href = url; return; } }
+      const b = await r.json().catch(() => ({}));
+      setBillingNote(b.code === "none" ? "No subscription on this account yet — upgrade from the pricing page." : "Billing portal isn't available right now.");
+    } catch { setBillingNote("Billing portal isn't available right now."); }
+    setPortalBusy(false);
+  };
   const pickTheme = (t: Theme) => { setTheme(t); applyTheme(t); };
   const pickAccent = (c: string) => { setAccent(c); applyAccent(c); };
   const pickSym = (s: SymStyle) => { setSym(s); setSymbolStyle(s); };
@@ -97,6 +120,20 @@ function Settings() {
         <Row title="Session" hint="Sign out on this device.">
           <button onClick={logout} className="rounded-lg border border-[#e2837e]/45 px-4 py-1.5 text-sm font-medium text-[#e2837e] transition hover:bg-[#e2554b]/10">Log out</button>
         </Row>
+      </Card>
+
+      <Card title="Plan & billing">
+        <Row title="Your plan" hint={plan === "pro" ? "Unlimited designs, private projects, Sparky, manufacturing exports." : "Hobby — the full understand-loop, up to 10 designs."}>
+          <span className={`rounded-full px-3 py-1 text-[12.5px] font-bold uppercase tracking-wide ${plan === "pro" ? "bg-accent/15 text-accent" : "border border-border-strong text-dim"}`}>{plan ?? "…"}</span>
+        </Row>
+        <Row title={plan === "pro" ? "Manage subscription" : "Upgrade"} hint={plan === "pro" ? "Change card, switch plans, or cancel — handled securely by Stripe." : "Private designs, no caps, Sparky, and manufacturing-grade export."}>
+          {plan === "pro" ? (
+            <button onClick={openPortal} disabled={portalBusy} className="rounded-lg border border-border-strong px-4 py-1.5 text-sm font-medium text-text transition hover:border-accent disabled:opacity-60">{portalBusy ? "Opening…" : "Open billing portal"}</button>
+          ) : (
+            <Link href="/pricing" className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90">See Pro</Link>
+          )}
+        </Row>
+        {billingNote && <p className="pb-4 text-[13px] text-accent">{billingNote}</p>}
       </Card>
 
       <Card title="Appearance">

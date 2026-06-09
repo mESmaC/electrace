@@ -23,6 +23,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   name: text("name"),
   plan: text("plan", { enum: ["free", "pro"] }).notNull().default("free"),
+  stripeCustomerId: text("stripe_customer_id"), // set by the billing webhook on first checkout
   settings: jsonb("settings").notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
