@@ -44,12 +44,12 @@ need an owner intent call before building.
 
 These are the spec'd things that actually move the product, deferred while the editor was hardened.
 
-- [ ] **Expand-to-discrete (IC → discrete swap)** — ✅ **CONFIRMED IN** (owner: core to the transparency-to-component-level thesis; "less like magic"). A badged, reversible, net-preserving swap of a reducible IC block for its discrete-component equivalent, with an honesty/tradeoff strip. **Entirely absent today** (no UI, no data). Scoping is the crux:
+- [x] **Expand-to-discrete (IC → discrete swap)** — ✅ **SHIPPED 2026-06-09** (data model + `discrete.ts` library + editor swap with disc/IC badge + honesty strip + break-into-discrete modal). Remaining tail: only ONE discrete equivalent authored (ldo-3v3) — growing the discrete library is corpus work, tracked in revenue-checklist.md Phase D. Original scoping kept below for the authoring work:
     - **Reducibility spectrum** — block is either **`irreducible`** (CPU/MCU/FPGA/large ASIC → silicon IS the primitive, NEVER offer expand), carries an authored **`discrete`** equivalent (the target: power entry, LDO, buck/boost, charge pump, 555, gate driver, comparator, reference — the small ICs that hide *basic electrical concepts*), or is **already discrete** (passive subcircuit, nothing to reduce).
     - **Honesty framing** (fits the "structural, not validated" ethos): the discrete form is for *understanding + implementation*, not production-optimal — "efficiency may vary, but you can see what it's doing." Surface it, don't hide it.
     - **Authoring** = corpus work; a discrete equivalent is just a block schematic, so it can lean on the existing agentic `author_block`/`author_schematic` path.
     - See memory `expand-to-discrete`. *(concept.md, demo-plan.md, design.md; L)*
-- [ ] **Discrete-equivalent data model** — prerequisite for the above. `Block.irreducible?: boolean` + `Block.discrete?` (an authored equivalent schematic that preserves exposed terminals). No field exists yet. *(data-model.md, concept.md; M)*
+- [x] **Discrete-equivalent data model** — ✅ shipped with the above (`Block.irreducible` + the authored-equivalent path in `discrete.ts`).
 - [ ] **Spec-search / `find_blocks(spec)`** — "18 V → 5 V at 3 A" → matching blocks. Named core capability (the "WEBENCH answer" + editor autocomplete), absent in **both** the editor and the assistant (no `find_blocks` tool). *(registry.md, ai.md, concept.md; M)*
 - [ ] **Tradeoff readout + cost/area data** — no declared cost/board-area fields, so no part-count/area/cost/perf delta on swaps or in the assistant's tradeoff suggestions. *(concept.md, ideas.md, ai.md; M — needs new declared fields)*
 - [ ] **On-canvas block status** — block node cards are missing the **declared-spec line** (shows one word, not e.g. "9–18 V → 5 V · 3 A"), a **status chip** (icon+color+text), per-block **lint status/bubble**, and the **disc/IC tag**. The mockup leans hard on at-a-glance canvas status; today findings live only in side/bottom panels. *(design.md, mockups/editor.html; M)*
@@ -84,7 +84,7 @@ Known-deferred, grouped so they aren't mistaken for oversights. This is the big 
 
 **Storage & accounts**
 - [ ] Supabase + Drizzle + Postgres schema (`web/db/schema.ts`) — none exists today. *(storage.md; L)*
-- [ ] Real auth: email/password + GitHub/Google OAuth (Auth.js) — `AuthForm` is faithful UI but all paths write a local profile. *(views.md, mockups/auth.html; L)*
+- [x] Real auth — ✅ shipped 2026-06-08 via **Supabase** (not Auth.js): email/password with confirmation + GitHub/Google OAuth, cross-device sessions, app routes require sign-in. Pricing page + tier UI shipped too; entitlements are an email-allowlist interim (`web/lib/entitlements.ts`) until billing lands.
 - [ ] `/forgot-password`, `/reset-password`, `/verify-email` routes. *(views.md; M)*
 - [ ] Ownership + RLS (`public OR owner = auth.uid()`); **enforce** `visibility` (public/private/unlisted) — the field is set but read by nothing; private-requires-Pro paywall/quota. *(storage.md; M–L)*
 - [ ] `/api/designs` CRUD + fork + public-by-slug SSG share view (`/app/share/[id]`); projects are localStorage-only today. *(storage.md, views.md; L)*
