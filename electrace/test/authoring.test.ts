@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { authorChipLayout, authorPartLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, pcbProject } from "../src/index.js";
+import type { Block } from "../src/index.js";
 
 test("authorChipLayout: chip becomes a part, exposed pins become wired terminals", () => {
   const { layout, terminals } = authorChipLayout(
@@ -133,8 +134,8 @@ test("an authored chip lands its REAL package on the PCB (QFP-32, 32 pads, named
   // the chip part carries its package so the PCB doesn't size it from just the wired pins
   assert.equal(schematic.parts[0].footprint, "QFP-32");
 
-  const block = { id: "@user/mcu", name: "MCU", version: "1.0.0", terminals, layout, schematic };
-  const load = { id: "@t/l", name: "l", version: "1.0.0", terminals: [{ id: "g", role: "in" as const, type: "gnd" as const }] };
+  const block: Block = { id: "@user/mcu", name: "MCU", version: "1.0.0", terminals, layout, schematic };
+  const load: Block = { id: "@t/l", name: "l", version: "1.0.0", terminals: [{ id: "g", role: "in", type: "gnd" }] };
   const design = { id: "d", name: "t", blocks: [{ ref: "M", block: "@user/mcu@1.0.0" }, { ref: "L", block: "@t/l@1.0.0" }], connections: [{ from: "M.GND", to: "L.g" }] };
   const pcb = pcbProject(design, new Map([["@user/mcu@1.0.0", block], ["@t/l@1.0.0", load]]));
   const u = pcb.components.find((c) => c.ref === "M/U1")!;

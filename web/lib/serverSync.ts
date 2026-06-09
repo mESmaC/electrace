@@ -24,16 +24,30 @@ let origSet: ((k: string, v: string) => void) | null = null;
 let origRem: ((k: string) => void) | null = null;
 const timers: Record<string, ReturnType<typeof setTimeout>> = {};
 
+function send(key: string, value: string | null): void {
+  fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ key, value }),
+    keepalive: true, // lets an unload-time flush outlive the page (browser caps the body ~64KB — fine for designs)
+  }).catch(() => { /* offline — localStorage still holds it; next write re-syncs */ });
+}
+
+/** Writes still sitting in the debounce window, so pagehide can flush them. */
+const pending = new Map<string, string | null>();
+
 /** Push one key to the server, debounced per-key (autosave writes the same key repeatedly). */
 function push(key: string, value: string | null): void {
   clearTimeout(timers[key]);
-  timers[key] = setTimeout(() => {
-    fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key, value }),
-    }).catch(() => { /* offline — localStorage still holds it; next write re-syncs */ });
-  }, 500);
+  // page going away (editors flush their saves on pagehide) → no time left to debounce
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") { pending.delete(key); send(key, value); return; }
+  pending.set(key, value);
+  timers[key] = setTimeout(() => { pending.delete(key); send(key, value); }, 500);
+}
+
+function flushPending(): void {
+  for (const [key, value] of pending) { clearTimeout(timers[key]); send(key, value); }
+  pending.clear();
 }
 
 /** Wrap localStorage so electrace:* writes mirror to the server. Idempotent + SSR-safe. */
@@ -45,6 +59,8 @@ export function installMirror(): void {
   origRem = ls.removeItem.bind(ls);
   ls.setItem = (k: string, v: string) => { origSet!(k, v); if (mirrorable(k)) push(k, v); };
   ls.removeItem = (k: string) => { origRem!(k); if (mirrorable(k)) push(k, null); };
+  // without this, anything written in the last 500ms before the tab closes never reaches the server
+  window.addEventListener("pagehide", flushPending);
 }
 
 /** Pull the server snapshot into localStorage, backfilling only absent keys. Returns #keys written. */

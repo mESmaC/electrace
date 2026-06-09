@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { deriveSchematicNets, type SchematicLayout } from "@electrace/core";
 import { SYMBOLS, renderChip, useSymbolStyle } from "./symbols";
 import {
@@ -21,7 +21,17 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
     return () => window.removeEventListener("electrace:blocksch", onSave);
   }, [blockId, layout]);
 
-  if (!model.syms.length) {
+  // memoized on the model: previews live inside canvas nodes that re-render constantly
+  // (selection, lint status, drag), and re-deriving nets each time is the expensive part
+  const derived = useMemo(() => {
+    if (!model.syms.length) return null;
+    const m = orientPorts(model); // ports auto-face their wire — no hand-set rotation needed
+    const conns = m.wires.map((w) => ({ id: w.id, a: toSchEndpoint(m.syms, w.a, `${w.id}:a`), b: toSchEndpoint(m.syms, w.b, `${w.id}:b`) }));
+    const twoPin = m.syms.filter((s) => SYMBOLS[s.type]?.pins.length === 2).map((s) => s.id);
+    return { m, b: modelBounds(m), nets: deriveSchematicNets(conns, twoPin) };
+  }, [model]);
+
+  if (!derived) {
     return (
       <div className="grid place-items-center rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] text-[10px] text-[var(--color-faint)]" style={{ height }}>
         no schematic yet
@@ -29,14 +39,9 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
     );
   }
 
-  const m = orientPorts(model); // ports auto-face their wire — no hand-set rotation needed
-  const b = modelBounds(m);
+  const { m, b, nets } = derived;
   const pad = 12;
   const vb = `${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}`;
-
-  const conns = m.wires.map((w) => ({ id: w.id, a: toSchEndpoint(m.syms, w.a, `${w.id}:a`), b: toSchEndpoint(m.syms, w.b, `${w.id}:b`) }));
-  const twoPin = m.syms.filter((s) => SYMBOLS[s.type]?.pins.length === 2).map((s) => s.id);
-  const nets = deriveSchematicNets(conns, twoPin);
   const wireState = (w: Wire): WireState => {
     const ea = toSchEndpoint(m.syms, w.a, `${w.id}:a`), eb = toSchEndpoint(m.syms, w.b, `${w.id}:b`);
     if (ea.kind === "broken" || eb.kind === "broken") return "error";

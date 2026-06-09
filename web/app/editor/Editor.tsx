@@ -406,18 +406,28 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     };
   }, [nodes, edges, design, designName, acks]);
 
+  // analyze() never reads XY positions, so key it on a position-free snapshot — dragging a
+  // block repaints the canvas every frame but must not re-run resolve/lint/bom per pixel
+  // (it also kept re-firing the design.lint telemetry below on every drag tick).
+  const semanticKey = useMemo(
+    () => JSON.stringify({ ...designLive, blocks: designLive.blocks.map(({ pos: _p, ...b }) => b), connectors: designLive.connectors.map(({ pos: _p, ...c }) => c) }),
+    [designLive],
+  );
+  const designForAnalysis = useRef(designLive);
+  designForAnalysis.current = designLive;
   const analysis = useMemo(() => {
+    const d = designForAnalysis.current;
     try {
-      return analyze(designLive, blockMap);
+      return analyze(d, blockMap);
     } catch (err) {
       return {
-        resolved: { design: designLive, instances: [], nets: [] },
+        resolved: { design: d, instances: [], nets: [] },
         power: { transforms: {} },
         bom: [],
         findings: [{ rule: "internal/error", severity: "error", category: "declaration", at: [], message: String(err) }],
       } as ReturnType<typeof analyze>;
     }
-  }, [designLive, blockMap]);
+  }, [semanticKey, blockMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // capture the deterministic lint outcome (codes only) whenever it changes
   useEffect(() => {
@@ -708,10 +718,16 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
 
   const restore = useCallback((snap: Snap) => {
     restoring.current = true;
-    setNodes(snap.nodes);
+    // a snapshot can hold a stale block definition (block edited after it was taken) —
+    // re-point each node at the current definition so undo never resurrects old terminals
+    setNodes(snap.nodes.map((n) => {
+      if (n.type !== "block") return n;
+      const b = blockMap.get((n.data as BlockNodeData).blockKey);
+      return b && b !== (n.data as BlockNodeData).block ? { ...n, data: { ...n.data, block: b } } : n;
+    }));
     setEdges(snap.edges);
     bumpHist((v) => v + 1);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, blockMap]);
 
   const undo = useCallback(() => { if (hidx.current > 0) { hidx.current--; restore(history.current[hidx.current]); } }, [restore]);
   const redo = useCallback(() => { if (hidx.current < history.current.length - 1) { hidx.current++; restore(history.current[hidx.current]); } }, [restore]);
@@ -815,13 +831,22 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // design afterwards, restore it — but only while the canvas is still the empty initial stub, so we
   // never clobber edits already in progress.
   useEffect(() => onHydrated(() => {
+    // hydration may have just delivered user blocks / block drafts — refresh the memoized maps
+    setUserV((v) => v + 1);
+    setDraftV((v) => v + 1);
     const live = designLiveRef.current;
     if (live.blocks.length || live.connections.length) return;
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) { const d = JSON.parse(raw) as Design; if (Array.isArray(d?.blocks)) loadDesignRef.current(d); }
+      if (raw) {
+        const d = JSON.parse(raw) as Design;
+        // build the lookup fresh: the memoized blockMap can't include the just-hydrated user
+        // blocks until the bumps above re-render, and loading through the stale map would
+        // silently drop their instances (and autosave would then persist the lossy design)
+        if (Array.isArray(d?.blocks)) loadDesignRef.current(d, new Map(Object.entries({ ...blocks, ...getUserBlocks() })));
+      }
     } catch { /* ignore */ }
-  }), [LS_KEY]);
+  }), [LS_KEY, blocks]);
 
   // keep placed blocks visually in sync with their (edited) definition. Without this, editing a
   // block's terminals doesn't refresh its node (node data holds a stale block) until you delete +
@@ -851,6 +876,19 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     }, 800);
     return () => clearTimeout(id);
   }, [restored, LS_KEY, designLive, projectId, designName]);
+
+  // the debounce above drops the last <800ms of edits if the tab closes or the editor
+  // unmounts first — flush the latest design straight to localStorage on both
+  const restoredRef = useRef(restored);
+  restoredRef.current = restored;
+  const flushSave = useCallback(() => {
+    if (!restoredRef.current) return;
+    try { localStorage.setItem(LS_KEY, JSON.stringify(designLiveRef.current)); } catch { /* quota */ }
+  }, [LS_KEY]);
+  useEffect(() => {
+    window.addEventListener("pagehide", flushSave);
+    return () => { window.removeEventListener("pagehide", flushSave); flushSave(); };
+  }, [flushSave]);
 
   const exportDesign = useCallback(() => {
     const blob = new Blob([JSON.stringify(designLive, null, 2)], { type: "application/json" });
@@ -888,7 +926,15 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    file.text().then((txt) => { try { const d = JSON.parse(txt) as Design; if (Array.isArray(d?.blocks)) loadDesign(d); } catch { /* ignore */ } });
+    file.text().then((txt) => {
+      try {
+        const d = { connections: [], ...JSON.parse(txt) } as Design;
+        if (!Array.isArray(d.blocks) || !Array.isArray(d.connections)) throw new Error("not a design");
+        loadDesign(d);
+      } catch {
+        void confirmDialog({ title: "Import failed", message: "That file isn't a valid Electrace design export (.design.json).", confirmText: "OK" });
+      }
+    });
   }, [loadDesign]);
 
   // palette: split user-created from the standard library

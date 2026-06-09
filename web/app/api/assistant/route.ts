@@ -534,6 +534,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Sparky is temporarily unavailable." }, { status: 503 });
   }
 
+  // bound the payload before parsing — an oversized design would otherwise be parsed, deep-cloned,
+  // and analyzed before anything pushes back (and would blow the model's context anyway)
+  if (Number(req.headers.get("content-length") ?? 0) > 4_000_000) {
+    return Response.json({ error: "This design is too large for Sparky to load." }, { status: 413 });
+  }
   let body: Payload;
   try { body = await req.json(); } catch { return Response.json({ error: "Bad request" }, { status: 400 }); }
   const message = (body.message ?? "").trim();
