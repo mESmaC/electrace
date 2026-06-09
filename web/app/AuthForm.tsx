@@ -100,7 +100,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <div className="mx-2.5 mb-2.5 flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-[11px]"><span className="text-accent">✦</span><span className="text-green">●</span>Plenty of headroom — 9 W of 15 W</div>
           </div>
         </div>
-        <div className="absolute bottom-7 left-16 text-[13px] text-faint">Built by US Nylon</div>
+        <div className="absolute bottom-7 left-16 text-[13px] text-faint">Built by <a href="https://usnylon.com" target="_blank" rel="noopener" className="underline decoration-faint/40 underline-offset-2 hover:text-dim">US Nylon</a></div>
       </div>
     </div>
   );

@@ -195,7 +195,7 @@ export default function Home() {
               <Link href="/signup" className="rounded-xl bg-accent px-6 py-3.5 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Start free</Link>
               <Link href="/editor" className="rounded-xl border border-border-strong px-6 py-3.5 font-semibold transition hover:border-accent hover:text-accent">Open the editor</Link>
             </div>
-            <div className="mt-4 text-[13px] text-faint">Built by US Nylon · no spam, just launch news</div>
+            <div className="mt-4 text-[13px] text-faint">Built by <a href="https://usnylon.com" target="_blank" rel="noopener" className="underline decoration-faint/40 underline-offset-2 hover:text-dim">US Nylon</a> · no spam, just launch news</div>
           </div>
         </div>
       </section>
@@ -205,7 +205,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-between gap-7">
           <Logo className="text-[16px] text-text" />
           <div className="flex flex-wrap gap-x-9 gap-y-2"><a href="#how" className="text-dim hover:text-text">Product</a><a href="#why" className="text-dim hover:text-text">Why</a><Link href="/pricing" className="text-dim hover:text-text">Pricing</Link><Link href="/help" className="text-dim hover:text-text">Docs</Link><Link href="/blocks" className="text-dim hover:text-text">Blocks</Link><Link href="/privacy" className="text-dim hover:text-text">Privacy</Link><Link href="/terms" className="text-dim hover:text-text">Terms</Link></div>
-          <span>© 2026 US Nylon</span>
+          <span>© 2026 <a href="https://usnylon.com" target="_blank" rel="noopener" className="hover:text-text">US Nylon</a></span>
         </div>
       </footer>
       <RevealScript />
