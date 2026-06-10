@@ -75,9 +75,11 @@ application prerequisite.
       Spec-search wired into the /blocks index too. (Per-block OG images: later polish)
 - [ ] `sitemap.xml` ✅ (already lists block pages) → **human step: add the site to Google
       Search Console + submit the sitemap + verify indexing**
-- [ ] Author wave 1 blocks (power spine): USB-C 5V input, Li-ion charger,
-      reverse-polarity protection, boost converter, input protection (fuse+TVS),
-      voltage divider/reference
+- [x] Wave 1 blocks — ✅ 2026-06-09: USB-C 5V input, Li-ion charger (TP4056), reverse-polarity
+      protection, boost converter, input protection (fuse+TVS), voltage divider. All validated
+      (terminals exposed, drawn layouts render); each with explainer prose + failure-mode notes.
+      Also FIXED a real bug in power-entry (P-FET was input-to-source; correct is input-to-drain).
+      Discrete equivalents for the boost/charger ICs: deferred to the 555/comparator batch
 - [ ] Author wave 2 blocks (GPIO-to-world): MOSFET low-side switch, relay driver,
       H-bridge (+ discrete equivalent), I2C level shifter, debounced button,
       constant-current LED driver

@@ -1,0 +1,63 @@
+id: "@electrace/boost-converter"
+name: Boost Converter
+version: 1.0.0
+category: power
+author: electrace
+license: CC-BY-4.0
+glyph: "⇈"
+topology: switching
+transform: { kind: regulator, efficiency: 0.88 }
+spec:
+  vin: { min: 2.7, max: 5.5, unit: V }
+  vout: { value: 12, unit: V }
+  iout_max: { value: 0.8, unit: A }
+  efficiency: { value: 0.88 }
+terminals:
+  - { id: vin,  role: in,  type: power, polarity: "+", v: { min: 2.7, max: 5.5, unit: V } }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: vout, role: out, type: rail, v: { value: 12, unit: V }, i: { max: 0.8, unit: A } }
+limits:
+  - { field: iin.max, value: 4.5, unit: A, note: "A boost STEPS UP voltage by stepping up input current: 12 V at 0.8 A out means ~4 A in at 3 V. The input wiring, inductor, and source all have to carry that — the most common boost mistake is sizing for the output current." }
+  - { field: vout.min, value: 5.5, unit: V, note: "A boost can only go UP. If you set Vout below Vin, D1 simply conducts and the output sits at Vin minus a diode drop — unregulated." }
+schematic:
+  parts:
+    - { ref: U1,   type: ic,       part: boost-controller, footprint: SOT-23-5, why: "switches the low side of L1 to pump energy into the output; the FB pin holds it at 12 V" }
+    - { ref: L1,   type: inductor, value: 4.7uH, footprint: IND-5040, why: "the energy store — charged from the input each cycle, discharged into the output above it" }
+    - { ref: D1,   type: diode,    part: schottky-20v, footprint: SOD-123, why: "lets the inductor dump into the output but blocks the output from draining back; Schottky for low drop at high frequency" }
+    - { ref: Cin,  type: cap,      value: 22uF, footprint: C0805, why: "feeds the big pulsed input current so the source only sees the average" }
+    - { ref: Cout, type: cap,      value: 22uF, footprint: C1206, why: "smooths the chopped diode current into clean DC — boosts have inherently choppier outputs than bucks" }
+    - { ref: R1,   type: res,      value: 113k, footprint: R0603, why: "top of the feedback divider — with R2 it sets Vout = Vref × (1 + R1/R2)" }
+    - { ref: R2,   type: res,      value: 10k,  footprint: R0603, why: "bottom of the feedback divider" }
+  nets:
+    - { name: VIN,  connect: [U1.VIN, L1.1, Cin.1, "@vin"] }
+    - { name: SW,   connect: [U1.SW, L1.2, D1.1] }
+    - { name: +12V, connect: [D1.2, Cout.1, R1.1, "@vout"] }
+    - { name: FB,   connect: [U1.FB, R1.2, R2.1] }
+    - { name: GND,  connect: [U1.GND, Cin.2, Cout.2, R2.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin,  type: port,      ref: vin,  x: 40,  y: 100, rot: 180 }
+    - { id: Cin,    type: capacitor, ref: Cin,  value: 22µF, x: 116, y: 136, rot: 90 }
+    - { id: L1,     type: inductor,  ref: L1,   value: 4.7µH, x: 196, y: 94 }
+    - { id: U1,     type: chip,      ref: U1,   value: boost, x: 246, y: 196, chip: { profile: sot23, pins: 4, names: { "1": SW, "2": GND, "3": FB, "4": VIN } } }
+    - { id: D1,     type: schottky,  ref: D1,   value: 20V,   x: 356, y: 94 }
+    - { id: Cout,   type: capacitor, ref: Cout, value: 22µF,  x: 466, y: 136, rot: 90 }
+    - { id: R1,     type: resistor,  ref: R1,   value: 113k,  x: 506, y: 156, rot: 90 }
+    - { id: R2,     type: resistor,  ref: R2,   value: 10k,   x: 506, y: 266, rot: 90 }
+    - { id: P_vout, type: port,      ref: vout, x: 600, y: 100, rot: 0 }
+    - { id: P_gnd,  type: port,      ref: gnd,  x: 300, y: 380, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: Cin.1 }
+    - { from: Cin.1,   to: L1.1 }
+    - { from: P_vin.1, to: U1.4 }
+    - { from: L1.2,    to: D1.1 }
+    - { from: L1.2,    to: U1.1 }
+    - { from: D1.2,    to: Cout.1 }
+    - { from: Cout.1,  to: P_vout.1 }
+    - { from: Cout.1,  to: R1.1 }
+    - { from: R1.2,    to: R2.1 }
+    - { from: R1.2,    to: U1.3 }
+    - { from: Cin.2,   to: P_gnd.1 }
+    - { from: U1.2,    to: P_gnd.1 }
+    - { from: Cout.2,  to: P_gnd.1 }
+    - { from: R2.2,    to: P_gnd.1 }

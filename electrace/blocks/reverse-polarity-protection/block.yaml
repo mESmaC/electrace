@@ -1,0 +1,45 @@
+id: "@electrace/reverse-polarity-protection"
+name: Reverse-Polarity Protection
+version: 1.0.0
+category: protection
+author: electrace
+license: CC-BY-4.0
+glyph: "⊘"
+spec:
+  vin: { min: 3, max: 24, unit: V }
+  iout_max: { value: 5, unit: A }
+terminals:
+  - { id: vin,  role: in,  type: power, polarity: "+", v: { min: 3, max: 24, unit: V } }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: vout, role: out, type: power, v: { min: 3, max: 24, unit: V }, i: { max: 5, unit: A } }
+limits:
+  - { field: vin.max, value: 24, unit: V, note: "D1 (12 V zener) clamps the gate-source voltage — most FETs die at ±20 V Vgs, so above ~12 V in, the clamp is what's keeping Q1 alive. Don't remove it on a >12 V rail." }
+  - { field: vin.min, value: 3, unit: V, note: "Below ~3 V there isn't enough Vgs to fully turn the FET on — it limps along on its body diode and burns the ~0.6 V you were trying to save." }
+schematic:
+  parts:
+    - { ref: Q1, type: mosfet, part: p-fet, footprint: SOT-23, why: "the pass element — its body diode conducts at power-up, then the channel turns on and shorts the diode drop to ~0 V" }
+    - { ref: R1, type: res, value: 100k, footprint: R0603, why: "gate pulldown — holds the gate at ground so the channel turns on (Vgs ≈ −Vin)" }
+    - { ref: D1, type: zener, value: 12V, footprint: SOD-323, why: "clamps Vgs so a high input can't punch through the FET's gate oxide" }
+  nets:
+    # input on the DRAIN (not the source!): correct polarity → body diode conducts, source rises,
+    # Vgs goes negative, channel ON. Reversed → body diode blocked AND channel off. Input-on-source
+    # would let the body diode drag the load negative under reversal.
+    - { name: VIN,  connect: [Q1.D, "@vin"] }
+    - { name: VOUT, connect: [Q1.S, D1.2, "@vout"] }
+    - { name: GATE, connect: [Q1.G, R1.1, D1.1] }
+    - { name: GND,  connect: [R1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin,  type: port,     ref: vin,  x: 40,  y: 100, rot: 180 }
+    - { id: Q1,     type: pmos,     ref: Q1, value: P-FET, x: 170, y: 88 }
+    - { id: D1,     type: zener,    ref: D1, value: 12V,  x: 196, y: 196, rot: 90 }
+    - { id: R1,     type: resistor, ref: R1, value: 100k, x: 156, y: 286, rot: 90 }
+    - { id: P_vout, type: port,     ref: vout, x: 360, y: 100, rot: 0 }
+    - { id: P_gnd,  type: port,     ref: gnd,  x: 170, y: 400, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: Q1.D }
+    - { from: Q1.S,    to: P_vout.1 }
+    - { from: Q1.S,    to: D1.2 }
+    - { from: Q1.G,    to: D1.1 }
+    - { from: Q1.G,    to: R1.1 }
+    - { from: R1.2,    to: P_gnd.1 }

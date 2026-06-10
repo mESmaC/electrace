@@ -1,0 +1,58 @@
+id: "@electrace/liion-charger"
+name: Li-ion Charger (1 cell)
+version: 1.0.0
+category: power
+author: electrace
+license: CC-BY-4.0
+glyph: "⚡"
+spec:
+  vin: { min: 4.5, max: 5.5, unit: V }
+  vbat: { value: 4.2, unit: V }
+  icharge: { value: 1, unit: A }
+terminals:
+  - { id: vin,  role: in,  type: power, polarity: "+", v: { min: 4.5, max: 5.5, unit: V } }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: batt, role: out, type: power, polarity: "+", v: { value: 4.2, unit: V }, i: { max: 1, unit: A } }
+  - { id: chrg, role: out, type: signal }
+limits:
+  - { field: vin.max, value: 6, unit: V, note: "Abs-max is ~8 V but the part runs hot fast above 5.5 V in — it's a LINEAR charger, burning (Vin − Vbat) × Icharge as heat. At 5 V in, 1 A into an empty cell ≈ 1 W on this little package." }
+  - { field: icharge.max, value: 1, unit: A, note: "Set by R2: Icharge ≈ 1200 / R(PROG). 1.2 kΩ → 1 A. Never set it above 1C of your cell (a 500 mAh cell wants ≤ 500 mA → 2.4 kΩ)." }
+schematic:
+  parts:
+    - { ref: U1, type: ic, part: tp4056, footprint: SOP-8, why: "the charge controller — runs the CC/CV profile: constant current into an empty cell, tapering to a constant 4.2 V as it fills" }
+    - { ref: R1, type: res, value: 1k, footprint: R0603, why: "limits the CHRG status LED / signal current" }
+    - { ref: R2, type: res, value: 1.2k, footprint: R0603, why: "programs the charge current: Icharge ≈ 1200 / R → 1 A" }
+    - { ref: C1, type: cap, value: 10uF, footprint: C0805, why: "input stability" }
+    - { ref: C2, type: cap, value: 10uF, footprint: C0805, why: "keeps the battery node stable while the loop regulates" }
+  nets:
+    - { name: VIN,  connect: [U1.VCC, U1.CE, C1.1, R1.1, "@vin"] }
+    - { name: BATT, connect: [U1.BAT, C2.1, "@batt"] }
+    - { name: CHRG, connect: [U1.CHRG, R1.2, "@chrg"] }
+    - { name: PROG, connect: [U1.PROG, R2.1] }
+    - { name: GND,  connect: [U1.GND, U1.TEMP, C1.2, C2.2, R2.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin,  type: port,      ref: vin,  x: 40,  y: 100, rot: 180 }
+    - { id: C1,     type: capacitor, ref: C1, value: 10µF, x: 116, y: 136, rot: 90 }
+    - { id: U1,     type: chip,      ref: U1, value: TP4056, x: 230, y: 76, chip: { profile: soic, pins: 8, mpn: TP4056, names: { "1": TEMP, "2": PROG, "3": GND, "4": VCC, "5": BAT, "6": STDBY, "7": CHRG, "8": CE } } }
+    - { id: R2,     type: resistor,  ref: R2, value: 1.2k, x: 156, y: 246, rot: 90 }
+    - { id: R1,     type: resistor,  ref: R1, value: 1k,   x: 376, y: 246, rot: 90 }
+    - { id: C2,     type: capacitor, ref: C2, value: 10µF, x: 446, y: 136, rot: 90 }
+    - { id: P_batt, type: port,      ref: batt, x: 560, y: 100, rot: 0 }
+    - { id: P_chrg, type: port,      ref: chrg, x: 560, y: 200, rot: 0 }
+    - { id: P_gnd,  type: port,      ref: gnd,  x: 250, y: 380, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: C1.1 }
+    - { from: C1.1,    to: U1.4 }
+    - { from: P_vin.1, to: U1.8 }
+    - { from: P_vin.1, to: R1.1 }
+    - { from: U1.5,    to: C2.1 }
+    - { from: C2.1,    to: P_batt.1 }
+    - { from: U1.7,    to: R1.2 }
+    - { from: U1.7,    to: P_chrg.1 }
+    - { from: U1.2,    to: R2.1 }
+    - { from: U1.1,    to: P_gnd.1 }
+    - { from: U1.3,    to: P_gnd.1 }
+    - { from: R2.2,    to: P_gnd.1 }
+    - { from: C1.2,    to: P_gnd.1 }
+    - { from: C2.2,    to: P_gnd.1 }

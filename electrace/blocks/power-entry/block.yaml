@@ -20,9 +20,13 @@ schematic:
     - { ref: D1, type: tvs, footprint: SMA, why: "clamps input voltage spikes" }
     - { ref: C1, type: cap, value: 100uF, footprint: radial-6.3mm, polarized: true, why: "bulk input hold-up" }
   nets:
-    - { name: VIN_RAW, connect: [J1.1, Q1.in] }
-    - { name: VBUS,    connect: [Q1.out, D1.1, C1.1, "@vout"] }
-    - { name: GND,     connect: [J1.2, D1.2, C1.2, "@gnd"] }
+    # input on the FET's DRAIN: the body diode (D→S) conducts at first power-up, then the channel
+    # turns on (gate at GND ⇒ Vgs ≈ −Vin) and shorts it out. Reversed input: body diode blocked AND
+    # channel off — nothing flows. Input-on-source looks similar but fails reversed (the body diode
+    # would drag the load negative).
+    - { name: VIN_RAW, connect: [J1.1, Q1.D] }
+    - { name: VBUS,    connect: [Q1.S, D1.1, C1.1, "@vout"] }
+    - { name: GND,     connect: [J1.2, Q1.G, D1.2, C1.2, "@gnd"] }
 layout:
   symbols:
     - { id: J1, type: header2, ref: J1, value: DC jack, x: 40,  y: 88 }
@@ -32,8 +36,8 @@ layout:
     - { id: P_vout, type: port, ref: vout, x: 480, y: 150, rot: 0 }
     - { id: P_gnd,  type: port, ref: gnd,  x: 305, y: 275, rot: 90 }
   wires:
-    - { from: J1.1,  to: Q1.S }
-    - { from: Q1.D,  to: D1.1 }
+    - { from: J1.1,  to: Q1.D }
+    - { from: Q1.S,  to: D1.1 }
     - { from: D1.1,  to: C1.1 }
     - { from: C1.1,  to: P_vout.1 }
     - { from: J1.2,  to: P_gnd.1 }

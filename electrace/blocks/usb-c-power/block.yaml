@@ -1,0 +1,52 @@
+id: "@electrace/usb-c-power"
+name: USB-C 5V Input
+version: 1.0.0
+category: power
+author: electrace
+license: CC-BY-4.0
+glyph: "⌁"
+spec:
+  vin: { value: 5, unit: V }
+  vout: { value: 5, unit: V }
+  iout_max: { value: 3, unit: A }
+terminals:
+  - { id: vbus, role: in,  type: power, polarity: "+", v: { min: 4.75, max: 5.25, unit: V } }
+  - { id: cc1,  role: in,  type: signal }
+  - { id: cc2,  role: in,  type: signal }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: vout, role: out, type: rail, v: { value: 5, unit: V }, i: { max: 3, unit: A } }
+limits:
+  - { field: iout.max, value: 3, unit: A, note: "3 A only when the source advertises it on CC. With plain 5.1 kΩ pulldowns you take what the charger offers — budget for 0.5–1.5 A from a basic port, 3 A from a 15 W source." }
+  - { field: vin.max, value: 5.5, unit: V, note: "This is a 5 V-only sink. A PD source never sends more than 5 V unless ASKED on CC — these pulldowns can't ask, which is exactly what keeps the rail safe at 5 V." }
+schematic:
+  parts:
+    - { ref: R1, type: res, value: 5.1k, footprint: R0603, why: "CC1 pulldown — tells the source 'I'm a 5 V sink, give me what you can'" }
+    - { ref: R2, type: res, value: 5.1k, footprint: R0603, why: "CC2 pulldown — the cable can flip, so BOTH CC pins need one" }
+    - { ref: D1, type: tvs, footprint: SOD-323, why: "clamps VBUS spikes from cable hot-plug before they reach the rail" }
+    - { ref: C1, type: cap, value: 22uF, footprint: C0805, why: "input bulk — rides through the source's cable drop on load steps" }
+  nets:
+    - { name: CC1,  connect: [R1.1, "@cc1"] }
+    - { name: CC2,  connect: [R2.1, "@cc2"] }
+    - { name: VBUS, connect: [D1.1, C1.1, "@vbus", "@vout"] }
+    - { name: GND,  connect: [R1.2, R2.2, D1.2, C1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vbus, type: port,     ref: vbus, x: 40,  y: 90,  rot: 180 }
+    - { id: P_cc1,  type: port,     ref: cc1,  x: 40,  y: 170, rot: 180 }
+    - { id: P_cc2,  type: port,     ref: cc2,  x: 40,  y: 240, rot: 180 }
+    - { id: R1,     type: resistor, ref: R1, value: 5.1k, x: 156, y: 200, rot: 90 }
+    - { id: R2,     type: resistor, ref: R2, value: 5.1k, x: 236, y: 270, rot: 90 }
+    - { id: D1,     type: tvs,      ref: D1, value: TVS,  x: 326, y: 156, rot: 90 }
+    - { id: C1,     type: capacitor, ref: C1, value: 22µF, x: 416, y: 156, rot: 90 }
+    - { id: P_vout, type: port,     ref: vout, x: 520, y: 90, rot: 0 }
+    - { id: P_gnd,  type: port,     ref: gnd,  x: 330, y: 360, rot: 90 }
+  wires:
+    - { from: P_vbus.1, to: D1.1 }
+    - { from: D1.1,     to: C1.1 }
+    - { from: C1.1,     to: P_vout.1 }
+    - { from: P_cc1.1,  to: R1.1 }
+    - { from: P_cc2.1,  to: R2.1 }
+    - { from: R1.2,     to: P_gnd.1 }
+    - { from: R2.2,     to: P_gnd.1 }
+    - { from: D1.2,     to: P_gnd.1 }
+    - { from: C1.2,     to: P_gnd.1 }

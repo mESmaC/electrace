@@ -1,0 +1,41 @@
+id: "@electrace/input-protection"
+name: Input Protection (fuse + TVS)
+version: 1.0.0
+category: protection
+author: electrace
+license: CC-BY-4.0
+glyph: "⛨"
+spec:
+  vin: { min: 5, max: 24, unit: V }
+  iout_max: { value: 2, unit: A }
+terminals:
+  - { id: vin,  role: in,  type: power, polarity: "+", v: { min: 5, max: 24, unit: V } }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: vout, role: out, type: power, v: { min: 5, max: 24, unit: V }, i: { max: 2, unit: A } }
+limits:
+  - { field: iout.max, value: 2, unit: A, note: "The 2 A fuse is the ceiling for the whole downstream board. Size it ~1.5× your real maximum draw — too tight and it nuisance-trips on inrush, too loose and it never protects." }
+  - { field: vin.max, value: 24, unit: V, note: "The TVS stands off 24 V and clamps spikes above ~26.7 V. On a sustained over-voltage it conducts hard and BLOWS THE FUSE on purpose — that pairing is the design: the TVS converts over-voltage into the over-current the fuse can act on." }
+schematic:
+  parts:
+    - { ref: F1,  type: fuse, value: 2A, footprint: F1206, why: "the sacrificial element — opens on a fault so the board doesn't" }
+    - { ref: D1,  type: tvs, part: smbj24a, footprint: SMB, why: "clamps voltage spikes in nanoseconds, and shorts a sustained over-voltage to force the fuse open" }
+    - { ref: FB1, type: inductor, value: "600R@100MHz", footprint: FB0805, why: "ferrite bead — turns conducted RF noise riding on the input into a little heat instead of letting it in" }
+  nets:
+    - { name: VIN,     connect: [F1.1, "@vin"] }
+    - { name: CLAMPED, connect: [F1.2, D1.1, FB1.1] }
+    - { name: VOUT,    connect: [FB1.2, "@vout"] }
+    - { name: GND,     connect: [D1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin,  type: port,    ref: vin,  x: 40,  y: 100, rot: 180 }
+    - { id: F1,     type: fuse,    ref: F1,  value: 2A,  x: 140, y: 94 }
+    - { id: D1,     type: tvs,     ref: D1,  value: 24V, x: 266, y: 156, rot: 90 }
+    - { id: FB1,    type: ferrite, ref: FB1, value: 600R, x: 356, y: 94 }
+    - { id: P_vout, type: port,    ref: vout, x: 480, y: 100, rot: 0 }
+    - { id: P_gnd,  type: port,    ref: gnd,  x: 280, y: 280, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: F1.1 }
+    - { from: F1.2,    to: D1.1 }
+    - { from: F1.2,    to: FB1.1 }
+    - { from: FB1.2,   to: P_vout.1 }
+    - { from: D1.2,    to: P_gnd.1 }

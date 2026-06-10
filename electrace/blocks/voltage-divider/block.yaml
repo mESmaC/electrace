@@ -1,0 +1,37 @@
+id: "@electrace/voltage-divider"
+name: Voltage Divider
+version: 1.0.0
+category: signal
+author: electrace
+license: CC-BY-4.0
+glyph: "÷"
+spec:
+  ratio: { value: 0.5 }
+  zout: { value: 5, unit: kΩ }
+terminals:
+  - { id: vin,  role: in,  type: signal }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: vout, role: out, type: signal }
+limits:
+  - { field: load.min, value: 50, unit: kΩ, note: "The divider's output impedance is R1∥R2 = 5 kΩ. Any load comparable to that becomes part of the divider and shifts the ratio — keep loads ≥10× Zout (≥50 kΩ), or buffer with an op-amp follower." }
+  - { field: power.note, value: 0, note: "It burns Vin²/(R1+R2) continuously — 12 V across 20 k is 7 mW, fine; the same divider made from 200 Ω would be 720 mW and a hot resistor. Scale R up for battery designs, down for noise-sensitive nodes." }
+schematic:
+  parts:
+    - { ref: R1, type: res, value: 10k, footprint: R0603, why: "the top leg — drops the share of Vin that vout doesn't get" }
+    - { ref: R2, type: res, value: 10k, footprint: R0603, why: "the bottom leg — vout is the fraction across this one: Vout = Vin × R2/(R1+R2)" }
+  nets:
+    - { name: VIN,  connect: [R1.1, "@vin"] }
+    - { name: VOUT, connect: [R1.2, R2.1, "@vout"] }
+    - { name: GND,  connect: [R2.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin,  type: port,     ref: vin,  x: 100, y: 60, rot: 90 }
+    - { id: R1,     type: resistor, ref: R1, value: 10k, x: 86, y: 130, rot: 90 }
+    - { id: R2,     type: resistor, ref: R2, value: 10k, x: 86, y: 260, rot: 90 }
+    - { id: P_vout, type: port,     ref: vout, x: 220, y: 205, rot: 0 }
+    - { id: P_gnd,  type: port,     ref: gnd,  x: 100, y: 390, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: R1.1 }
+    - { from: R1.2,    to: R2.1 }
+    - { from: R1.2,    to: P_vout.1 }
+    - { from: R2.2,    to: P_gnd.1 }
