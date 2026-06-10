@@ -100,6 +100,10 @@ export interface Block {
   layout?: SchematicLayout;  // the editable internal schematic: placed symbols + wires (one source for view + edit)
   irreducible?: boolean;     // silicon IS the primitive (MCU/CPU/FPGA) — a hint that it has no discrete reduction
   // explain.md is loaded alongside, not part of the manifest
+  /** Galvanic-isolation groups: terminal ids in DIFFERENT groups have no conductive path through
+   *  this block (an optocoupler's LED side vs its transistor side — only light crosses). Absent =
+   *  all terminals conduct internally (true of nearly everything). */
+  isolation?: string[][];
 }
 
 /** The editable internal schematic: predefined symbols placed on a canvas, wired pin-to-pin.
@@ -158,7 +162,13 @@ export interface Design {
   connections: Connection[];
   connectors?: ConnectorInstance[];
   acks?: Ack[];              // findings the user/agent marked intended (e.g. an intentional diode-OR)
+  isolation?: IsolationConstraint[]; // declared galvanic-isolation requirements, checked every pass
 }
+
+/** "These two blocks must share NO conductive path." b is a block ref, or "*" = every other block.
+ *  Checked against the conduction graph (nets + intra-block paths, honouring Block.isolation groups);
+ *  a violation names the bridging path. */
+export interface IsolationConstraint { a: string; b: string; note?: string }
 
 /** An acknowledged finding: a correct-but-noisy warning marked intended so it stops counting against
  *  the design. Keyed by the finding's rule + its `at` subjects, so it mutes that one occurrence only. */

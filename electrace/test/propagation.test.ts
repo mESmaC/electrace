@@ -143,3 +143,59 @@ test("regulator dissipation at ACTUAL load", () => {
   const hit = a.findings.find((f) => f.rule === "thermal/regulator-dissipation");
   assert.ok(hit && hit.severity === "error", "expected error-tier dissipation; got " + JSON.stringify(hit ?? a.findings.map((f) => f.rule)));
 });
+
+// ---- galvanic isolation constraints ----
+const OPTO: Block = {
+  id: "@t/opto", name: "Opto", version: "1", category: "interface",
+  isolation: [["a", "k"], ["c", "e"]],
+  terminals: [
+    { id: "a", role: "in", type: "signal" }, { id: "k", role: "in", type: "signal" },
+    { id: "c", role: "out", type: "signal" }, { id: "e", role: "in", type: "gnd" },
+  ], schematic: { parts: [], nets: [] },
+};
+
+test("isolation holds when only light crosses (opto in the middle)", () => {
+  const blocks5 = new Map<string, Block>([["@t/src@1", SRC], ["@t/opto@1", OPTO], ["@t/load@1", LOAD]]);
+  const d: Design = {
+    id: "i1", name: "i1",
+    blocks: [{ ref: "S1", block: "@t/src@1" }, { ref: "O1", block: "@t/opto@1" }, { ref: "L1", block: "@t/load@1" }],
+    connections: [
+      { from: "S1.vout", to: "O1.a" }, { from: "S1.gnd", to: "O1.k" },     // dirty side
+      { from: "O1.c", to: "L1.vin" }, { from: "O1.e", to: "L1.gnd" },     // clean side
+    ],
+    isolation: [{ a: "S1", b: "L1" }],
+  };
+  const a = analyze(d, blocks5);
+  assert.ok(!a.findings.some((f) => f.rule === "isolation/bridged"),
+    "no bridge expected; got " + a.findings.filter((f) => f.rule === "isolation/bridged").map((f) => f.message).join(" | "));
+});
+
+test("isolation bridged via a shared ground names the bridging net", () => {
+  const blocks5 = new Map<string, Block>([["@t/src@1", SRC], ["@t/opto@1", OPTO], ["@t/load@1", LOAD]]);
+  const d: Design = {
+    id: "i2", name: "i2",
+    blocks: [{ ref: "S1", block: "@t/src@1" }, { ref: "O1", block: "@t/opto@1" }, { ref: "L1", block: "@t/load@1" }],
+    connections: [
+      { from: "S1.vout", to: "O1.a" }, { from: "S1.gnd", to: "O1.k" },
+      { from: "O1.c", to: "L1.vin" }, { from: "O1.e", to: "L1.gnd" },
+      { from: "S1.gnd", to: "L1.gnd" }, // the mistake: grounds tied across the barrier
+    ],
+    isolation: [{ a: "S1", b: "L1" }],
+  };
+  const a = analyze(d, blocks5);
+  const hit = a.findings.find((f) => f.rule === "isolation/bridged");
+  assert.ok(hit, "expected bridge finding");
+  assert.match(hit!.message, /net /, "message should name the bridging net: " + hit!.message);
+});
+
+test("isolate-against-all checks every other block", () => {
+  const blocks6 = new Map<string, Block>([["@t/src@1", SRC], ["@t/chip@1", CHIP]]);
+  const d: Design = {
+    id: "i3", name: "i3",
+    blocks: [{ ref: "S1", block: "@t/src@1" }, { ref: "C1", block: "@t/chip@1" }],
+    connections: [{ from: "S1.vout", to: "C1.vcc" }, { from: "S1.gnd", to: "C1.gnd" }],
+    isolation: [{ a: "S1", b: "*" }],
+  };
+  const a = analyze(d, blocks6);
+  assert.ok(a.findings.some((f) => f.rule === "isolation/bridged" && f.at.includes("C1")));
+});

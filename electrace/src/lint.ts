@@ -339,9 +339,71 @@ const regulatorDissipation: Rule = (rd) =>
     } satisfies Finding];
   });
 
+
+/** Declared galvanic-isolation constraints: "these blocks must share NO conductive path."
+ *  Builds the conduction graph — nets connect their member terminals; a block connects its own
+ *  terminals EXCEPT across its declared isolation groups (an optocoupler's two sides) — then
+ *  BFS from A to B. A violation names the bridging path: the actionable part. */
+const isolationBridged: Rule = (rd) => {
+  const constraints = rd.design.isolation ?? [];
+  if (!constraints.length) return [];
+  const adj = new Map<string, { to: string; via: string }[]>();
+  const link = (a: string, b: string, via: string) => {
+    if (!adj.has(a)) adj.set(a, []);
+    if (!adj.has(b)) adj.set(b, []);
+    adj.get(a)!.push({ to: b, via });
+    adj.get(b)!.push({ to: a, via });
+  };
+  for (const net of rd.nets) {
+    const m = net.members;
+    for (let i = 1; i < m.length; i++) link(m[0].node, m[i].node, `net ${net.id}`);
+  }
+  for (const inst of rd.instances) {
+    const groups = inst.def.isolation ?? [inst.def.terminals.map((t) => t.id)];
+    for (const g of groups) for (let i = 1; i < g.length; i++) link(`${inst.ref}.${g[0]}`, `${inst.ref}.${g[i]}`, `inside ${inst.ref}`);
+  }
+  const pathBetween = (aRef: string, bRef: string): string[] | null => {
+    const starts = rd.instances.find((i) => i.ref === aRef)?.def.terminals.map((t) => `${aRef}.${t.id}`) ?? [];
+    const goal = new Set(rd.instances.find((i) => i.ref === bRef)?.def.terminals.map((t) => `${bRef}.${t.id}`) ?? []);
+    const seen = new Set(starts);
+    const q: { node: string; vias: string[] }[] = starts.map((n) => ({ node: n, vias: [] }));
+    while (q.length) {
+      const cur = q.shift()!;
+      if (goal.has(cur.node)) return cur.vias;
+      for (const e of adj.get(cur.node) ?? []) {
+        if (seen.has(e.to)) continue;
+        seen.add(e.to);
+        q.push({ node: e.to, vias: cur.vias[cur.vias.length - 1] === e.via ? cur.vias : [...cur.vias, e.via] });
+      }
+    }
+    return null;
+  };
+  const out: Finding[] = [];
+  const done = new Set<string>();
+  for (const c of constraints) {
+    const targets = c.b === "*" ? rd.instances.map((i) => i.ref).filter((r) => r !== c.a) : [c.b];
+    for (const t of targets) {
+      const key = [c.a, t].sort().join("|");
+      if (done.has(key) || c.a === t) continue;
+      done.add(key);
+      if (!rd.instances.some((i) => i.ref === t) || !rd.instances.some((i) => i.ref === c.a)) continue;
+      const vias = pathBetween(c.a, t);
+      if (vias) {
+        out.push({
+          rule: "isolation/bridged", severity: "error", category: "connectivity",
+          at: [c.a, t, ...vias.filter((v) => v.startsWith("net ")).map((v) => v.slice(4))],
+          message: `${c.a} and ${t} are declared galvanically isolated, but they're conductively bridged: ${vias.join(" → ")}.`,
+          derivation: `isolation constraint ${c.a} ↮ ${c.b === "*" ? "all" : c.b}; conductive path exists`,
+        });
+      }
+    }
+  }
+  return out;
+};
+
 export const RULES: Rule[] = [
   danglingWire,
-  openNet, overCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, // faults
+  openNet, overCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, // faults
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 

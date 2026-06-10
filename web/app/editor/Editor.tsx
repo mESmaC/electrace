@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, railBudgets, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
@@ -476,6 +476,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // the project's display name (the SSR design is a stub; the real name arrives when we hydrate it)
   const [designName, setDesignName] = useState(design.name);
   const [acks, setAcks] = useState<Ack[]>(design.acks ?? []); // findings marked intended (muted, not counted)
+  const [isolation, setIsolation] = useState<IsolationConstraint[]>(design.isolation ?? []); // declared galvanic barriers
   // A block's edited internal schematic (saved by the in-block editor) is the source of truth:
   // merge each saved layout, re-derive its parts/nets, and analyze against that. `mounted` keeps
   // the first (SSR) render on the authored blocks to avoid a hydration mismatch; `draftV` bumps
@@ -543,8 +544,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         .filter((e) => refs.has(e.source) && refs.has(e.target))
         .map((e) => ({ from: `${e.source}.${e.sourceHandle ?? ""}`, to: `${e.target}.${e.targetHandle ?? ""}` })),
       acks,
+      ...(isolation.length ? { isolation } : {}),
     };
-  }, [nodes, edges, design, designName, acks]);
+  }, [nodes, edges, design, designName, acks, isolation]);
 
   // analyze() never reads XY positions, so key it on a position-free snapshot — dragging a
   // block repaints the canvas every frame but must not re-run resolve/lint/bom per pixel
@@ -703,7 +705,15 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     if (selectedId && !nodes.some((n) => n.id === selectedId)) setSelectedId(null);
     if (selectedNet && !nodes.some((n) => n.id === selectedNet.split(".")[0])) setSelectedNet(null);
   }, [nodes, selectedId, selectedNet]);
+  useEffect(() => {
+    setIsolation((prev) => {
+      const refs = new Set(nodes.map((n) => n.id));
+      const next = prev.filter((c) => refs.has(c.a) && (c.b === "*" || refs.has(c.b)));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [nodes]);
   const [drillRef, setDrillRef] = useState<string | null>(null);
+  const [isoFor, setIsoFor] = useState<string | null>(null); // block whose isolation constraints are being edited
   const [bottomOpen, setBottomOpen] = useState(true);
   type FormTerm = { id: string; role: TerminalRole; type: NetType; v?: string; i?: string };
   const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; color: string; category: string; terminals: FormTerm[]; editKey?: string } | null>(null);
@@ -845,6 +855,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       ? [
           { label: "Open block", icon: "⌖", onSelect: () => setDrillRef(n.id) },
           { label: "Duplicate", icon: "⧉", onSelect: () => duplicateNode(n.id) },
+          { label: "Isolation…", icon: "⊘", onSelect: () => setIsoFor(n.id) },
           { separator: true },
           { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
         ]
@@ -935,6 +946,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     restoring.current = true;
     if (d.name) setDesignName(d.name);
     setAcks(d.acks ?? []);
+    setIsolation(d.isolation ?? []);
     setNodes(flow.nodes);
     setEdges(flow.edges);
     history.current = [{ nodes: flow.nodes, edges: flow.edges }];
@@ -1202,6 +1214,46 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <SymbolStyleToggle />
           <ReportBug getDesign={() => designForAnalysis.current} />
         </div>
+      {isoFor && (() => {
+        const others = nodes.filter((n) => n.type === "block" && n.id !== isoFor).map((n) => n.id);
+        const mine = isolation.filter((c) => c.a === isoFor || c.b === isoFor);
+        const isAll = mine.some((c) => c.a === isoFor && c.b === "*");
+        const has = (ref: string) => isAll || mine.some((c) => (c.a === isoFor && c.b === ref) || (c.b === isoFor && c.a === ref));
+        const toggle = (ref: string) => setIsolation((prev) => {
+          const hit = prev.find((c) => (c.a === isoFor && c.b === ref) || (c.b === isoFor && c.a === ref));
+          return hit ? prev.filter((c) => c !== hit) : [...prev, { a: isoFor!, b: ref }];
+        });
+        const toggleAll = () => setIsolation((prev) => isAll
+          ? prev.filter((c) => !(c.a === isoFor && c.b === "*"))
+          : [...prev.filter((c) => c.a !== isoFor && c.b !== isoFor), { a: isoFor!, b: "*" }]);
+        return (
+          <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50" onClick={() => setIsoFor(null)}>
+            <div className="w-[400px] rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="text-[15px] font-bold text-[var(--color-text)]">Galvanic isolation — {isoFor}</div>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-dim)]">
+                Declare which blocks {isoFor} must share <b>no conductive path</b> with. The checker verifies it on
+                every change — and names the bridging net the moment anything (usually a shared ground) breaks it.
+              </p>
+              <label className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-text)]">
+                <input type="checkbox" checked={isAll} onChange={toggleAll} className="accent-[var(--color-accent)]" />
+                Isolate against <b>all other blocks</b>
+              </label>
+              {!isAll && (
+                <div className="mt-2 max-h-[240px] overflow-auto rounded-lg border border-[var(--color-border)]">
+                  {others.length === 0 && <div className="px-3 py-2 text-[12px] text-[var(--color-faint)]">No other blocks on the canvas yet.</div>}
+                  {others.map((ref) => (
+                    <label key={ref} className="flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-1.5 text-[13px] text-[var(--color-text)] last:border-0">
+                      <input type="checkbox" checked={has(ref)} onChange={() => toggle(ref)} className="accent-[var(--color-accent)]" />
+                      {ref}
+                    </label>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => setIsoFor(null)} className="mt-4 w-full rounded-xl border border-[var(--color-border-strong)] py-2 text-[13px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Done</button>
+            </div>
+          </div>
+        );
+      })()}
         <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]/80 px-3 py-1.5 text-[11px] text-[var(--color-faint)]">
           Drag between ports to wire · select a wire + Delete to remove
         </div>

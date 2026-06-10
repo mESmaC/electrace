@@ -5,6 +5,7 @@ category: interface
 author: electrace
 license: CC-BY-4.0
 glyph: "⧉"
+isolation: [["in+", "in-"], [vcc, out, gnd]]
 spec:
   vin: { min: 5, max: 24, unit: V }
   vcc: { min: 1.8, max: 5.5, unit: V }
