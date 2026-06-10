@@ -56,6 +56,58 @@ export const DISCRETE_LIBRARY: Record<string, DiscreteEquivalent> = {
       ],
     },
   },
+  "h-bridge-1ch": {
+    ic: "h-bridge-1ch",
+    name: "H-bridge — four switches around the motor",
+    note: "The chip, drawn out: each side of the 'H' is a P-FET stacked over an N-FET — the same totem-pole structure as a CMOS logic gate, just sized for amps. Driving IN1 high turns the left N-FET on (OUT1 low) and the left P-FET off; driving it low does the reverse — so each input picks its side's polarity, and a diagonal pair conducts through the motor. The honesty caveat: this bare version has no dead-time logic, so during input transitions both FETs of one side conduct for an instant (shoot-through). A real driver IC adds break-before-make timing, current limits, and thermal shutdown around exactly this core.",
+    schematic: {
+      parts: [
+        { ref: "QA1", type: "mosfet", part: "p-fet", footprint: "SOT-23", why: "left high-side — connects OUT1 to VM when IN1 is low" },
+        { ref: "QA2", type: "mosfet", part: "n-fet", footprint: "SOT-23", why: "left low-side — pulls OUT1 to ground when IN1 is high" },
+        { ref: "QB1", type: "mosfet", part: "p-fet", footprint: "SOT-23", why: "right high-side — connects OUT2 to VM when IN2 is low" },
+        { ref: "QB2", type: "mosfet", part: "n-fet", footprint: "SOT-23", why: "right low-side — pulls OUT2 to ground when IN2 is high" },
+      ],
+      nets: [
+        { name: "VM",   connect: ["QA1.S", "QB1.S", "@VM"] },
+        { name: "GND",  connect: ["QA2.S", "QB2.S", "@GND"] },
+        { name: "IN1",  connect: ["QA1.G", "QA2.G", "@IN1"] },
+        { name: "IN2",  connect: ["QB1.G", "QB2.G", "@IN2"] },
+        { name: "OUT1", connect: ["QA1.D", "QA2.D", "@OUT1"] },
+        { name: "OUT2", connect: ["QB1.D", "QB2.D", "@OUT2"] },
+      ],
+    },
+    // Two totem-pole columns (P over N), VM rail joining the sources at top, GND at bottom,
+    // each input fanning to BOTH gates of its column, outputs tapped between the drains.
+    // pmos/nmos: G(0,32) left · pmos S(40,2) D(40,62) · nmos D(40,2) S(40,62).
+    layout: {
+      symbols: [
+        { id: "QA1", type: "pmos", ref: "QA1", x: 120, y: 40 },   // G(120,72) S(160,42) D(160,102)
+        { id: "QA2", type: "nmos", ref: "QA2", x: 120, y: 140 },  // G(120,172) D(160,142) S(160,202)
+        { id: "QB1", type: "pmos", ref: "QB1", x: 320, y: 40 },
+        { id: "QB2", type: "nmos", ref: "QB2", x: 320, y: 140 },
+        { id: "P_vm",   type: "port", ref: "VM",   x: 228, y: 10 },
+        { id: "P_gnd",  type: "port", ref: "GND",  x: 228, y: 250 },
+        { id: "P_in1",  type: "port", ref: "IN1",  x: 20,  y: 112 },
+        { id: "P_in2",  type: "port", ref: "IN2",  x: 450, y: 112 },
+        { id: "P_out1", type: "port", ref: "OUT1", x: 195, y: 100 },
+        { id: "P_out2", type: "port", ref: "OUT2", x: 195, y: 160 },
+      ],
+      wires: [
+        { from: "QA1.S", to: "P_vm.1" },   // VM rail
+        { from: "QB1.S", to: "P_vm.1" },
+        { from: "QA2.S", to: "P_gnd.1" },  // GND rail
+        { from: "QB2.S", to: "P_gnd.1" },
+        { from: "P_in1.1", to: "QA1.G" },  // IN1 → both left gates
+        { from: "P_in1.1", to: "QA2.G" },
+        { from: "P_in2.1", to: "QB1.G" },  // IN2 → both right gates
+        { from: "P_in2.1", to: "QB2.G" },
+        { from: "QA1.D", to: "QA2.D" },    // left output node
+        { from: "QA1.D", to: "P_out1.1" },
+        { from: "QB1.D", to: "QB2.D" },    // right output node
+        { from: "QB2.D", to: "P_out2.1" },
+      ],
+    },
+  },
 };
 
 /** Look up a supported IC part's discrete equivalent (undefined ⇒ not supported / can't break down). */
