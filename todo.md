@@ -110,11 +110,15 @@ Noted for completeness — add-to-cart / BOM-aware sourcing (distributor PN), bl
 - [ ] **Sparky chat loses its stream when you drill OUT of a block schematic mid-response.**
   Repro: open chat, send a message, exit the schematic while it's processing → chat shows the
   user message with no reply (the server-side run COMPLETES; only the client loses it).
-  Diagnosis to verify: AssistantBubble (or the drilled view holding the stream reader) unmounts
-  on drill-out, killing the fetch-stream consumer; the partial/final text is never committed to
-  the persisted chat state. Fix direction: own the stream at a layer that survives drill-in/out
-  (module-level reader writing into the chat store, UI only renders the store), and/or on
-  remount reconcile by fetching the run's final state. *(M)*
+  DIAGNOSIS (2026-06-09 session): sendMessage + its stream reader are MODULE-LEVEL in
+  lib/assistant.ts — a component unmount can NOT kill them. Therefore the drill-out path must
+  be a real PAGE NAVIGATION (suspect: the "← <project>" breadcrumb in the BlockSchematic header
+  is a Link, killing the fetch wholesale; server run completes). Fix in two layers:
+  (1) make drill-out a state change, not a navigation (or intercept the breadcrumb while a run
+  is active); (2) resilience for ANY reload mid-run: set an `electrace:chat:pending` flag when
+  sendMessage starts, clear on completion — on mount, pending+no-live-progress ⇒ append a
+  "reply was interrupted by a page change" notice (or, better later: persist run ids server-side
+  and fetch the completed reply). *(M — start at BlockSchematic's exit affordance)*
 
 - [ ] **Agent-API hardening (verbatim feedback from a GPT-5.5 Sparky session — excellent list):**
     1. **Connector pins missing from net summaries** — list_nets/whats_on_net don't show J1.1
