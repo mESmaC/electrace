@@ -5,7 +5,7 @@ import puppeteer from "puppeteer-core";
 import { spawn } from "child_process";
 import { readFileSync } from "fs";
 
-const [slug, timelinePath, outPath, base = "http://localhost:3600"] = process.argv.slice(2);
+const [slug, timelinePath, outPath, base = "http://localhost:3600", audioPath] = process.argv.slice(2);
 const FPS = 30;
 const tl = JSON.parse(readFileSync(timelinePath, "utf8")); // { duration, tracks: [...] } — see stateAt
 
@@ -33,7 +33,12 @@ const meta = await page.evaluate(() => window.__stageMeta);
 console.log(`[stage] ${slug}: ${meta.wires} wires, ${meta.symbols} symbols`);
 
 // Fedora ffmpeg has no libx264; libopenh264 is present and YouTube re-encodes anyway — feed it high bitrate.
-const ff = spawn("ffmpeg", ["-y", "-f", "image2pipe", "-framerate", String(FPS), "-i", "-", "-c:v", "libopenh264", "-b:v", "10M", "-pix_fmt", "yuv420p", outPath], { stdio: ["pipe", "ignore", "inherit"] });
+const ffArgs = ["-y", "-f", "image2pipe", "-framerate", String(FPS), "-i", "-",
+  ...(audioPath ? ["-i", audioPath] : []),
+  "-c:v", "libopenh264", "-b:v", "10M", "-pix_fmt", "yuv420p",
+  ...(audioPath ? ["-c:a", "aac", "-b:a", "192k"] : []),
+  outPath];
+const ff = spawn("ffmpeg", ffArgs, { stdio: ["pipe", "ignore", "inherit"] });
 let ffDead = false;
 ff.on("exit", (c) => { if (c !== 0) { ffDead = true; console.error(`[ffmpeg] exited ${c}`); } });
 ff.stdin.on("error", () => { ffDead = true; });
