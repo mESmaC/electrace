@@ -12,6 +12,10 @@ import { canUseSparky } from "@/lib/entitlements";
 // Provider switch — flip Sparky between Anthropic (default) and OpenAI for A/B comparison. Set
 // ASSISTANT_PROVIDER=openai to use OpenAI; OPENAI_API_KEY + OPENAI_MODEL drive that path.
 const PROVIDER = (process.env.ASSISTANT_PROVIDER || "anthropic").toLowerCase();
+// Credit/quota exhaustion (either provider) gets its own honest message — during development the
+// token budget can simply run out, and "could not reach the model" sends users bug-hunting.
+const QUOTA_RE = /credit balance|insufficient_quota|exceeded your current quota|billing|rate.?limit/i;
+class QuotaError extends Error { constructor() { super("quota"); this.name = "QuotaError"; } }
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.5"; // flagship; gpt-5.4-mini for a cheaper run
 const MAX_TURNS = 24; // big ports (e.g. an Arduino Nano: many blocks + wires) need more tool turns
@@ -664,9 +668,14 @@ export async function POST(req: Request) {
     if (r.status === 400) {
       const t = await r.text();
       if (/web.?search|tool/i.test(t)) r = await send(tools);
+      else if (QUOTA_RE.test(t)) throw new QuotaError();
       else throw new Error(`Model error 400: ${t.slice(0, 300)}`);
     }
-    if (!r.ok) throw new Error(`Model error ${r.status}: ${(await r.text().catch(() => "")).slice(0, 300)}`);
+    if (!r.ok) {
+      const t = (await r.text().catch(() => "")).slice(0, 300);
+      if (r.status === 429 || QUOTA_RE.test(t)) throw new QuotaError();
+      throw new Error(`Model error ${r.status}: ${t}`);
+    }
     return r.json();
   };
 
@@ -713,7 +722,11 @@ export async function POST(req: Request) {
         ...(tools.length ? { tools: oaiTools(tools), tool_choice: "auto" } : {}),
       }),
     });
-    if (!r.ok) throw new Error(`OpenAI error ${r.status}: ${(await r.text().catch(() => "")).slice(0, 300)}`);
+    if (!r.ok) {
+      const t = (await r.text().catch(() => "")).slice(0, 300);
+      if (r.status === 429 || QUOTA_RE.test(t)) throw new QuotaError();
+      throw new Error(`OpenAI error ${r.status}: ${t}`);
+    }
     const data = await r.json();
     const m = data.choices?.[0]?.message ?? {};
     const content: Block[] = [];
@@ -837,7 +850,13 @@ export async function POST(req: Request) {
         }
         if (!finished) emit(donePayload("I made some changes but hit the step limit — ask me to continue if it's not finished.", changed));
       } catch (e) {
-        if (!req.signal.aborted) { console.error("[sparky] error:", e); emit({ type: "error", error: "Could not reach the model." }); } // detail logged server-side, not sent to the client
+        if (!req.signal.aborted) {
+          console.error("[sparky] error:", e);
+          const quota = e instanceof QuotaError;
+          emit({ type: "error", error: quota
+            ? "Sparky is temporarily unavailable — we've hit our AI capacity for the moment (it happens during development). Your design is untouched; try again a bit later."
+            : "Could not reach the model." }); // detail logged server-side, not sent to the client
+        }
       }
       try { controller.close(); } catch { /* already closed by the consumer */ }
     },

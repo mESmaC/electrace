@@ -41,3 +41,14 @@ export const designs = pgTable("designs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("designs_owner_idx").on(t.ownerId), index("designs_visibility_idx").on(t.visibility)]);
+
+/** Durable per-user KV — everything the localStorage mirror holds that isn't a design (user
+ *  blocks, block-schematic drafts, settings, project index). Values are JSON strings verbatim.
+ *  RLS: owner-only. Backs /api/store for signed-in users; the /tmp file store remains the
+ *  anonymous/local fallback. */
+export const userKv = pgTable("user_kv", {
+  ownerId: uuid("owner_id").notNull(),
+  k: text("k").notNull(),
+  v: text("v").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("user_kv_owner_idx").on(t.ownerId)]);
