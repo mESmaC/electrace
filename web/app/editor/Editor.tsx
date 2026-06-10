@@ -666,16 +666,43 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       return { label, distinct: values.length, qty: rows.reduce((a, r) => a + r.qty, 0), values };
     })
     .filter((c) => c.qty > 0), [analysis.bom]);
-  // stress test: authored voltage limits across the design, ranked by headroom at the what-if input
-  const stressLimits = useMemo(() => nodes
-    .filter((n) => n.type === "block")
-    .flatMap((n) => ((n.data as unknown as BlockNodeData).block.limits ?? [])
-      .filter((l) => l.unit === "V" || /\bv|vin|vac/i.test(l.field))
-      .map((l) => ({ ref: n.id, ...l, margin: l.value - stressV })))
-    .sort((a, b) => a.margin - b.margin), [nodes, stressV]);
+  // stress test: authored voltage limits PLUS the declared input maxima of every block sitting on
+  // an input-tracking rail (a rail whose source declares a RANGE — it follows the external input;
+  // regulated rails declare a fixed value and are excluded: a buck's 5 V out doesn't rise with VIN).
+  const stressLimits = useMemo(() => {
+    const authored = nodes
+      .filter((n) => n.type === "block")
+      .flatMap((n) => ((n.data as unknown as BlockNodeData).block.limits ?? [])
+        .filter((l) => l.unit === "V" || /\bv|vin|vac/i.test(l.field))
+        .map((l) => ({ ref: n.id, ...l, margin: l.value - stressV })));
+    const entryNets = analysis.resolved.nets.filter((net) =>
+      (net.type === "power" || net.type === "rail") &&
+      net.sources.some((src) => src.def.v && src.def.v.min != null && src.def.v.max != null && src.def.v.max > src.def.v.min));
+    const fromRails = entryNets.flatMap((net) => net.sinks.flatMap((sk) => {
+      const lim = sk.pin.def.v?.max ?? sk.pin.def.v?.value;
+      if (lim == null) return [];
+      return [{
+        ref: sk.pin.instance,
+        field: `${sk.pin.terminal} max`,
+        value: lim, unit: "V" as const,
+        note: `${sk.pin.instance}.${sk.pin.terminal} accepts max ${lim} V and sits directly on the input-tracking rail ${net.id}.`,
+        margin: lim - stressV,
+      }];
+    }));
+    const seen = new Set<string>();
+    return [...fromRails, ...authored]
+      .filter((l) => { const k = `${l.ref}|${l.field}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((a, b) => a.margin - b.margin);
+  }, [nodes, stressV, analysis.resolved]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNet, setSelectedNet] = useState<string | null>(null); // a member node "REF.term"
+  // a deleted block must never keep filtering the checks panel — a stale filter shows a green
+  // "no issues" for a ghost while the real design has findings (walkthrough #1, P1 #4)
+  useEffect(() => {
+    if (selectedId && !nodes.some((n) => n.id === selectedId)) setSelectedId(null);
+    if (selectedNet && !nodes.some((n) => n.id === selectedNet.split(".")[0])) setSelectedNet(null);
+  }, [nodes, selectedId, selectedNet]);
   const [drillRef, setDrillRef] = useState<string | null>(null);
   const [bottomOpen, setBottomOpen] = useState(true);
   type FormTerm = { id: string; role: TerminalRole; type: NetType; v?: string; i?: string };
@@ -1421,7 +1448,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-border-strong)]">Reads authored limit notes against your what-if input — not a simulation. A guided tour of how the design dies.</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-border-strong)]">Checks every declared input limit on input-tracking rails, plus authored limit notes — not a simulation. A guided tour of how the design dies.</p>
           </Panel>
         )}
       </aside>

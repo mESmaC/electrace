@@ -1,3 +1,4 @@
+import { rmax } from "./types.js";
 import type { InvalidConnection,
   Block, Design, ResolvedDesign, ResolvedInstance, ResolvedNet, ResolvedPin, NetType, InstanceOverrides,
 } from "./types.js";
@@ -107,6 +108,7 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   }
 
   const nets: ResolvedNet[] = [];
+  const sinkLabeled = new Set<object>();
   const usedIds = new Set<string>();
   let n = 0;
   for (const members of groups.values()) {
@@ -116,18 +118,47 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
     const sinks = pins
       .filter((p) => p.def.role === "in")
       .map((p) => ({ pin: p, current: p.def.i }));
-    const vsrc = sources.find((p) => p.def.v) ?? pins.find((p) => p.def.v);
+    // exclude follows-only declarations: they're placeholders resolved by the propagation pass below
+    const hasV = (p: { def: { v?: { follows?: string; min?: number; max?: number; value?: number } } }) =>
+      p.def.v && (p.def.v.min != null || p.def.v.max != null || p.def.v.value != null);
+    const srcV = sources.find(hasV);
+    const vsrc = srcV ?? pins.find(hasV); // sink fallback labels a rail by its consumer when nothing drives it
     const connPins = members.filter((m) => connectorPins.has(m)).sort();
     const external = connPins.length > 0 || pins.some((p) => p.def.external);
     let id = netName(design, new Set(members)) ?? `net${n}`;
     n++;
     if (usedIds.has(id)) { let k = 2; while (usedIds.has(`${id}#${k}`)) k++; id = `${id}#${k}`; } // keep ids unique
     usedIds.add(id);
-    nets.push({
+    const net = {
       id, type: netType(pins), voltage: vsrc?.def.v,
       sources, sinks, members: pins, ...(connPins.length ? { connectorPins: connPins } : {}),
       open: pins.length === 1, external,
-    });
+    };
+    nets.push(net);
+    if (!srcV && vsrc) sinkLabeled.add(net); // voltage borrowed from a sink — a follows-source may override
+  }
+
+  // DC propagation: outputs declared `v: { follows: <terminal> }` swing with the net attached to
+  // that sibling terminal (a 555's out follows vcc). Iterate until stable — chains like
+  // supply → chip A out → chip B in are short; 8 passes covers any sane design, cycles just stop
+  // changing. Propagated voltage carries the source net's max (worst case for over-voltage checks);
+  // min is deliberately dropped: a full-swing output reaches 0.
+  const sinkLabeledFinal = sinkLabeled; // (alias for clarity in the pass below)
+  const netOfMember = new Map<string, (typeof nets)[number]>();
+  for (const net of nets) for (const m of net.members) netOfMember.set(m.node, net);
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (const net of nets) {
+      if (net.voltage && !sinkLabeledFinal.has(net)) continue;
+      for (const src of net.sources) {
+        const f = src.def.v?.follows;
+        if (!f) continue;
+        const ref = netOfMember.get(`${src.instance}.${f}`);
+        const vmax = ref?.voltage ? rmax(ref.voltage) : undefined;
+        if (vmax != null) { net.voltage = { max: vmax, unit: "V" }; sinkLabeledFinal.delete(net); changed = true; break; }
+      }
+    }
+    if (!changed) break;
   }
 
   return { design, instances, nets, ...(invalid.length ? { invalid } : {}) };

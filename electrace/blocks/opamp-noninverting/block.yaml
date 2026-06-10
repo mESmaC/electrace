@@ -9,10 +9,10 @@ spec:
   vcc: { min: 2.7, max: 30, unit: V }
   gain: { value: 11 }
 terminals:
-  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 2.7, max: 30, unit: V } }
+  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 2.7, max: 30, unit: V }, i: { max: 0.001, unit: A } }
   - { id: gnd, role: in,  type: gnd }
   - { id: in,  role: in,  type: signal }
-  - { id: out, role: out, type: signal }
+  - { id: out, role: out, type: signal, v: { follows: vcc } }
 limits:
   - { field: gain.note, value: 0, note: "Gain = 1 + R1/R2 = 11 here. The op-amp itself has a gain near a million — the resistors decide everything, which is the whole point: precision from two cheap parts, not from the amplifier." }
   - { field: rail.note, value: 0, note: "The output cannot exceed the supply. With gain 11 and VCC = 5 V, any input above ~0.45 V CLIPS at the rail. Size the gain for the largest input you'll ever see, not the typical one." }

@@ -9,10 +9,10 @@ spec:
   vcc: { min: 2.7, max: 5.5, unit: V }
   vth: { value: 0.5 }
 terminals:
-  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 2.7, max: 5.5, unit: V } }
+  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 2.7, max: 5.5, unit: V }, i: { max: 0.003, unit: A } }
   - { id: gnd, role: in,  type: gnd }
   - { id: in,  role: in,  type: signal }
-  - { id: out, role: out, type: signal }
+  - { id: out, role: out, type: signal, v: { follows: vcc } }
 limits:
   - { field: hysteresis.note, value: 0, note: "R3/Rin set the hysteresis: width ≈ VCC · Rin/(Rin+R3) ≈ 1% of VCC here (50 mV at 5 V). Too little and a slow or noisy input chatters the output at the threshold; widen it by shrinking R3." }
   - { field: pullup.note, value: 0, note: "Comparator outputs (LM393-class) are OPEN-COLLECTOR — they can only pull LOW. Without R4 the output never goes high and 'the comparator is broken'. It isn't; it's missing its pull-up." }

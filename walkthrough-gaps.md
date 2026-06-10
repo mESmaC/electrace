@@ -16,23 +16,23 @@ Full path: entry → place → wire → checks → PCB → exports → reload.
   structurally valid; design JSON export round-trippable
 - Test-point insight on power rails is a good idea (see P3 for its copy bugs)
 
-## P1 — engine gaps (the real work; all point at DC propagation)
+## P1 — engine gaps — ALL FIXED 2026-06-10 (commit: DC propagation pass)
 
-1. **Signal output voltage doesn't propagate.** T51.out swings at VCC (≈18 V) into
+1. ✅ FIXED — **Signal output voltage doesn't propagate.** T51.out swings at VCC (≈18 V) into
    LI1.vin (declared max 5.5 V) — NOT flagged. Output terminals carry no voltage spec and
    the engine doesn't infer "out swings at supply." The vcc-side violation fired; the
    signal-chain one is invisible. → needs: declared/inferred output-voltage ranges +
    propagation through the net graph.
-2. **Current draw doesn't propagate.** Power budget shows 0 A / 0 W with a 555 + LED wired
+2. ✅ FIXED — **Current draw doesn't propagate.** Power budget shows 0 A / 0 W with a 555 + LED wired
    to the rail. Blocks without an explicit `i` on their power terminal are invisible to
    the budget, and downstream draw (LED via 555.out) never charges back to the rail.
    → needs: per-block supply-current declarations + chain accounting.
-3. **Stress test contradicts the checker.** What-if at 24 V says "Holds at 24 V — tightest:
+3. ✅ FIXED — **Stress test contradicts the checker.** What-if at 24 V says "Holds at 24 V — tightest:
    PE1 vin.max, 6 V headroom" while a 15 V-max 555 sits on the very rail being stressed.
    It only reads power-entry authored limits. Dangerously wrong conclusion presented
    confidently. → either propagate rail voltage to all attached input maxima, or relabel
    the feature honestly until it does.
-4. **Stale checks filter shows false all-clear.** CHECKS panel stayed pinned to deleted
+4. ✅ FIXED — **Stale checks filter shows false all-clear.** CHECKS panel stayed pinned to deleted
    block LOAD1 showing "● No issues on this block" while three unwired blocks sat on
    canvas. Filter must clear when the block is deleted (and arguably when anything
    changes that makes the filtered view misleading). Trust-critical.

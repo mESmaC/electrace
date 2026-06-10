@@ -11,8 +11,8 @@ spec:
 terminals:
   - { id: in+, role: in,  type: signal }
   - { id: in-, role: in,  type: signal }
-  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 1.8, max: 5.5, unit: V } }
-  - { id: out, role: out, type: signal }
+  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 1.8, max: 5.5, unit: V }, i: { max: 0.001, unit: A } }
+  - { id: out, role: out, type: signal, v: { follows: vcc } }
   - { id: gnd, role: in,  type: gnd }
 limits:
   - { field: ctr.note, value: 0, note: "Size R1 for the LED current the datasheet's CTR curve actually needs (5–10 mA here), then remember CTR FALLS with age and temperature — a design that barely works on day one quietly stops pulling the output low in year three. Design for end-of-life CTR, not the sunny-day number." }

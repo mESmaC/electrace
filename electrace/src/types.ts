@@ -11,6 +11,9 @@ export interface Range {
   min?: number;
   max?: number;
   unit?: Unit;
+  /** On an OUTPUT terminal's `v`: the output swings with the net at this sibling terminal
+   *  (e.g. a 555's `out` follows `vcc` — rail-to-rail). Resolved during net propagation. */
+  follows?: string;
 }
 
 export const rmax = (r?: Range): number | undefined =>

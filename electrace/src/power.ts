@@ -78,5 +78,31 @@ export function annotatePower(rd: ResolvedDesign): PowerReport {
     if (sink) sink.current = { value: round(iIn), unit: "A" };
   }
 
+  // Generic load propagation (one level): a non-transform block's SIGNAL outputs source their
+  // current from its supply pin (push-pull outputs pull from VCC by construction). Charge the sum
+  // of downstream sink draws — plus the block's own declared supply draw — to its supply input,
+  // so the rail budget sees the 555 carrying its LED. Deterministic, declared values only.
+  for (const inst of rd.instances) {
+    if (inst.def.transform) continue; // regulators handled above (power math incl. efficiency)
+    const inTerm = inst.def.terminals.find((x) => x.role === "in" && (x.type === "power" || x.type === "rail"));
+    if (!inTerm) continue;
+    let loadI = 0;
+    for (const t of inst.def.terminals) {
+      if (t.role !== "out" || t.type !== "signal") continue;
+      const outNet = netOfPin.get(`${inst.ref}.${t.id}`);
+      if (!outNet) continue;
+      for (const s of outNet.sinks) {
+        if (s.pin.instance === inst.ref) continue;
+        loadI += rmax(s.current) ?? 0;
+      }
+    }
+    const ownI = rmax(inTerm.i) ?? 0;
+    const total = round(ownI + loadI);
+    if (total <= 0) continue;
+    const inNet = netOfPin.get(`${inst.ref}.${inTerm.id}`);
+    const sink = inNet?.sinks.find((s) => s.pin.instance === inst.ref && s.pin.terminal === inTerm.id);
+    if (sink) sink.current = { value: total, unit: "A" };
+  }
+
   return report;
 }

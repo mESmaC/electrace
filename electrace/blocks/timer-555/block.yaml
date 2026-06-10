@@ -10,9 +10,9 @@ spec:
   f: { value: 1, unit: kHz }
   iout_max: { value: 0.2, unit: A }
 terminals:
-  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 4.5, max: 15, unit: V } }
+  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 4.5, max: 15, unit: V }, i: { max: 0.015, unit: A } }
   - { id: gnd, role: in,  type: gnd }
-  - { id: out, role: out, type: signal, i: { max: 0.2, unit: A } }
+  - { id: out, role: out, type: signal, i: { max: 0.2, unit: A }, v: { follows: vcc } }
 limits:
   - { field: f.formula, value: 0, note: "f ≈ 1.44 / ((Ra + 2·Rb) · C1). The values here (10k + 2×47k, 10nF) give ~1.4 kHz; duty = (Ra+Rb)/(Ra+2Rb) ≈ 55% — duty can never reach 50% exactly in this basic astable (Ra must be > 0)." }
   - { field: c2.note, value: 0, note: "C2 on the CONTROL pin isn't optional decoration — the pin sits at an internal 2/3·VCC divider tap, and supply noise there jitters the threshold. 10 nF quiets it." }
