@@ -115,7 +115,7 @@ export default async function SharePage({ params }: { params: Promise<{ id: stri
                 <span className="text-[9px] uppercase tracking-wide text-faint">{inst.ref}</span>
               </div>
               {specLine(b) && <div className="mb-2 font-mono text-[11px] text-dim">{specLine(b)}</div>}
-              <SchematicPreview blockId={b.id} layout={b.layout} height={72} />
+              <SchematicPreview blockId={b.id} layout={b.layout} height="fit" />
             </div>
           );
         })}

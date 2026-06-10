@@ -32,7 +32,7 @@ export default function DiscreteModal({ eq, partRef, onClose }: { eq: DiscreteEq
         {/* body */}
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {/* drawn schematic */}
-          <SchematicPreview blockId={`${eq.ic}::discrete`} layout={eq.layout} height={300} />
+          <SchematicPreview blockId={`${eq.ic}::discrete`} layout={eq.layout} height="fit" />
 
           {/* how it works */}
           {eq.note && (

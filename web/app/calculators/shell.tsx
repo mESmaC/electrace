@@ -39,7 +39,7 @@ export default function CalcShell({ c, prose, children }: { c: CalcMeta; prose: 
           <h2 className="text-[15px] font-bold">The circuit this computes</h2>
           <Link href={`/blocks/${c.blockSlug}`} className="text-[13px] font-semibold text-accent hover:underline">{b.block.name} — fully explained →</Link>
         </div>
-        <SchematicPreview blockId={b.block.id} layout={b.block.layout} height={170} />
+        <SchematicPreview blockId={b.block.id} layout={b.block.layout} height="fit" />
       </div>
 
       <div className="prose-block mt-10 max-w-3xl">{prose}</div>

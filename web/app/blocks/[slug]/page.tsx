@@ -101,7 +101,7 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
 
       {block.layout && (
         <figure className="mt-8 max-w-3xl">
-          <SchematicPreview blockId={block.id} layout={block.layout} height={200} />
+          <SchematicPreview blockId={block.id} layout={block.layout} height="fit" />
           <figcaption className="mt-2 text-[12.5px] text-faint">The actual schematic inside this block — every part is explained below.</figcaption>
         </figure>
       )}
@@ -144,7 +144,7 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
           <p className="mt-1 text-[13px] text-faint">What {part.ref} actually does, drawn out in discrete parts — the same view the editor&apos;s &ldquo;break into discrete&rdquo; shows.</p>
           {eq.layout && (
             <div className="mt-3 max-w-3xl">
-              <SchematicPreview blockId={`${block.id}::discrete:${eq.ic}`} layout={eq.layout} height={170} />
+              <SchematicPreview blockId={`${block.id}::discrete:${eq.ic}`} layout={eq.layout} height="fit" />
             </div>
           )}
           {eq.note && <p className="mt-3 max-w-3xl text-sm leading-relaxed text-dim">{eq.note}</p>}

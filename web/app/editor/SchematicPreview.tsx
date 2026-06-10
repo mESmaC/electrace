@@ -9,7 +9,7 @@ import {
 
 /** A static, non-interactive thumbnail of a block's internal schematic. Reflects the
  *  edited draft when present (else the authored layout) and colours wires by net health. */
-export default function SchematicPreview({ blockId, layout, height = 84 }: { blockId: string; layout?: SchematicLayout; height?: number }) {
+export default function SchematicPreview({ blockId, layout, height = 84 }: { blockId: string; layout?: SchematicLayout; height?: number | "fit" }) {
   const symStyle = useSymbolStyle();
   // SSR-safe: render the authored layout first, swap to the saved draft after mount.
   const [model, setModel] = useState<Model>(() => layoutToModel(layout));
@@ -33,7 +33,7 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
 
   if (!derived) {
     return (
-      <div className="grid place-items-center rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] text-[10px] text-[var(--color-faint)]" style={{ height }}>
+      <div className="grid place-items-center rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] text-[10px] text-[var(--color-faint)]" style={{ height: height === "fit" ? 120 : height }}>
         no schematic yet
       </div>
     );
@@ -50,9 +50,16 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
     return nid != null && nets.nets[nid].shorts.length ? "error" : "ok";
   };
 
+  // "fit": render at (capped) natural size so a full schematic is actually readable — width follows
+  // the drawing's own extent (max ~1.35 px/unit so tiny blocks don't blow up comically), height
+  // follows the aspect ratio. Numeric height keeps the old thumbnail behaviour for canvas/share cards.
+  const vbW = b.w + pad * 2, vbH = b.h + pad * 2;
+  const sizing = height === "fit"
+    ? { width: `min(100%, ${Math.round(vbW * 1.35)}px)`, aspectRatio: `${vbW} / ${vbH}`, maxHeight: 560, margin: "0 auto" }
+    : undefined;
   return (
-    <svg viewBox={vb} preserveAspectRatio="xMidYMid meet" width="100%" height={height}
-      className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)]" style={{ display: "block", color: "var(--color-text)" }}>
+    <svg viewBox={vb} preserveAspectRatio="xMidYMid meet" width={height === "fit" ? undefined : "100%"} height={height === "fit" ? undefined : height}
+      className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)]" style={{ display: "block", color: "var(--color-text)", ...sizing }}>
       {m.wires.map((w) => {
         const a = endAbs(m.syms, w.a, m.wires), b2 = endAbs(m.syms, w.b, m.wires);
         if (!a || !b2) return null;
