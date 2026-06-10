@@ -325,6 +325,51 @@ export const DISCRETE_LIBRARY: Record<string, DiscreteEquivalent> = {
       ],
     },
   },
+  "tl431": {
+    ic: "tl431",
+    name: "TL431 — an adjustable zener, opened up",
+    note: "Three things in a three-pin package: a 2.495 V reference (drawn as a zener here — the real part uses a bandgap, which is how it stays precise across temperature), an error amplifier (drawn as a comparator — in the real part it's linear, not snapping), and a shunt transistor. The amplifier watches the REF pin against the internal reference and drives the transistor to pull the cathode down exactly as hard as needed to make them match. That closed loop is why a TL431 regulates like an ideal zener instead of drifting like a real one. Open the comparator for the next layer down.",
+    schematic: {
+      parts: [
+        { ref: "R1", type: "res", value: "10k", why: "bias for the internal reference — runs off the cathode itself, which is why the part needs ~1 mA minimum to regulate" },
+        { ref: "D1", type: "zener", value: "2V5 ref", why: "the 2.495 V reference everything is judged against (drawn as a zener; really a bandgap)" },
+        { ref: "U2", type: "ic", part: "comparator", why: "the error amplifier: REF above the internal reference → drive the shunt harder (linear in the real part — drawn as a comparator so you can open it)" },
+        { ref: "R2", type: "res", value: "1k", why: "base drive for the shunt transistor" },
+        { ref: "Q1", type: "bjt", why: "the shunt — pulls the cathode toward the anode; the loop sets exactly how hard" },
+      ],
+      nets: [
+        { name: "K", connect: ["R1.1", "Q1.C", "@k"] },
+        { name: "IREF", connect: ["R1.2", "D1.2", "U2.in-"] },
+        { name: "REF", connect: ["U2.in+", "@ref"] },
+        { name: "CMP", connect: ["U2.out", "R2.1"] },
+        { name: "BASE", connect: ["R2.2", "Q1.B"] },
+        { name: "A", connect: ["D1.1", "Q1.E", "@a"] },
+      ],
+    },
+    layout: {
+      symbols: [
+        { id: "P_k", type: "port", ref: "K", x: 30, y: 10 },
+        { id: "R1", type: "resistor", ref: "R1", value: "10k", x: 55, y: 51, rot: 90 },
+        { id: "D1", type: "zener", ref: "D1", value: "2V5", x: 65, y: 161, rot: 270 },
+        { id: "P_ref", type: "port", ref: "REF", x: 140, y: 40, rot: 270 },
+        { id: "U2", type: "opamp", ref: "U2", x: 190, y: 84 },
+        { id: "R2", type: "resistor", ref: "R2", value: "1k", x: 270, y: 98 },
+        { id: "Q1", type: "npn", ref: "Q1", x: 360, y: 80 },
+        { id: "P_a", type: "port", ref: "A", x: 220, y: 250, rot: 90 },
+      ],
+      wires: [
+        { from: "P_k.1", to: "R1.1" },
+        { from: "R1.2", to: "D1.2" },
+        { from: "R1.2", to: "U2.in-", via: [[160, 110], [160, 124]] },
+        { from: "P_ref.1", to: "U2.in+", via: [[155, 100]] },
+        { from: "U2.out", to: "R2.1" },
+        { from: "R2.2", to: "Q1.B" },
+        { from: "Q1.C", to: "P_k.1", via: [[400, 20]] },
+        { from: "D1.1", to: "P_a.1", via: [[100, 245]] },
+        { from: "Q1.E", to: "P_a.1", via: [[400, 245]] },
+      ],
+    },
+  },
 };
 
 /** Look up a supported IC part's discrete equivalent (undefined ⇒ not supported / can't break down). */

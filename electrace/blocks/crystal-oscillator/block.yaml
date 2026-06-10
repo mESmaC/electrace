@@ -1,0 +1,41 @@
+id: "@electrace/crystal-oscillator"
+name: Crystal + Load Caps
+version: 1.0.0
+category: digital
+author: electrace
+license: CC-BY-4.0
+glyph: "◫"
+spec:
+  f: { value: 16, unit: MHz }
+  cl: { value: 12.5, unit: pF }
+terminals:
+  - { id: xin,  role: in,  type: signal }
+  - { id: xout, role: out, type: signal }
+  - { id: gnd,  role: in,  type: gnd }
+limits:
+  - { field: cl.note, value: 0, note: "The load caps must MATCH the crystal's rated CL: CL = (C1·C2)/(C1+C2) + board strays (~3–5 pF). For this 12.5 pF crystal: 18 pF each. Wrong caps and it still oscillates — just off-frequency (your UART mysteriously garbles) or not at all in the cold." }
+  - { field: layout.note, value: 0, note: "Keep the crystal within millimetres of the MCU pins, caps grounded right at it, nothing noisy routed underneath. This is the most layout-sensitive square centimetre on most boards — long traces add stray C and pick up noise, and the oscillator that 'works on the bench' dies in the enclosure." }
+schematic:
+  parts:
+    - { ref: Y1, type: crystal, value: 16MHz, footprint: "XTAL-3225", why: "the timebase — a quartz slab that mechanically resonates at almost exactly one frequency; the MCU's inverter turns that resonance into a clock" }
+    - { ref: C1, type: cap, value: 18p, footprint: C0402, why: "load capacitance, XIN side — with C2, presents the CL the crystal was cut for; the frequency is only exact at its rated load" }
+    - { ref: C2, type: cap, value: 18p, footprint: C0402, why: "load capacitance, XOUT side" }
+  nets:
+    - { name: XIN,  connect: [Y1.1, C1.1, "@xin"] }
+    - { name: XOUT, connect: [Y1.2, C2.1, "@xout"] }
+    - { name: GND,  connect: [C1.2, C2.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_xin, type: port, ref: xin, x: 30, y: 76, rot: 180 }
+    - { id: Y1, type: crystal, ref: Y1, value: 16MHz, x: 150, y: 72 }
+    - { id: C1, type: capacitor, ref: C1, value: 18p, x: 75, y: 121, rot: 90 }
+    - { id: C2, type: capacitor, ref: C2, value: 18p, x: 225, y: 121, rot: 90 }
+    - { id: P_xout, type: port, ref: xout, x: 300, y: 76 }
+    - { id: P_gnd, type: port, ref: gnd, x: 165, y: 215, rot: 90 }
+  wires:
+    - { from: P_xin.1, to: Y1.1 }
+    - { from: C1.1, to: Y1.1, via: [[105, 86]] }
+    - { from: Y1.2, to: P_xout.1 }
+    - { from: C2.1, to: Y1.2, via: [[255, 86]] }
+    - { from: C1.2, to: P_gnd.1, via: [[105, 210]] }
+    - { from: C2.2, to: P_gnd.1, via: [[255, 210]] }

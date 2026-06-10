@@ -1,0 +1,38 @@
+id: "@electrace/tl431-reference"
+name: Voltage Reference (TL431)
+version: 1.0.0
+category: signal
+author: electrace
+license: CC-BY-4.0
+glyph: "≡"
+spec:
+  vin: { min: 4, max: 15, unit: V }
+  vref: { value: 2.495, unit: V }
+terminals:
+  - { id: vin,  role: in,  type: power, polarity: "+", v: { min: 4, max: 15, unit: V } }
+  - { id: vref, role: out, type: signal, v: { value: 2.495, unit: V } }
+  - { id: gnd,  role: in,  type: gnd }
+limits:
+  - { field: ibias.note, value: 0, note: "The TL431 needs at least ~1 mA through it to regulate. R1 = 1k gives (VIN − 2.5)/1k ≈ 1.5–12.5 mA across the input range — fine. Starve it (R1 too big, or too much load stolen from the node) and the 'reference' drifts with input voltage." }
+  - { field: cap.note, value: 0, note: "Counter-intuitive: the TL431 is UNSTABLE with some output capacitance — roughly 0.01 µF to 2 µF makes it oscillate. Either no cap, or a deliberately large one. 'I added a cap to clean it up and now it's noisy' is this exact trap." }
+schematic:
+  parts:
+    - { ref: R1, type: res, value: 1k, footprint: R0603, why: "bias — feeds the shunt its operating current; the reference eats whatever the load doesn't" }
+    - { ref: U1, type: ic, part: tl431, footprint: SOT-23, why: "an 'adjustable zener': internal 2.495 V bandgap + error amp + shunt transistor. It pulls its cathode down exactly hard enough to hold REF at 2.495 V" }
+  nets:
+    - { name: VIN,  connect: [R1.1, "@vin"] }
+    - { name: VREF, connect: [R1.2, U1.k, U1.ref, "@vref"] }
+    - { name: GND,  connect: [U1.a, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin, type: port, ref: vin, x: 30, y: 40, rot: 180 }
+    - { id: R1, type: resistor, ref: R1, value: 1k, x: 90, y: 36 }
+    - { id: U1, type: chip, ref: U1, value: ref, x: 220, y: 80, chip: { profile: sot23, pins: 3, mpn: TL431, names: { "1": "ref", "2": "a", "3": "k" } } }
+    - { id: P_vref, type: port, ref: vref, x: 360, y: 90 }
+    - { id: P_gnd, type: port, ref: gnd, x: 205, y: 185, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: R1.1 }
+    - { from: R1.2, to: U1.3, via: [[320, 50], [320, 100]] }
+    - { from: U1.1, to: R1.2, via: [[200, 100], [200, 50]] }
+    - { from: U1.3, to: P_vref.1 }
+    - { from: U1.2, to: P_gnd.1 }

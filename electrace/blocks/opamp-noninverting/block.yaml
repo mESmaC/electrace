@@ -1,0 +1,48 @@
+id: "@electrace/opamp-noninverting"
+name: Op-Amp Amplifier (non-inverting)
+version: 1.0.0
+category: signal
+author: electrace
+license: CC-BY-4.0
+glyph: "▷"
+spec:
+  vcc: { min: 2.7, max: 30, unit: V }
+  gain: { value: 11 }
+terminals:
+  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 2.7, max: 30, unit: V } }
+  - { id: gnd, role: in,  type: gnd }
+  - { id: in,  role: in,  type: signal }
+  - { id: out, role: out, type: signal }
+limits:
+  - { field: gain.note, value: 0, note: "Gain = 1 + R1/R2 = 11 here. The op-amp itself has a gain near a million — the resistors decide everything, which is the whole point: precision from two cheap parts, not from the amplifier." }
+  - { field: rail.note, value: 0, note: "The output cannot exceed the supply. With gain 11 and VCC = 5 V, any input above ~0.45 V CLIPS at the rail. Size the gain for the largest input you'll ever see, not the typical one." }
+  - { field: single-supply.note, value: 0, note: "On a single supply the output also can't go below 0 V — a signal that swings negative needs a bias to mid-rail (or a split supply). 'My amplifier only shows half the waveform' is this." }
+schematic:
+  parts:
+    - { ref: U1, type: ic,  part: opamp, footprint: SOT-23-5, why: "the op-amp — it does only one thing: drives its output until in− matches in+. The resistors decide what that means." }
+    - { ref: R1, type: res, value: 100k, footprint: R0603, why: "feedback — with R2, divides the output by 11 before showing it to in−, so the output must be 11× the input for the inputs to match" }
+    - { ref: R2, type: res, value: 10k,  footprint: R0603, why: "bottom of the feedback divider — the gain is 1 + R1/R2; make R2 bigger for less gain, or open it for a follower (gain 1)" }
+  nets:
+    - { name: IN,  connect: [U1.in+, "@in"] }
+    - { name: FB,  connect: [U1.in-, R2.1, R1.1] }
+    - { name: OUT, connect: [U1.out, R1.2, "@out"] }
+    - { name: VCC, connect: [U1.vcc, "@vcc"] }
+    - { name: GND, connect: [U1.gnd, R2.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_in, type: port, ref: in, x: 40, y: 110, rot: 180 }
+    - { id: U1, type: chip, ref: U1, value: amp, x: 220, y: 100, chip: { profile: sot23, pins: 5, mpn: LM321, names: { "1": "in+", "2": "in-", "3": "gnd", "5": "vcc", "4": "out" } } }
+    - { id: R2, type: resistor, ref: R2, value: 10k, x: 145, y: 241, rot: 90 }
+    - { id: R1, type: resistor, ref: R1, value: 100k, x: 210, y: 196 }
+    - { id: P_vcc, type: port, ref: vcc, x: 335, y: 60, rot: 270 }
+    - { id: P_out, type: port, ref: out, x: 390, y: 130 }
+    - { id: P_gnd, type: port, ref: gnd, x: 245, y: 335, rot: 90 }
+  wires:
+    - { from: P_in.1, to: U1.1 }
+    - { from: U1.2, to: R2.1, via: [[190, 140]] }
+    - { from: R2.1, to: R1.1 }
+    - { from: R1.2, to: U1.4, via: [[320, 210], [320, 140]] }
+    - { from: U1.4, to: P_out.1 }
+    - { from: U1.5, to: P_vcc.1, via: [[350, 120]] }
+    - { from: R2.2, to: P_gnd.1, via: [[190, 330]] }
+    - { from: U1.3, to: P_gnd.1, via: [[170, 160], [170, 330]] }
