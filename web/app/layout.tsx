@@ -43,7 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           "@context": "https://schema.org",
           "@graph": [
-            { "@type": "Organization", "@id": `${SITE}#org`, name: "Electrace", url: SITE, logo: `${SITE}/icon.svg` },
+            { "@type": "Organization", "@id": `${SITE}#org`, name: "Electrace", url: SITE, logo: `${SITE}/icon.svg`, sameAs: ["https://www.youtube.com/@electrace-net"] },
             { "@type": "WebSite", "@id": `${SITE}#site`, name: "Electrace", url: SITE, publisher: { "@id": `${SITE}#org` } },
           ],
         }) }} />
