@@ -33,8 +33,17 @@ const meta = await page.evaluate(() => window.__stageMeta);
 console.log(`[stage] ${slug}: ${meta.wires} wires, ${meta.symbols} symbols`);
 
 // Fedora ffmpeg has no libx264; libopenh264 is present and YouTube re-encodes anyway — feed it high bitrate.
+const sfx = (tl.sfx ?? []).filter((e) => e.t >= 0);
+const sfxInputs = sfx.flatMap((e) => ["-i", `sfx/${e.sound}.wav`]);
+// audio graph: narration + each sfx delayed to its event time, mixed without normalization dip
+const mixParts = sfx.map((e, i) => `[${i + 2}]adelay=${Math.round(e.t * 1000)}|${Math.round(e.t * 1000)},volume=0.32[s${i}]`);
+const mixIn = ["[1]", ...sfx.map((_, i) => `[s${i}]`)].join("");
+const filter = audioPath && sfx.length
+  ? [...mixParts, `${mixIn}amix=inputs=${sfx.length + 1}:duration=first:normalize=0[aout]`].join(";")
+  : null;
 const ffArgs = ["-y", "-f", "image2pipe", "-framerate", String(FPS), "-i", "-",
-  ...(audioPath ? ["-i", audioPath] : []),
+  ...(audioPath ? ["-i", audioPath, ...sfxInputs] : []),
+  ...(filter ? ["-filter_complex", filter, "-map", "0:v", "-map", "[aout]"] : []),
   "-c:v", "libopenh264", "-b:v", "10M", "-pix_fmt", "yuv420p",
   ...(audioPath ? ["-c:a", "aac", "-b:a", "192k"] : []),
   outPath];

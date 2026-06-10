@@ -61,11 +61,39 @@ const captionTracks = chunks.map((c) => {
 
 // --- 3. timeline ---
 const duration = +(audioEnd + (cfg.tailSeconds ?? 1.2)).toFixed(2);
+// zoom sugar: zoomIn(t, ref, k) + zoomOut(t) emit the paired camK/camU tweens + focus + whoosh
+const sfxEvents = [];
+const Z = 0.38; // zoom tween duration
+const helpers = {
+  at, endOf, ctaT, audioEnd,
+  zoomIn: (t, ref, k = 2.1) => {
+    sfxEvents.push({ t, sound: "whoosh" });
+    return [
+      { from: t, to: ctaT, set: { focus: ref } },
+      { from: t, to: t + Z, tween: "camK", start: 1, end: k },
+      { from: t + Z, to: ctaT, set: { camK: k } },
+      { from: t, to: t + Z, tween: "camU", start: 0, end: 1 },
+      { from: t + Z, to: ctaT, set: { camU: 1 } },
+    ];
+  },
+  refocus: (t, ref) => { sfxEvents.push({ t, sound: "pop" }); return [{ from: t, to: ctaT, set: { focus: ref } }]; },
+  zoomOut: (t) => {
+    sfxEvents.push({ t, sound: "whoosh" });
+    return [
+      { from: t, to: t + Z, tween: "camK", start: 2.1, end: 1 },
+      { from: t, to: t + Z, tween: "camU", start: 1, end: 0 },
+      { from: t + Z, to: ctaT, set: { camK: 1, camU: 0, focus: "" } },
+    ];
+  },
+  sfx: (t, sound) => { sfxEvents.push({ t, sound }); return []; },
+};
 const tracks = [
   { from: 0, to: ctaT, set: { title: cfg.title } },
-  ...(cfg.tracks ? cfg.tracks({ at, endOf, ctaT, audioEnd }) : []),
+  ...(cfg.tracks ? cfg.tracks(helpers) : []),
   ...captionTracks,
   { from: ctaT, to: duration, set: { cta: true } },
 ];
-writeFileSync(`timelines/${cfg.slug}.json`, JSON.stringify({ duration, tracks }, null, 1));
+// later tracks override earlier ones in stateAt (Object.assign order) — zoom "hold" sets must not
+// fight: keep camera tracks BEFORE captions (captions never touch camera fields). sfx into timeline.
+writeFileSync(`timelines/${cfg.slug}.json`, JSON.stringify({ duration, tracks, sfx: sfxEvents }, null, 1));
 console.log(`[timeline] timelines/${cfg.slug}.json — ${duration}s, ${tracks.length} tracks`);

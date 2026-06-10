@@ -13,8 +13,12 @@ export interface FrameState {
   wireProgress?: number;   // 0..nWires — wire i draws during [i, i+1]
   symbolsShown?: number;   // 0..nSyms — symbols pop in order
   labelsShown?: boolean;   // refs/values fade in (default: follow symbolsShown completion)
-  highlight?: string;      // symbol ref to glow accent
+  highlight?: string;      // symbol ref to SPOTLIGHT (big glow; everything else dims)
   fault?: string;          // symbol ref to glow red (spot-the-bug payoff)
+  gone?: string;           // comma-separated refs: faded out with a red ✕ over them
+  focus?: string;          // camera target ref (with camK/camU below)
+  camK?: number;           // zoom factor (1 = none) — tween together with camU
+  camU?: number;           // 0..1 recenter blend: 0 = zoom about the part, 1 = part centered
   cta?: boolean;           // show the end card
 }
 declare global { interface Window { __frame?: (s: FrameState) => void; __stageReady?: boolean; __stageMeta?: { wires: number; symbols: number } } }
@@ -48,12 +52,36 @@ export default function Stage({ layout }: { layout: SchematicLayout }) {
         p.style.strokeDashoffset = `${len * (1 - frac)}`;
       });
       const ss = s.symbolsShown ?? 1e9;
+      const gone = new Set((s.gone ?? "").split(",").map((x) => x.trim()).filter(Boolean));
+      const spot = s.highlight || s.fault;
       el.querySelectorAll<SVGGElement>("[data-sym]").forEach((g, i) => {
-        g.style.opacity = i < ss ? "1" : "0";
-        const ref = g.dataset.sym;
-        g.style.filter = s.fault && ref === s.fault ? "drop-shadow(0 0 14px #f87171)" :
-                         s.highlight && ref === s.highlight ? "drop-shadow(0 0 14px #4c8dff)" : "";
+        const ref = g.dataset.sym ?? "";
+        const isTarget = ref === s.highlight || ref === s.fault;
+        let op = i < ss ? 1 : 0;
+        if (op > 0 && gone.has(ref)) op = 0.16;
+        else if (op > 0 && spot && !isTarget) op = 0.3; // spotlight: dim the rest hard
+        g.style.opacity = String(op);
+        g.style.filter = s.fault && ref === s.fault ? "drop-shadow(0 0 10px #f87171) drop-shadow(0 0 28px #f87171)" :
+                         s.highlight && ref === s.highlight ? "drop-shadow(0 0 10px #4c8dff) drop-shadow(0 0 28px #4c8dff)" : "";
       });
+      el.querySelectorAll<SVGPathElement>("[data-wire]").forEach((p) => {
+        p.style.opacity = spot ? "0.35" : "1";
+      });
+      el.querySelectorAll<SVGGElement>("[data-x]").forEach((g) => {
+        g.style.opacity = gone.has(g.dataset.x ?? "") ? "1" : "0";
+      });
+      // camera: zoom about the focused part, blending it toward the viewBox centre
+      const cam = el.querySelector<SVGGElement>("[data-cam]");
+      if (cam) {
+        const k = s.camK ?? 1, u = s.camU ?? 0;
+        const tgt = s.focus ? el.querySelector<SVGGElement>(`[data-sym="${s.focus}"]`) : null;
+        if (k > 1.001 && tgt) {
+          const fx = Number(tgt.dataset.cx), fy = Number(tgt.dataset.cy);
+          const c = JSON.parse(cam.dataset.center ?? "{}");
+          cam.setAttribute("transform",
+            `translate(${(c.x - fx) * u} ${(c.y - fy) * u}) translate(${fx} ${fy}) scale(${k}) translate(${-fx} ${-fy})`);
+        } else cam.removeAttribute("transform");
+      }
       const lbl = el.querySelector<HTMLElement>("[data-labels]");
       if (lbl) lbl.style.opacity = (s.labelsShown ?? (s.symbolsShown ?? 0) >= (window.__stageMeta?.symbols ?? 1)) ? "1" : "0";
       el.querySelector<HTMLElement>("[data-cta]")!.style.opacity = s.cta ? "1" : "0";
@@ -70,18 +98,19 @@ export default function Stage({ layout }: { layout: SchematicLayout }) {
       <div data-title style={{ position: "absolute", top: 120, left: 60, right: 60, textAlign: "center", fontSize: 84, fontWeight: 800, lineHeight: 1.08, color: "#f3f6fb", letterSpacing: "-1px" }} />
       <div style={{ position: "absolute", top: 480, left: 40, right: 40, height: 900, display: "grid", placeItems: "center" }}>
         <svg viewBox={vb} preserveAspectRatio="xMidYMid meet" style={{ width: "100%", maxHeight: 900, color: "#f3f6fb" }}>
+          <g data-cam data-center={JSON.stringify({ x: b.x + b.w / 2, y: b.y + b.h / 2 })}>
           {wires.map((w, i) => w.d ? (
             <path key={i} data-wire data-len={w.len} d={w.d} fill="none" stroke="#4c8dff" strokeWidth={2.5} strokeLinejoin="round"
               style={{ strokeDasharray: `${w.len}`, strokeDashoffset: `${w.len}` }} />
           ) : null)}
           <g data-labels style={{ opacity: 0 }}>
             {labels.map((L, i) => {
-              const lineH = L.fontSize + 2.5;
+              const lineH = L.fontSize * 1.4 + 2.5;
               return (
                 <g key={`lbl${i}`}>
                   {L.leader && <line x1={L.leader.x1} y1={L.leader.y1} x2={L.leader.x2} y2={L.leader.y2} stroke="#828c9c" strokeWidth={1} strokeDasharray="2 3" opacity={0.55} />}
                   <text x={L.x} y={L.y - ((L.lines.length - 1) * lineH) / 2} textAnchor="middle" dominantBaseline="middle"
-                    fontFamily="'JetBrains Mono', monospace" fontSize={L.fontSize} fontWeight={L.port ? 700 : 400}
+                    fontFamily="'JetBrains Mono', monospace" fontSize={L.fontSize * 1.4} fontWeight={L.port ? 700 : 400}
                     fill={L.port ? "#4c8dff" : L.inside ? "#f3f6fb" : "#c2cad6"}>
                     {L.lines.map((ln, k) => <tspan key={k} x={L.x} dy={k ? lineH : 0}>{ln}</tspan>)}
                   </text>
@@ -94,11 +123,24 @@ export default function Stage({ layout }: { layout: SchematicLayout }) {
             if (!dims) return null;
             const def = SYMBOLS[s.type];
             return (
-              <g key={s.id} data-sym={s.ref || s.id} transform={`translate(${s.x},${s.y}) rotate(${s.rot ?? 0} ${dims.w / 2} ${dims.h / 2})`} style={{ opacity: 0 }}>
+              <g key={s.id} data-sym={s.ref || s.id} data-cx={s.x + dims.w / 2} data-cy={s.y + dims.h / 2}
+                transform={`translate(${s.x},${s.y}) rotate(${s.rot ?? 0} ${dims.w / 2} ${dims.h / 2})`} style={{ opacity: 0 }}>
                 {s.chip ? renderChip(dims, s.chip) : def?.draw(symStyle)}
               </g>
             );
           })}
+          {m.syms.map((s) => {
+            const dims = symDims(s);
+            if (!dims) return null;
+            const cx = s.x + dims.w / 2, cy = s.y + dims.h / 2;
+            return (
+              <g key={`x${s.id}`} data-x={s.ref || s.id} style={{ opacity: 0 }}>
+                <line x1={cx - 14} y1={cy - 14} x2={cx + 14} y2={cy + 14} stroke="#f87171" strokeWidth={5.5} strokeLinecap="round" />
+                <line x1={cx + 14} y1={cy - 14} x2={cx - 14} y2={cy + 14} stroke="#f87171" strokeWidth={5.5} strokeLinecap="round" />
+              </g>
+            );
+          })}
+          </g>
         </svg>
       </div>
       <div data-caption style={{ position: "absolute", bottom: 300, left: 70, right: 70, textAlign: "center", fontSize: 58, fontWeight: 700, lineHeight: 1.2, color: "#f3f6fb", textShadow: "0 2px 18px rgba(0,0,0,.6)" }} />
