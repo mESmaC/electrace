@@ -5,7 +5,7 @@ import { listBlocks } from "@/lib/blocks";
 import { COMPARISONS } from "@/lib/comparisons";
 import { SITE } from "@/lib/site";
 
-const KEY = "f03945dcc9324f95a83d600f076fbb74";
+const KEY = "b660c34debc34c088f58efee3a15032d";
 
 let lastSubmit = 0; // per-instance cooldown — this is a manual "ping after deploy" endpoint, not an API
 export async function GET() {
