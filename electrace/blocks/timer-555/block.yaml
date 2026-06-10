@@ -33,24 +33,24 @@ schematic:
 layout:
   symbols:
     - { id: P_vcc, type: port, ref: vcc, x: 40, y: 40, rot: 180 }
-    - { id: Ra,  type: resistor, ref: Ra, value: 10k, x: 95, y: 71, rot: 90 }
-    - { id: Rb,  type: resistor, ref: Rb, value: 47k, x: 95, y: 201, rot: 90 }
-    - { id: C1,  type: capacitor, ref: C1, value: 10nF, x: 110, y: 335, rot: 90 }
+    - { id: Ra,  type: resistor, ref: Ra, value: 10k, x: 415, y: 81, rot: 90 }
+    - { id: Rb,  type: resistor, ref: Rb, value: 47k, x: 415, y: 211, rot: 90 }
+    - { id: C1,  type: capacitor, ref: C1, value: 10nF, x: 415, y: 341, rot: 90 }
     - { id: U1,  type: chip, ref: U1, value: "555", x: 260, y: 120, chip: { profile: soic, pins: 8, mpn: NE555, names: { "1": GND, "2": TRG, "3": OUT, "4": RST, "5": CV, "6": THR, "7": DIS, "8": VCC } } }
-    - { id: C2,  type: capacitor, ref: C2, value: 10nF, x: 400, y: 245, rot: 90 }
-    - { id: P_out, type: port, ref: out, x: 470, y: 160, rot: 0 }
+    - { id: C2,  type: capacitor, ref: C2, value: 10nF, x: 370, y: 215, rot: 90 }
+    - { id: P_out, type: port, ref: out, x: 40, y: 170, rot: 180 }
     - { id: P_gnd, type: port, ref: gnd, x: 245, y: 420, rot: 90 }
   wires:
     - { from: P_vcc.1, to: Ra.1 }
     - { from: Ra.2,    to: Rb.1 }
-    - { from: Ra.2,    to: U1.7, via: [[180, 160]] }
-    - { from: Rb.2,    to: C1.1 }
-    - { from: Rb.2,    to: U1.6, via: [[200, 290], [200, 180]] }
-    - { from: C1.1,    to: U1.2, via: [[220, 320], [220, 140]] }
-    - { from: P_vcc.1, to: U1.8, via: [[420, 40], [420, 180]] }
-    - { from: U1.4,    to: U1.8, via: [[440, 160], [440, 180]] }
+    - { from: Ra.2,    to: U1.7, via: [[460, 160]] }
+    - { from: Rb.2,    to: C1.1, via: [[445, 270]] }
+    - { from: U1.2,    to: C1.1, via: [[225, 160], [225, 270], [445, 270]] }
+    - { from: U1.6,    to: C1.1, via: [[360, 180], [360, 270], [445, 270]] }
+    - { from: P_vcc.1, to: U1.8, via: [[400, 50], [400, 140]] }
+    - { from: U1.4,    to: P_vcc.1, via: [[245, 200], [245, 50]] }
     - { from: U1.5,    to: C2.1 }
     - { from: U1.3,    to: P_out.1 }
-    - { from: U1.1,    to: P_gnd.1 }
-    - { from: C1.2,    to: P_gnd.1 }
-    - { from: C2.2,    to: P_gnd.1, via: [[430, 320], [260, 320]] }
+    - { from: U1.1,    to: P_gnd.1, via: [[205, 140], [205, 415]] }
+    - { from: C1.2,    to: P_gnd.1, via: [[445, 415]] }
+    - { from: C2.2,    to: P_gnd.1, via: [[400, 415]] }
