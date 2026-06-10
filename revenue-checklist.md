@@ -15,50 +15,36 @@ Shorts, embeds, one-way submissions. Nothing below depends on community engageme
 
 ---
 
-## Phase A — Finish the thesis features (current sprint)
+## Phase A — Finish the thesis features — ✅ COMPLETE 2026-06-09
 
-The demo has to be true before anyone pays for it.
+- [x] Merge the `expand-to-discrete` branch to main
+- [x] Shell blocks — were already complete (all 7 validated: every terminal exposed)
+- [x] Wire-junction tap binding bug — taps now bound `{wire, t}`, survive moves/Align
+- [x] On-canvas block status + declared-spec line + IC/DISC tag — verified live
+- [x] Spec-search / `find_blocks` — core matcher (tested) + Sparky tool + palette box
 
-- [ ] Merge the `expand-to-discrete` branch to main (it's the headline; todo.md §2 marks
-      it absent — update todo.md when merged)
-- [ ] Fill internals + layouts for the 6 shell blocks (wave 0 of the block plan —
-      hollow blocks contradict the "nothing is a black box" pitch)
-- [ ] Fix the wire-junction tap binding bug (todo.md §6 — it silently breaks
-      connectivity, which is a correctness-moat violation)
-- [ ] On-canvas block status + declared-spec line (todo.md §2 — the most visible
-      build-vs-mockup gap; this is what screenshots/ads will show)
-- [ ] Spec-search / `find_blocks` (todo.md §2 — cheap, and it's the "WEBENCH answer"
-      used in marketing copy)
+## Phase B — Cloud backend — ✅ COMPLETE 2026-06-09
 
-## Phase B — Cloud backend (the gate for everything paid)
-
-All of todo.md §4's storage/accounts half. Nothing can be sold without accounts.
-
-- [ ] Provision Supabase: create project, set `DATABASE_URL` + keys in Vercel (human step)
-- [ ] Drizzle schema (`web/db/schema.ts`): users, designs, design_revisions, events
-- [ ] Real auth via Auth.js: email/password + Google + GitHub OAuth (watch the OAuth
-      redirect gotchas in memory `deployment`)
-- [ ] `/forgot-password`, `/reset-password`, `/verify-email` flows
-- [ ] `/api/designs` CRUD with ownership + RLS (`public OR owner = auth.uid()`)
-- [ ] **Enforce** `visibility` (public/private/unlisted) — the field exists, nothing
-      reads it; private must actually be private before it can be a paid feature
-- [ ] localStorage → account import on first sign-in (don't strand existing local work)
-- [ ] PCB layout persisted with the design record (today: localStorage only)
-- [ ] Public design share pages (`/share/[id]`, SSG, good OG images) — every public
-      design becomes marketing surface
+- [x] Supabase provisioned + migrations 0001/0002 applied (user ran the SQL)
+- [x] Drizzle schema: users + designs (P1 scope; revisions/events deferred per storage.md)
+- [x] Real auth — shipped earlier via Supabase (email + GitHub/Google OAuth)
+- [x] `/forgot-password` + `/reset-password` (confirmation lands on /auth/callback)
+- [x] `/api/designs` CRUD, queries run AS the user → RLS enforces; verified live
+- [x] Visibility enforced IN POSTGRES (public/unlisted read; private = owner + Pro)
+- [x] localStorage → account import (reconcileDesigns, both directions, newer wins)
+- [x] PCB layout persisted with the design (`designs.pcb`)
+- [x] `/share/[id]` public read-only page + editor Share menu + open-a-copy fork
 
 ## Phase C — Monetization rails
 
 ### Subscriptions (Pro)
-- [ ] Stripe: Pro monthly + annual products, Checkout, customer portal, webhook handler
-      (subscription created/updated/canceled → user tier)
-- [ ] Server-enforced gates: private designs = Pro; free tier = 10 public designs
-      (cap on designs, never on blocks — locked in business-strategy.md)
-- [ ] Pro-only: version history once `design_revisions` exists; keep the rest of the
-      free tier generous (the understand-loop is the marketing)
-- [ ] Pricing page — value-framed copy only (memory `ip-protective-copy`); launch price
-      in the $9–10/mo band, annual discounted, revisit with real conversion data
-- [ ] Billing terms added to `/terms`; upgrade/downgrade/cancel flows tested end-to-end
+- [x] Stripe: products + Checkout + portal + webhook → users.plan — ✅ live in prod
+      (env verified 2026-06-09: checkout 401s for anon, webhook rejects unsigned)
+- [x] Server-enforced gates: private = Pro (in Postgres RLS), 10-design cap at create
+- [ ] Pro-only version history — deferred with `design_revisions` (P3, storage.md)
+- [ ] Pricing page shows no Pro number yet (deliberate) — set it when the price is locked
+- [ ] Billing terms blurb in `/terms` + the end-to-end test purchase (owner: test-mode
+      or live+cancel — pending)
 
 ### BOM affiliate
 - [x] MPN as a first-class field — ✅ already existed (`PartSpec.part` = "mpn / family", chips carry `chip.mpn`); flows into BOM rows. Library backfill happens with the Wave-1 authoring (Phase D)
