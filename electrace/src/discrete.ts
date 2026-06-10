@@ -174,6 +174,55 @@ export const DISCRETE_LIBRARY: Record<string, DiscreteEquivalent> = {
       ],
     },
   },
+  "comparator": {
+    ic: "comparator",
+    name: "Comparator — a long-tailed pair deciding who wins",
+    note: "Every comparator (and every op-amp input) starts with this: two matched transistors sharing one emitter ('tail') current. Whichever base is higher steals more of the shared current, so its collector drops — the circuit literally weighs the two inputs against each other. The output is taken single-ended from one collector. Simplified honestly: the tail is a plain resistor (a real part uses a current source for supply rejection), the loads are resistors (real parts use a current mirror for gain), and there's no output stage — which is why real comparator outputs are open-collector: you're looking almost straight at a collector.",
+    schematic: {
+      parts: [
+        { ref: "Q1", type: "npn", why: "the in+ side of the pair — more base voltage here steals more tail current" },
+        { ref: "Q2", type: "npn", why: "the in− side — matched twin of Q1; the contest is between their bases" },
+        { ref: "RC1", type: "res", value: "10k", why: "Q1's collector load — turns its share of the current into a voltage" },
+        { ref: "RC2", type: "res", value: "10k", why: "Q2's collector load — the output is read across this one" },
+        { ref: "RE", type: "res", value: "10k", why: "the 'long tail' — the shared current both sides fight over (a real IC uses a current source here)" },
+      ],
+      nets: [
+        { name: "vcc", connect: ["RC1.1", "RC2.1", "@vcc"] },
+        { name: "c1", connect: ["RC1.2", "Q1.C"] },
+        { name: "out", connect: ["RC2.2", "Q2.C", "@out"] },
+        { name: "inp", connect: ["Q1.B", "@in+"] },
+        { name: "inn", connect: ["Q2.B", "@in-"] },
+        { name: "tail", connect: ["Q1.E", "Q2.E", "RE.1"] },
+        { name: "gnd", connect: ["RE.2", "@gnd"] },
+      ],
+    },
+    layout: {
+      symbols: [
+        { id: "P_vcc", type: "port", ref: "vcc", x: 200, y: 10 },
+        { id: "RC1", type: "resistor", ref: "RC1", value: "10k", x: 105, y: 51, rot: 90 },
+        { id: "RC2", type: "resistor", ref: "RC2", value: "10k", x: 245, y: 51, rot: 90 },
+        { id: "Q1", type: "npn", ref: "Q1", x: 110, y: 108 },
+        { id: "Q2", type: "npn", ref: "Q2", x: 250, y: 108 },
+        { id: "RE", type: "resistor", ref: "RE", value: "10k", x: 155, y: 201, rot: 90 },
+        { id: "P_inp", type: "port", ref: "in+", x: 20, y: 130 },
+        { id: "P_inn", type: "port", ref: "in-", x: 20, y: 200 },
+        { id: "P_out", type: "port", ref: "out", x: 420, y: 100 },
+        { id: "P_gnd", type: "port", ref: "gnd", x: 185, y: 290 },
+      ],
+      wires: [
+        { from: "RC1.1", to: "P_vcc.1" },
+        { from: "RC2.1", to: "P_vcc.1" },
+        { from: "RC1.2", to: "Q1.C" },
+        { from: "RC2.2", to: "Q2.C" },
+        { from: "P_inp.1", to: "Q1.B" },
+        { from: "P_inn.1", to: "Q2.B" },
+        { from: "Q1.E", to: "RE.1" },
+        { from: "Q2.E", to: "RE.1" },
+        { from: "RE.2", to: "P_gnd.1" },
+        { from: "Q2.C", to: "P_out.1" },
+      ],
+    },
+  },
 };
 
 /** Look up a supported IC part's discrete equivalent (undefined ⇒ not supported / can't break down). */
