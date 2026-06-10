@@ -15,6 +15,20 @@ const nextConfig: NextConfig = {
   // Turbopack workspace root (which would make dev watch the whole parent tree).
   transpilePackages: ["@electrace/core"],
   allowedDevOrigins: lanOrigins,
+  // Baseline security headers (the known-hardening set; full CSP deliberately deferred —
+  // Next inline scripts make a strict policy a project of its own).
+  async headers() {
+    return [{
+      source: "/(.*)",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+        { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+      ],
+    }];
+  },
 };
 
 export default nextConfig;

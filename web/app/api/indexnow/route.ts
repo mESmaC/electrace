@@ -7,7 +7,12 @@ import { SITE } from "@/lib/site";
 
 const KEY = "f03945dcc9324f95a83d600f076fbb74";
 
+let lastSubmit = 0; // per-instance cooldown — this is a manual "ping after deploy" endpoint, not an API
 export async function GET() {
+  if (Date.now() - lastSubmit < 60 * 60 * 1000) {
+    return Response.json({ ok: false, error: "cooldown — try again later" }, { status: 429 });
+  }
+  lastSubmit = Date.now();
   const urls = [
     `${SITE}/`, `${SITE}/blocks`, `${SITE}/pricing`, `${SITE}/help`, `${SITE}/vs`,
     ...listBlocks().map((b) => `${SITE}/blocks/${b.slug}`),

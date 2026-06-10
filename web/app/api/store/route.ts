@@ -31,6 +31,9 @@ export async function GET() {
     if (!error) return Response.json(Object.fromEntries((data ?? []).map((r) => [r.k, r.v])));
     // table missing (migration not applied) → fall through to the file store
   }
+  // Anonymous in production: NEVER serve the shared file store — on a warm serverless instance it
+  // would mix different visitors' data. Anonymous users run from their own localStorage.
+  if (process.env.NODE_ENV === "production") return Response.json({});
   const out: Record<string, string> = {};
   try {
     await ensureDir();
@@ -53,11 +56,22 @@ export async function POST(req: Request) {
   }
   const { sb, user } = await userOrNull();
   if (sb && user) {
+    if (value != null) {
+      // soft quota: the editor uses a few dozen keys; 500 is far above any legitimate use
+      const { count } = await sb.from("user_kv").select("k", { count: "exact", head: true }).eq("owner_id", user.id);
+      if ((count ?? 0) >= 500) {
+        const { data: existing } = await sb.from("user_kv").select("k").eq("owner_id", user.id).eq("k", key).maybeSingle();
+        if (!existing) return Response.json({ error: "storage quota reached" }, { status: 429 });
+      }
+    }
     const r = value == null
       ? await sb.from("user_kv").delete().eq("owner_id", user.id).eq("k", key)
       : await sb.from("user_kv").upsert({ owner_id: user.id, k: key, v: value }, { onConflict: "owner_id,k" });
     if (!r.error) return Response.json({ ok: true, durable: true });
     // table missing → fall through to the file store rather than dropping the write
+  }
+  if (process.env.NODE_ENV === "production") {
+    return Response.json({ ok: false, persisted: false }); // anonymous prod: localStorage only — sign in to persist
   }
   try {
     await ensureDir();

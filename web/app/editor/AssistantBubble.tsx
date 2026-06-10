@@ -16,7 +16,10 @@ const MD = [
   "[&_th]:border [&_th]:border-[var(--color-border)] [&_th]:bg-[var(--color-bg2)] [&_th]:px-1.5 [&_th]:py-0.5 [&_th]:text-left [&_td]:border [&_td]:border-[var(--color-border)] [&_td]:px-1.5 [&_td]:py-0.5",
   "[&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-border)] [&_blockquote]:pl-2 [&_blockquote]:text-[var(--color-dim)] [&_hr]:my-2 [&_hr]:border-[var(--color-border)]",
 ].join(" ");
-const renderMd = (text: string) => marked.parse(text, { async: false, gfm: true, breaks: true }) as string;
+// Model output is influenced by design content, so treat it as untrusted: escape raw HTML before
+// parsing. Markdown formatting still renders; literal <tags> display as text instead of executing.
+const renderMd = (text: string) =>
+  marked.parse(text.replace(/</g, "&lt;"), { async: false, gfm: true, breaks: true }) as string;
 
 /** Sparky — the floating assistant. Collapsed it's a sparkle bubble; opening slides a side pane in over
  *  the canvas (collapsible back into the bubble). Conversations are switchable like any chat app. */
