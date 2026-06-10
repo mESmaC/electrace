@@ -19,6 +19,33 @@ import {
 
 const GRID = 10;
 const snap = (n: number) => Math.round(n / GRID) * GRID;
+
+// ── symbols never overlap ──────────────────────────────────────────────────
+// There's no legitimate reason for two symbols to sit on top of each other, so every mutation
+// (drag, nudge, add, duplicate, rotate) is collision-checked. Bounds are deflated a couple of
+// pixels so edge-touching on the grid stays allowed — only real overlap is blocked.
+function symClearRect(s: Sym): { x: number; y: number; w: number; h: number } | null {
+  const d = symDims(s);
+  if (!d) return null;
+  const b = symBounds(s, d.w, d.h);
+  return { x: b.minX + 2, y: b.minY + 2, w: Math.max(1, b.maxX - b.minX - 4), h: Math.max(1, b.maxY - b.minY - 4) };
+}
+function symsCollide(syms: Sym[], movedIds: Set<string>): boolean {
+  const moved: NonNullable<ReturnType<typeof symClearRect>>[] = [];
+  const still: typeof moved = [];
+  for (const s of syms) {
+    const r = symClearRect(s);
+    if (r) (movedIds.has(s.id) ? moved : still).push(r);
+  }
+  return moved.some((a) => still.some((b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y));
+}
+/** Offsets at chebyshev ring r (for finding the nearest free drop spot). */
+function ring(r: number): [number, number][] {
+  if (r === 0) return [[0, 0]];
+  const out: [number, number][] = [];
+  for (let i = -r; i <= r; i++) { out.push([i, -r], [i, r]); if (Math.abs(i) !== r) out.push([-r, i], [r, i]); }
+  return out;
+}
 // unique id suffix: a per-session counter disambiguates ids created within the same millisecond
 let _uidSeq = 0;
 const uid = () => `${Math.floor(performance.now())}-${_uidSeq++}`;
@@ -262,14 +289,20 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   const rotateSel = useCallback((d: number) => {
     const ids = new Set(idsOfKind(selRef.current, "sym"));
     if (!ids.size) return;
-    setModel((m) => ({ ...m, syms: m.syms.map((s) => (ids.has(s.id) ? { ...s, rot: normRot((s.rot ?? 0) + d) } : s)) }));
+    setModel((m) => {
+      const next = m.syms.map((s) => (ids.has(s.id) ? { ...s, rot: normRot((s.rot ?? 0) + d) } : s));
+      return symsCollide(next, ids) ? m : { ...m, syms: next }; // a rotation that would land on a neighbour is refused
+    });
     track({ kind: "sym.rotate", block: blockId });
   }, [blockId]);
 
   const nudgeSel = useCallback((dx: number, dy: number) => {
     const ids = new Set(idsOfKind(selRef.current, "sym"));
     if (!ids.size) return;
-    setModel((m) => ({ ...m, syms: m.syms.map((s) => { if (!ids.has(s.id)) return s; const o = anchorOrigin(s, s.x + dx, s.y + dy, GRID); return { ...s, x: o.x, y: o.y }; }) }));
+    setModel((m) => {
+      const next = m.syms.map((s) => { if (!ids.has(s.id)) return s; const o = anchorOrigin(s, s.x + dx, s.y + dy, GRID); return { ...s, x: o.x, y: o.y }; });
+      return symsCollide(next, ids) ? m : { ...m, syms: next };
+    });
   }, []);
 
   const duplicateSel = useCallback(() => {
@@ -291,7 +324,15 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       keys.push(symKey(nid));
     }
     if (!clones.length) return;
-    setModel((mm) => ({ ...mm, syms: [...mm.syms, ...clones] }));
+    setModel((mm) => {
+      // the +20 offset may land on something — march the whole clone group diagonally to clear air
+      let group = clones;
+      const cloneIds = new Set(clones.map((c) => c.id));
+      for (let step = 0; step < 24 && symsCollide([...mm.syms, ...group], cloneIds); step++) {
+        group = group.map((c) => { const o = anchorOrigin(c, c.x + GRID * 2, c.y + GRID * 2, GRID); return { ...c, x: o.x, y: o.y }; });
+      }
+      return { ...mm, syms: [...mm.syms, ...group] };
+    });
     setSel(new Set(keys));
   }, []);
 
@@ -374,8 +415,17 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       const ref = def.defaultRef === "GND" ? "GND" : `${def.defaultRef}${n}`;
       const chip = type === "chip" ? { chip: { profile: "soic", pins: 8, names: {}, mpn: "" } as ChipSpec } : {};
       const base: Sym = { id: `${type}-${uid()}`, type, ref, x: cx - def.w / 2, y: cy - def.h / 2, ...chip };
-      const o = anchorOrigin(base, base.x, base.y, GRID); // land its first pin on the grid
-      return { ...m, syms: [...m.syms, { ...base, x: o.x, y: o.y }] };
+      // land its first pin on the grid, then walk outward in rings to the nearest spot that
+      // doesn't sit on an existing symbol (symbols never overlap)
+      const o = anchorOrigin(base, base.x, base.y, GRID);
+      let placedSym = { ...base, x: o.x, y: o.y };
+      outer: for (let r = 0; r <= 10; r++) {
+        for (const [ox, oy] of ring(r)) {
+          const cand = { ...base, x: o.x + ox * GRID * 3, y: o.y + oy * GRID * 3 };
+          if (!symsCollide([...m.syms, cand], new Set([cand.id]))) { placedSym = cand; break outer; }
+        }
+      }
+      return { ...m, syms: [...m.syms, placedSym] };
     });
   };
   // click-to-add drops near the centre of the current view (with a slight cascade)
@@ -462,7 +512,17 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     const d = drag.current;
     if (d) {
       const dx = snap(p.x - d.startMouse.x), dy = snap(p.y - d.startMouse.y); // grid-step delta keeps anchored pins on grid
-      setModel((m) => ({ ...m, syms: m.syms.map((s) => { const st = d.starts.get(s.id); return st ? { ...s, x: st.x + dx, y: st.y + dy } : s; }) }));
+      setModel((m) => {
+        const ids = new Set(d.ids);
+        const apply = (ax: number, ay: number) => m.syms.map((s) => { const st = d.starts.get(s.id); return st ? { ...s, x: st.x + ax, y: st.y + ay } : s; });
+        // never overlap: try the full delta, then each axis alone — the drag slides along an
+        // obstacle instead of passing through it (or sticks when boxed in)
+        for (const [ax, ay] of [[dx, dy], [dx, 0], [0, dy]] as [number, number][]) {
+          const next = apply(ax, ay);
+          if (!symsCollide(next, ids)) return { ...m, syms: next };
+        }
+        return m;
+      });
       return;
     }
     const pd = pend.current;
@@ -1014,6 +1074,35 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                   {L.lines.map((ln, k) => <tspan key={k} x={L.x} dy={k ? lineH : 0}>{ln}</tspan>)}
                 </text>
               </g>
+            );
+          })}
+
+          {/* top wire-hit overlay: symbols paint after wires, so their generous hitboxes used to
+              eat clicks on a wire squeezed between two close parts. This thin invisible stroke
+              rides ABOVE the symbols along the exact wire path — a click on the line always
+              reaches the line. Clicks landing near a PIN are forwarded to the pin (so wiring
+              from a pin keeps working even where a wire passes right through it). */}
+          {model.wires.map((w) => {
+            const a = endAbs(model.syms, w.a, model.wires), b = endAbs(model.syms, w.b, model.wires);
+            if (!a || !b) return null;
+            const pinNear = (e: { clientX: number; clientY: number }) => {
+              const p = localPt(e);
+              return nearestPin(modelRef.current.syms, p.x, p.y, 11 / zoomRef.current);
+            };
+            return (
+              <path key={`whit-${w.id}`} d={ortho([a, ...w.mid, b])} fill="none" stroke="transparent"
+                strokeWidth={Math.max(6, 8 / zoom)} strokeLinecap="round" strokeLinejoin="round"
+                onPointerDown={(e) => { if (!pinNear(e)) onWireDown(e, w); }}
+                onClick={(e) => {
+                  const hit = pinNear(e);
+                  if (hit) { onPin(e, hit.sym, hit.pin); return; }
+                  e.stopPropagation();
+                  if (e.shiftKey) setSel((prev) => toggle(prev, wireKey(w.id)));
+                  else setSel(new Set([wireKey(w.id)]));
+                }}
+                onPointerEnter={() => { const n = nets.netOfConn.get(w.id); if (n != null) setHoverNet(n); }}
+                onPointerLeave={() => setHoverNet(null)}
+                style={{ cursor: draw ? "crosshair" : "move" }} />
             );
           })}
 
