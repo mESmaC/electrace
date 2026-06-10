@@ -62,7 +62,7 @@ export default function TermsPage() {
       </Section>
 
       <Section title="Changes">
-        <p>We may update these terms as the product matures; material changes will be noted here with a new date, and continued use after a change means you accept it. Questions? <a href="mailto:hello@electrace.net" className="text-link hover:underline">hello@electrace.net</a>.</p>
+        <p>We may update these terms as the product matures; material changes will be noted here with a new date, and continued use after a change means you accept it. Questions? <a href="mailto:contact@usnylon.com" className="text-link hover:underline">contact@usnylon.com</a>.</p>
       </Section>
     </main>
   );

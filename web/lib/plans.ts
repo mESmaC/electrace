@@ -62,7 +62,7 @@ export const PLANS: Plan[] = [
     tagline: "Shared workspaces for hardware teams.",
     price: "Let's talk",
     priceNote: "planned",
-    cta: { label: "Contact us", href: "mailto:hello@electrace.net" },
+    cta: { label: "Contact us", href: "mailto:contact@usnylon.com" },
     featuresLead: "Everything in Pro, plus:",
     features: [
       "Shared team workspaces",

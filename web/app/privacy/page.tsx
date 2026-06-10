@@ -58,7 +58,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="Contact">
-        <p>Questions, data requests, or deletions: <a href="mailto:hello@electrace.net" className="text-link hover:underline">hello@electrace.net</a>.</p>
+        <p>Questions, data requests, or deletions: <a href="mailto:contact@usnylon.com" className="text-link hover:underline">contact@usnylon.com</a>.</p>
       </Section>
     </main>
   );
