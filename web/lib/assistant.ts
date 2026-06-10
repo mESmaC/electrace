@@ -25,7 +25,14 @@ export interface ChatMessage { id: string; role: "user" | "assistant"; text: str
 export interface ContextItem { kind: string; text: string }
 
 /** One conversation in the assistant — its own message history, switchable like chats in any chat app. */
-export interface Conversation { id: string; title: string; messages: ChatMessage[]; updatedAt: number }
+export interface Conversation {
+  id: string; title: string; messages: ChatMessage[]; updatedAt: number;
+  /** Rolling compaction of turns older than the send window — generated server-side when the
+   *  conversation outgrows the cap, so long projects keep their memory at a fraction of the tokens. */
+  summary?: string;
+  /** How many messages (from the start) the summary covers. */
+  summaryUpTo?: number;
+}
 
 const CHATS_KEY = "electrace:chats";        // localStorage — all conversations
 const ACTIVE_KEY = "electrace:chat:active"; // localStorage — active conversation id
@@ -154,12 +161,34 @@ export function registerAgentSession(s: AgentSession): () => void {
 export async function sendMessage(text: string): Promise<void> {
   const t = text.trim();
   if (!t) return;
-  // Prior turns, capped: long-lived conversations otherwise grow the payload (and the bill) linearly —
-  // every message would re-send the whole history. Last 16 turns within ~24k chars is plenty of memory;
-  // anything older is ancient history the user can re-state.
+  // Context compaction: send only the recent window verbatim; turns older than that are folded into
+  // a rolling per-conversation summary (generated server-side the first time they fall out of the
+  // window, then reused — the summary only changes on overflow, so it stays prompt-cache-friendly).
+  const WINDOW = 12;
+  const chats = ensureChats();
+  const convObj = chats.find((c) => c.id === getActiveId());
+  const allMsgs = convObj?.messages ?? getChat();
+  const cut = Math.max(0, allMsgs.length - WINDOW);
+  let summary = convObj?.summary ?? "";
+  const coveredTo = convObj?.summaryUpTo ?? 0;
+  if (cut - coveredTo >= 6) {
+    // enough uncovered old turns to be worth a compaction call (one cheap request, amortized)
+    try {
+      const r = await fetch("/api/assistant", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ summarize: allMsgs.slice(coveredTo, cut).map((m) => ({ role: m.role, text: m.text })), existingSummary: summary }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.summary) {
+          summary = d.summary;
+          if (convObj) { convObj.summary = summary; convObj.summaryUpTo = cut; writeChats(chats); }
+        }
+      }
+    } catch { /* compaction is an optimization — sending without it is always safe */ }
+  }
   const history = (() => {
-    const all = getChat().map((m) => ({ role: m.role, text: m.text }));
-    const recent = all.slice(-16);
+    const recent = allMsgs.slice(-WINDOW).map((m) => ({ role: m.role, text: m.text }));
     let budget = 24_000;
     const kept: typeof recent = [];
     for (let i = recent.length - 1; i >= 0; i--) {
@@ -172,7 +201,7 @@ export async function sendMessage(text: string): Promise<void> {
   const context = getContext();
   const conv = getActiveId(); // bind the whole run to the conversation it started in
   appendChat("user", t, conv);
-  const body: Record<string, unknown> = { context, history, message: t };
+  const body: Record<string, unknown> = { context, history, message: t, ...(summary ? { summary } : {}) };
   if (agentSession) { body.design = agentSession.getDesign(); body.blocks = agentSession.getBlocks(); }
   const prog: Progress = { status: "Thinking…", tools: [] };
   setProgress(prog);
