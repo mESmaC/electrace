@@ -1,0 +1,50 @@
+id: "@electrace/h-bridge"
+name: H-Bridge Motor Driver
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "⛶"
+spec:
+  vm: { min: 2.7, max: 11, unit: V }
+  iout_max: { value: 1.5, unit: A }
+terminals:
+  - { id: vm,   role: in,  type: power, polarity: "+", v: { min: 2.7, max: 11, unit: V } }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: in1,  role: in,  type: signal }
+  - { id: in2,  role: in,  type: signal }
+  - { id: out1, role: out, type: signal, i: { max: 1.5, unit: A } }
+  - { id: out2, role: out, type: signal, i: { max: 1.5, unit: A } }
+limits:
+  - { field: stall.note, value: 0, note: "A motor's STALL current is 5–10× its running current, and it stalls at every start and reversal. The 1.5 A rating must cover stall, not cruise — measure the winding resistance: I_stall = Vm / R_winding." }
+  - { field: decay.note, value: 0, note: "Both inputs low = coast; both high = brake (shorts the winding). Neither hurts the driver — but reversing hard from full speed doubles the effective voltage across the winding; ramp with PWM if the supply sags." }
+schematic:
+  parts:
+    - { ref: U1, type: ic, part: h-bridge-1ch, footprint: SOT-23-6, why: "four switches around the motor: IN1/IN2 pick which diagonal pair conducts, so current can flow through the winding in either direction" }
+    - { ref: C1, type: cap, value: 10uF, footprint: C0805, why: "motor supply reservoir — a reversing motor yanks big current steps that the supply wiring can't deliver instantly" }
+  nets:
+    - { name: IN1,  connect: [U1.IN1, "@in1"] }
+    - { name: IN2,  connect: [U1.IN2, "@in2"] }
+    - { name: VM,   connect: [U1.VM, C1.1, "@vm"] }
+    - { name: OUT1, connect: [U1.OUT1, "@out1"] }
+    - { name: OUT2, connect: [U1.OUT2, "@out2"] }
+    - { name: GND,  connect: [U1.GND, C1.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_in1, type: port, ref: in1, x: 60, y: 130, rot: 180 }
+    - { id: P_in2, type: port, ref: in2, x: 60, y: 150, rot: 180 }
+    - { id: U1,    type: chip, ref: U1, value: bridge, x: 250, y: 120, chip: { profile: sot23, pins: 6, names: { "1": IN1, "2": IN2, "3": GND, "6": VM, "5": OUT1, "4": OUT2 } } }
+    - { id: C1,    type: capacitor, ref: C1, value: 10µF, x: 390, y: 103, rot: 90 }
+    - { id: P_vm,   type: port, ref: vm,   x: 420, y: 60, rot: 0 }
+    - { id: P_out1, type: port, ref: out1, x: 440, y: 150, rot: 0 }
+    - { id: P_out2, type: port, ref: out2, x: 440, y: 170, rot: 0 }
+    - { id: P_gnd,  type: port, ref: gnd,  x: 235, y: 260, rot: 90 }
+  wires:
+    - { from: P_in1.1, to: U1.1 }
+    - { from: P_in2.1, to: U1.2 }
+    - { from: U1.3,    to: P_gnd.1 }
+    - { from: U1.6,    to: P_vm.1 }
+    - { from: C1.1,    to: P_vm.1 }
+    - { from: C1.2,    to: P_gnd.1, via: [[460, 148], [460, 230]] }
+    - { from: U1.5,    to: P_out1.1 }
+    - { from: U1.4,    to: P_out2.1 }

@@ -1,0 +1,43 @@
+id: "@electrace/mosfet-switch"
+name: MOSFET Switch (low-side)
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "⏻"
+spec:
+  vload_max: { value: 30, unit: V }
+  i_max: { value: 3, unit: A }
+  vctrl: { min: 3, max: 5.5, unit: V }
+terminals:
+  - { id: ctrl, role: in,  type: signal }
+  - { id: gnd,  role: in,  type: gnd }
+  - { id: sw,   role: out, type: signal, i: { max: 3, unit: A } }
+limits:
+  - { field: vgs.note, value: 0, note: "Use a LOGIC-LEVEL FET: it must be fully on at your GPIO voltage. A '10 V gate' FET driven from 3.3 V is half-on — it works on the bench and then burns up at real current." }
+  - { field: load.note, value: 0, note: "Switching an inductive load (motor, relay, solenoid)? Add a flyback diode across the load or the inductive kick at turn-off will avalanche the FET." }
+schematic:
+  parts:
+    - { ref: Q1, type: mosfet, part: n-fet-logic, footprint: SOT-23, why: "the switch — a logic-level N-FET that pulls the load's low side to ground when the gate goes high" }
+    - { ref: R1, type: res, value: 100, footprint: R0603, why: "gate series resistor — tames the current spike into the gate capacitance and stops ringing" }
+    - { ref: R2, type: res, value: 100k, footprint: R0603, why: "gate pulldown — keeps the FET firmly OFF while the GPIO is floating (reset, boot, unplugged)" }
+  nets:
+    - { name: CTRL, connect: [R1.1, "@ctrl"] }
+    - { name: GATE, connect: [R1.2, Q1.G, R2.1] }
+    - { name: SW,   connect: [Q1.D, "@sw"] }
+    - { name: GND,  connect: [Q1.S, R2.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_ctrl, type: port,     ref: ctrl, x: 40,  y: 150, rot: 180 }
+    - { id: R1,     type: resistor, ref: R1, value: 100,  x: 110, y: 146 }
+    - { id: Q1,     type: nmos,     ref: Q1, value: N-FET, x: 240, y: 128 }
+    - { id: R2,     type: resistor, ref: R2, value: 100k, x: 155, y: 201, rot: 90 }
+    - { id: P_sw,   type: port,     ref: sw,   x: 360, y: 80, rot: 0 }
+    - { id: P_gnd,  type: port,     ref: gnd,  x: 265, y: 300, rot: 90 }
+  wires:
+    - { from: P_ctrl.1, to: R1.1 }
+    - { from: R1.2,     to: Q1.G }
+    - { from: Q1.G,     to: R2.1 }
+    - { from: Q1.D,     to: P_sw.1 }
+    - { from: Q1.S,     to: P_gnd.1 }
+    - { from: R2.2,     to: P_gnd.1 }

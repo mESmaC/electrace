@@ -1,0 +1,68 @@
+id: "@electrace/i2c-level-shifter"
+name: I2C Level Shifter
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "⇅"
+spec:
+  vlv: { value: 3.3, unit: V }
+  vhv: { value: 5, unit: V }
+terminals:
+  - { id: vlv,    role: in,  type: power, polarity: "+", v: { value: 3.3, unit: V } }
+  - { id: vhv,    role: in,  type: power, polarity: "+", v: { value: 5, unit: V } }
+  - { id: sda_lv, role: in,  type: signal }
+  - { id: scl_lv, role: in,  type: signal }
+  - { id: sda_hv, role: out, type: signal }
+  - { id: scl_hv, role: out, type: signal }
+limits:
+  - { field: speed.note, value: 0, note: "Fine for 100/400 kHz I2C. The FETs + pull-ups round off edges; at 1 MHz+ (or long wires) drop the pull-ups to 2.2k and keep the bus short." }
+  - { field: direction.note, value: 0, note: "This circuit is BIDIRECTIONAL — both sides can pull the line low and the other side sees it. The in/out roles here are just naming; don't add a second shifter 'for the other direction'." }
+schematic:
+  parts:
+    - { ref: Q1, type: mosfet, part: bss138, footprint: SOT-23, why: "SDA pass FET — gate at 3.3 V: either side pulling low turns it (or its body diode) on, so the LOW crosses; idle lines float HIGH on their own pull-ups" }
+    - { ref: Q2, type: mosfet, part: bss138, footprint: SOT-23, why: "SCL pass FET — same trick for the clock line" }
+    - { ref: R1, type: res, value: 10k, footprint: R0603, why: "SDA pull-up, 3.3 V side" }
+    - { ref: R2, type: res, value: 10k, footprint: R0603, why: "SDA pull-up, 5 V side" }
+    - { ref: R3, type: res, value: 10k, footprint: R0603, why: "SCL pull-up, 3.3 V side" }
+    - { ref: R4, type: res, value: 10k, footprint: R0603, why: "SCL pull-up, 5 V side" }
+  nets:
+    - { name: SDA_LV, connect: [Q1.S, R1.2, "@sda_lv"] }
+    - { name: SDA_HV, connect: [Q1.D, R2.2, "@sda_hv"] }
+    - { name: SCL_LV, connect: [Q2.S, R3.2, "@scl_lv"] }
+    - { name: SCL_HV, connect: [Q2.D, R4.2, "@scl_hv"] }
+    - { name: VLV,    connect: [Q1.G, Q2.G, R1.1, R3.1, "@vlv"] }
+    - { name: VHV,    connect: [R2.1, R4.1, "@vhv"] }
+layout:
+  symbols:
+    - { id: P_vlv,    type: port, ref: vlv, x: 60, y: 40, rot: 180 }
+    - { id: VL1, type: vcc, ref: VLV, x: 138, y: 48 }
+    - { id: VL2, type: vcc, ref: VLV, x: 190, y: 84 }
+    - { id: VH1, type: vcc, ref: VHV, x: 388, y: -12 }
+    - { id: P_vhv,    type: port, ref: vhv, x: 470, y: 22, rot: 0 }
+    - { id: Q1, type: nmos, ref: Q1, value: BSS138, x: 250, y: 100 }
+    - { id: R1, type: resistor, ref: R1, value: 10k, x: 105, y: 103, rot: 90 }
+    - { id: R2, type: resistor, ref: R2, value: 10k, x: 355, y: 43, rot: 90 }
+    - { id: P_sda_lv, type: port, ref: sda_lv, x: 60, y: 152, rot: 180 }
+    - { id: P_sda_hv, type: port, ref: sda_hv, x: 480, y: 92, rot: 0 }
+    - { id: VL3, type: vcc, ref: VLV, x: 138, y: 208 }
+    - { id: VL4, type: vcc, ref: VLV, x: 190, y: 244 }
+    - { id: VH2, type: vcc, ref: VHV, x: 388, y: 148 }
+    - { id: Q2, type: nmos, ref: Q2, value: BSS138, x: 250, y: 260 }
+    - { id: R3, type: resistor, ref: R3, value: 10k, x: 105, y: 263, rot: 90 }
+    - { id: R4, type: resistor, ref: R4, value: 10k, x: 355, y: 203, rot: 90 }
+    - { id: P_scl_lv, type: port, ref: scl_lv, x: 60, y: 312, rot: 180 }
+    - { id: P_scl_hv, type: port, ref: scl_hv, x: 480, y: 252, rot: 0 }
+  wires:
+    - { from: P_vlv.1,    to: VL1.1 }
+    - { from: P_vhv.1,    to: VH1.1 }
+    - { from: VL1.1,      to: R1.1 }
+    - { from: Q1.G,       to: VL2.1 }
+    - { from: P_sda_lv.1, to: Q1.S }
+    - { from: Q1.D,       to: P_sda_hv.1 }
+    - { from: R2.1,       to: VH1.1 }
+    - { from: VL3.1,      to: R3.1 }
+    - { from: Q2.G,       to: VL4.1 }
+    - { from: P_scl_lv.1, to: Q2.S }
+    - { from: Q2.D,       to: P_scl_hv.1 }
+    - { from: R4.1,       to: VH2.1 }

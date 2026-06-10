@@ -1,0 +1,47 @@
+id: "@electrace/led-current-sink"
+name: LED Current Sink
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "◑"
+spec:
+  i_set: { value: 0.18, unit: A }
+  vin: { min: 3, max: 24, unit: V }
+terminals:
+  - { id: vin,  role: in,  type: power, polarity: "+", v: { min: 3, max: 24, unit: V } }
+  - { id: sink, role: in,  type: signal, i: { max: 0.18, unit: A } }
+  - { id: gnd,  role: in,  type: gnd }
+limits:
+  - { field: iset.formula, value: 0, note: "I ≈ 0.6 V / R2. The 3.3 Ω here sets ~180 mA. It holds that current regardless of supply voltage or how many LEDs are in the string — that's the point." }
+  - { field: power.note, value: 0, note: "Q1 burns (V_sink − ~1 V) × I as heat. Keep the LED string's total forward voltage close to the supply so Q1 only drops a volt or two — a 5 V supply with one 2 V LED leaves Q1 eating 2 W at 180 mA. SOT-23 cannot do that; size the string, not the transistor." }
+schematic:
+  parts:
+    - { ref: Q1, type: bjt, part: npn-pass, footprint: SOT-23, why: "the pass transistor — the LED string's current flows through it into R2" }
+    - { ref: Q2, type: bjt, part: npn-sense, footprint: SOT-23, why: "the regulator — when R2's voltage hits ~0.6 V it steals Q1's base drive, capping the current right there" }
+    - { ref: R1, type: res, value: 10k, footprint: R0603, why: "feeds Q1's base from the supply — Q2 throttles this" }
+    - { ref: R2, type: res, value: 3.3, footprint: R0805, why: "the sense resistor — the current programmer: I ≈ 0.6 V / R2" }
+  nets:
+    - { name: VIN,   connect: [R1.1, "@vin"] }
+    - { name: BASE,  connect: [R1.2, Q1.B, Q2.C] }
+    - { name: SINK,  connect: [Q1.C, "@sink"] }
+    - { name: SENSE, connect: [Q1.E, Q2.B, R2.1] }
+    - { name: GND,   connect: [Q2.E, R2.2, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_vin,  type: port,     ref: vin, x: 40, y: 40, rot: 180 }
+    - { id: R1,     type: resistor, ref: R1, value: 10k, x: 105, y: 81, rot: 90 }
+    - { id: Q1,     type: npn,      ref: Q1, value: pass, x: 240, y: 108 }
+    - { id: Q2,     type: npn,      ref: Q2, value: sense, x: 110, y: 178 }
+    - { id: R2,     type: resistor, ref: R2, value: 3.3, x: 235, y: 251, rot: 90 }
+    - { id: P_sink, type: port,     ref: sink, x: 380, y: 60, rot: 0 }
+    - { id: P_gnd,  type: port,     ref: gnd, x: 205, y: 330, rot: 90 }
+  wires:
+    - { from: P_vin.1, to: R1.1 }
+    - { from: R1.2,    to: Q1.B }
+    - { from: Q2.C,    to: R1.2 }
+    - { from: Q1.E,    to: R2.1 }
+    - { from: Q2.B,    to: Q1.E }
+    - { from: Q1.C,    to: P_sink.1 }
+    - { from: Q2.E,    to: P_gnd.1 }
+    - { from: R2.2,    to: P_gnd.1 }

@@ -1,0 +1,46 @@
+id: "@electrace/relay-driver"
+name: Relay Driver
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "⎌"
+spec:
+  vcoil: { min: 5, max: 24, unit: V }
+  icoil_max: { value: 0.2, unit: A }
+  vctrl: { min: 3, max: 5.5, unit: V }
+terminals:
+  - { id: ctrl, role: in,  type: signal }
+  - { id: vcc,  role: in,  type: power, polarity: "+", v: { min: 5, max: 24, unit: V } }
+  - { id: coil, role: out, type: signal, i: { max: 0.2, unit: A } }
+  - { id: gnd,  role: in,  type: gnd }
+limits:
+  - { field: flyback.note, value: 0, note: "D1 is NOT optional. A relay coil is an inductor; cutting its current without a flyback path generates hundreds of volts at the transistor's collector. The diode gives the coil current somewhere to go while it dies down." }
+  - { field: icoil.max, value: 0.2, unit: A, note: "Sized for typical 5–24 V signal relays (30–150 mA coils). A contactor-class coil needs a bigger transistor — check the coil's rated current, not the contact rating." }
+schematic:
+  parts:
+    - { ref: Q1, type: bjt, part: npn-gp, footprint: SOT-23, why: "the switch — saturates to pull the coil's low side to ground; a garden-variety NPN handles a signal relay easily" }
+    - { ref: R1, type: res, value: 1k, footprint: R0603, why: "sets the base current (~3 mA at 3.3 V) — enough to saturate Q1 at 10× less than the coil current" }
+    - { ref: D1, type: diode, part: flyback, footprint: SOD-123, why: "the flyback path — catches the coil's inductive kick at turn-off so it never reaches Q1" }
+  nets:
+    - { name: CTRL, connect: [R1.1, "@ctrl"] }
+    - { name: BASE, connect: [R1.2, Q1.B] }
+    - { name: COIL, connect: [Q1.C, D1.1, "@coil"] }
+    - { name: VCC,  connect: [D1.2, "@vcc"] }
+    - { name: GND,  connect: [Q1.E, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_ctrl, type: port,     ref: ctrl, x: 40,  y: 150, rot: 180 }
+    - { id: R1,     type: resistor, ref: R1, value: 1k, x: 110, y: 146 }
+    - { id: Q1,     type: npn,      ref: Q1, value: NPN, x: 240, y: 128 }
+    - { id: D1,     type: diode,    ref: D1, value: flyback, x: 310, y: 171, rot: 270 }
+    - { id: P_coil, type: port,     ref: coil, x: 420, y: 120, rot: 0 }
+    - { id: P_vcc,  type: port,     ref: vcc,  x: 300, y: 40, rot: 0 }
+    - { id: P_gnd,  type: port,     ref: gnd,  x: 265, y: 240, rot: 90 }
+  wires:
+    - { from: P_ctrl.1, to: R1.1 }
+    - { from: R1.2,     to: Q1.B }
+    - { from: Q1.C,     to: P_coil.1 }
+    - { from: D1.1,     to: P_coil.1 }
+    - { from: D1.2,     to: P_vcc.1 }
+    - { from: Q1.E,     to: P_gnd.1 }
