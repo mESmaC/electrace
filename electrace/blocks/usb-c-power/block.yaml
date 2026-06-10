@@ -34,19 +34,19 @@ layout:
     - { id: P_vbus, type: port,     ref: vbus, x: 40,  y: 90,  rot: 180 }
     - { id: P_cc1,  type: port,     ref: cc1,  x: 40,  y: 170, rot: 180 }
     - { id: P_cc2,  type: port,     ref: cc2,  x: 40,  y: 240, rot: 180 }
-    - { id: R1,     type: resistor, ref: R1, value: 5.1k, x: 156, y: 200, rot: 90 }
-    - { id: R2,     type: resistor, ref: R2, value: 5.1k, x: 236, y: 270, rot: 90 }
-    - { id: D1,     type: tvs,      ref: D1, value: TVS,  x: 326, y: 156, rot: 90 }
-    - { id: C1,     type: capacitor, ref: C1, value: 22µF, x: 416, y: 156, rot: 90 }
+    - { id: R1,     type: resistor, ref: R1, value: 5.1k, x: 156, y: 211, rot: 90 }
+    - { id: R2,     type: resistor, ref: R2, value: 5.1k, x: 236, y: 281, rot: 90 }
+    - { id: D1,     type: tvs,      ref: D1, value: TVS,  x: 326, y: 121, rot: 90 }
+    - { id: C1,     type: capacitor, ref: C1, value: 22µF, x: 416, y: 115, rot: 90 }
     - { id: P_vout, type: port,     ref: vout, x: 520, y: 90, rot: 0 }
-    - { id: P_gnd,  type: port,     ref: gnd,  x: 330, y: 360, rot: 90 }
+    - { id: P_gnd,  type: port,     ref: gnd,  x: 330, y: 345, rot: 90 }
   wires:
     - { from: P_vbus.1, to: D1.1 }
     - { from: D1.1,     to: C1.1 }
     - { from: C1.1,     to: P_vout.1 }
     - { from: P_cc1.1,  to: R1.1 }
     - { from: P_cc2.1,  to: R2.1 }
-    - { from: R1.2,     to: P_gnd.1 }
+    - { from: R1.2,     to: P_gnd.1, via: [[201, 340]] }
     - { from: R2.2,     to: P_gnd.1 }
-    - { from: D1.2,     to: P_gnd.1 }
-    - { from: C1.2,     to: P_gnd.1 }
+    - { from: D1.2,     to: P_gnd.1, via: [[361, 340]] }
+    - { from: C1.2,     to: P_gnd.1, via: [[446, 340]] }
