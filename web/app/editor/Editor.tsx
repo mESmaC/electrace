@@ -11,6 +11,7 @@ import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
 import { pushDesignNow } from "@/lib/designsSync";
 import BomPanel from "./BomPanel";
+import FlatSchematic from "./FlatSchematic";
 import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
@@ -710,6 +711,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // findingBlock closes over nodes + analysis; both are in the dep set already
   }, [analysis, nodes]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pcbOpen, setPcbOpen] = useState(false);
+  const [schemView, setSchemView] = useState(false); // the flat whole-design schematic sheet
   const passportNet = selectedNet ? analysis.resolved.nets.find((n) => n.members.some((m) => m.node === selectedNet)) : undefined;
   const passportBudget = passportNet ? budgets.find((b) => b.net === passportNet.id) : undefined;
   const drilledBlock = drillRef
@@ -1166,6 +1168,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={downloadNetlist} title="Export a KiCad netlist (.net) of the whole stitched design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
           {projectId && <ShareMenu designId={design.id} />}
           <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset schematics</button>
+          <button onClick={() => setSchemView(true)} title="The whole design as one traditional schematic sheet (read-only, SVG export)" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Schematic</button>
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
           {savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
           <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
@@ -1431,6 +1434,21 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       )}
 
       {/* Block schematic editor — full-screen over the whole design editor while drilled in */}
+      {schemView && !drillRef && (
+        <div className="absolute inset-0 z-20 flex flex-col overflow-hidden bg-[var(--color-bg)]">
+          <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2 text-sm">
+            <button onClick={() => setSchemView(false)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]">← Blocks</button>
+            <span className="text-[var(--color-border-strong)]">/</span>
+            <span className="font-semibold">{designName} — full schematic</span>
+            <span className="ml-2 text-[11px] text-[var(--color-faint)]">the whole design as one traditional sheet</span>
+          </div>
+          <div className="min-h-0 flex-1">
+            <FlatSchematic resolved={analysis.resolved} blockOf={(ref) => (nodes.find((n) => n.id === ref)?.data as BlockNodeData | undefined)?.block}
+              onOpenBlock={(ref) => { setSchemView(false); setDrillRef(ref); }} />
+          </div>
+        </div>
+      )}
+
       {drillRef && drilledBlock && (
         <div className="absolute inset-0 z-30 flex flex-col overflow-hidden bg-[var(--color-bg)]">
           <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2 text-sm">
