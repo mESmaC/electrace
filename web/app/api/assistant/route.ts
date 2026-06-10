@@ -419,10 +419,20 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         } catch { /* ignore */ }
         return null;
       };
+      // when an endpoint is wrong, NAME the valid options — agents repair from explicit diagnostics
+      const validTermsOf = (r: string): string | null => {
+        const bi = design.blocks.find((x) => x.ref === r);
+        if (bi) return blocks[bi.block]?.terminals.map((x) => x.id).join(", ") ?? null;
+        const ci = (design.connectors ?? []).find((x) => x.ref === r);
+        return ci ? connectorPart(ci.connector)?.pins.join(", ") ?? null : null;
+      };
       const resolve1 = (e: string): { ep?: string; err?: string } => {
         if (valid(e)) return { ep: e };
         if (!e.includes(".")) { const m = asNetMember(e); if (m) return { ep: m }; return { err: `"${e}" isn't a REF.terminal or an existing net.` }; }
-        return { err: `Endpoint "${e}" doesn't exist (need REF.terminal, or a net name like GND).` };
+        const [r, t] = e.split(".");
+        const terms = validTermsOf(r);
+        if (terms) return { err: `${r}.${t} doesn't exist — ${r}'s valid terminals are: ${terms}.` };
+        return { err: `No instance "${r}" (need REF.terminal, or a net name like GND). Call list_instances for valid refs.` };
       };
       const rf = resolve1(fromIn), rt = resolve1(toIn);
       if (rf.err) return { text: rf.err, changed: false };
@@ -433,6 +443,39 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       design.connections.push({ from, to });
       const note = (from !== fromIn || to !== toIn) ? ` (via net member ${from !== fromIn ? from : to})` : "";
       return { text: `Connected ${from} ↔ ${to}${note}.`, changed: true };
+    }
+    case "list_connections": {
+      // the RAW wire list, including BROKEN endpoints — the net graph hides invalid wires, and
+      // agents repair from what they can see (GPT-5.5 field feedback)
+      const epOk = (e: string) => {
+        const [r, t] = e.split(".");
+        const bi = design.blocks.find((x) => x.ref === r);
+        if (bi) return blocks[bi.block]?.terminals.some((x) => x.id === t) ? true : false;
+        const ci = (design.connectors ?? []).find((x) => x.ref === r);
+        return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
+      };
+      const lines = design.connections.map((c, i) => {
+        const bad = [c.from, c.to].filter((e) => !epOk(e));
+        return `${i}: ${c.from} ↔ ${c.to}${bad.length ? `  ⚠ INVALID endpoint${bad.length > 1 ? "s" : ""}: ${bad.join(", ")}` : ""}`;
+      });
+      const broken = lines.filter((l) => l.includes("INVALID")).length;
+      return { text: lines.join("\n") + (broken ? `\n${broken} invalid — remove_invalid_wires drops them, or reconnect deliberately.` : "") || "(no connections)", changed: false };
+    }
+    case "remove_invalid_wires": {
+      const epOk = (e: string) => {
+        const [r, t] = e.split(".");
+        const bi = design.blocks.find((x) => x.ref === r);
+        if (bi) return blocks[bi.block]?.terminals.some((x) => x.id === t) ? true : false;
+        const ci = (design.connectors ?? []).find((x) => x.ref === r);
+        return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
+      };
+      const before = design.connections.length;
+      const dropped = design.connections.filter((c) => !epOk(c.from) || !epOk(c.to));
+      design.connections = design.connections.filter((c) => epOk(c.from) && epOk(c.to));
+      return {
+        text: dropped.length ? `Removed ${dropped.length} invalid wire${dropped.length > 1 ? "s" : ""}:\n${dropped.map((c) => `  ${c.from} ↔ ${c.to}`).join("\n")}` : "No invalid wires — every connection's endpoints exist.",
+        changed: before !== design.connections.length,
+      };
     }
     case "disconnect": {
       const from = String(input.from ?? ""), to = String(input.to ?? "");
@@ -526,6 +569,8 @@ const TOOLS = [
   { name: "add_connector", description: "Place a physical connector on the board (e.g. usb-mini-b for the Nano's USB, barrel for DC power). Then wire block terminals to its pins with connect (FT232.USBDP ↔ J1.D+). Use this so board I/O (USB data, power input) lands on a real connector instead of dangling as exposed terminals.", input_schema: { type: "object", properties: { connector: { type: "string", description: "connector id from list_connectors, e.g. usb-mini-b, usb-c, barrel, hdr-2x5" }, ref: { type: "string", description: "reference designator, e.g. J1 (optional)" } }, required: ["connector"] } },
   { name: "disconnect", description: "Remove a wire between two terminals.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" } }, required: ["from", "to"] } },
   { name: "analyze_design", description: "Run the deterministic checks on the current design — returns all findings (errors, warnings, and notes like 'block has no part yet').", input_schema: { type: "object", properties: {} } },
+  { name: "list_connections", description: "The RAW wire list — every connection as endpoint↔endpoint, INCLUDING wires whose endpoints no longer exist (marked INVALID). Use when the net graph and your expectations disagree: this is the canonical 'what wires actually exist' view.", input_schema: { type: "object", properties: {} } },
+  { name: "remove_invalid_wires", description: "Delete every connection that references a missing instance or terminal (stale wires after a block was re-authored or a terminal renamed). Lists what was removed. Prefer reviewing list_connections first if you might want to RECONNECT instead of drop.", input_schema: { type: "object", properties: {} } },
   { name: "list_nets", description: "List the actual derived net graph — each net's type, voltage, drivers (outputs) and loads (inputs). Read this instead of guessing connectivity.", input_schema: { type: "object", properties: {} } },
   { name: "power_budget", description: "Per-rail current/power budget: each power/rail net's total load draw vs the source's capacity, headroom, %-used (flags over-budget), and watts. The load math — read this to reason about whether a regulator/source can actually supply its rail, not just whether it's wired.", input_schema: { type: "object", properties: {} } },
   { name: "acknowledge", description: "Mark a specific finding as INTENDED so it's muted and stops counting as a warning/error — for a correct-but-noisy check, e.g. an intentional diode-OR where two sources (USB 5V + regulator) legitimately share a rail. Use the rule + at from analyze_design. Only acknowledge findings that are genuinely correct; never silence a real problem. Always note WHY.", input_schema: { type: "object", properties: { rule: { type: "string", description: "the finding's rule, e.g. connectivity/multiple-drivers" }, at: { type: "array", items: { type: "string" }, description: "the finding's subjects (net ids/refs), e.g. [\"VCC\"]" }, note: { type: "string", description: "why it's intended (shown to the user)" } }, required: ["rule", "at"] } },

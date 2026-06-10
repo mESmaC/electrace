@@ -122,16 +122,14 @@ Noted for completeness — add-to-cart / BOM-aware sourcing (distributor PN), bl
        docked-connector edges are `hidden` edges to connector nodes; the design's connections
        include them but the net summary path may filter or the resolve path names them
        differently. INVESTIGATE FIRST — may be a real connectivity-reporting bug. *(M)*
-    2. **list_connections tool** — raw connection list incl. INVALID endpoints (wire references
-       a deleted/renamed terminal). The net graph hides broken wires; agents need them visible.
-       *(S)*
+    2. [x] **list_connections tool** — ✅ 2026-06-09: raw wire list with INVALID endpoints marked.
     3. **Dangling-wire findings in analyze_design** — "connection references missing terminal
        DRV1.GATE — valid terminals: PWM, GND, VMOT, MOTOR-" + suggested fix. *(S–M)*
-    4. **remove_invalid_wires / repair_connections tool** — drop-invalid strategy first. *(S)*
+    4. [x] **remove_invalid_wires** — ✅ 2026-06-09 (drop-invalid; lists what it removed).
     5. **author_schematic result should return a terminal DIFF** (added/removed/renamed +
        orphaned wires) so the agent can re-wire deliberately. *(M)*
-    6. **connect error messages must name the valid terminals** when an endpoint is missing.
-       *(S)*
+    6. [x] **connect errors name the valid terminals** — ✅ 2026-06-09 ("DRV1.GATE doesn't
+       exist — DRV1's valid terminals are: PWM, GND, VMOT, MOTOR-").
     7. **Stable terminal IDs vs display labels** (rename ≠ delete+add) — bigger data-model
        question; design before building. *(L, decide)*
 
