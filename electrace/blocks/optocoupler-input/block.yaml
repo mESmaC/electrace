@@ -1,0 +1,54 @@
+id: "@electrace/optocoupler-input"
+name: Optocoupler Input
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "⧉"
+spec:
+  vin: { min: 5, max: 24, unit: V }
+  vcc: { min: 1.8, max: 5.5, unit: V }
+terminals:
+  - { id: in+, role: in,  type: signal }
+  - { id: in-, role: in,  type: signal }
+  - { id: vcc, role: in,  type: power, polarity: "+", v: { min: 1.8, max: 5.5, unit: V } }
+  - { id: out, role: out, type: signal }
+  - { id: gnd, role: in,  type: gnd }
+limits:
+  - { field: ctr.note, value: 0, note: "Size R1 for the LED current the datasheet's CTR curve actually needs (5–10 mA here), then remember CTR FALLS with age and temperature — a design that barely works on day one quietly stops pulling the output low in year three. Design for end-of-life CTR, not the sunny-day number." }
+  - { field: speed.note, value: 0, note: "A PC817-class opto is SLOW — with a 10k pull-up, edges take tens of microseconds and the phototransistor's storage tail stretches falling edges further. Fine for switches, faults, and mains-zero-cross; not for data. Past a few kHz, use a logic-output opto (6N137-class) instead." }
+  - { field: invert.note, value: 0, note: "The output is INVERTED: signal present → LED on → transistor on → OUT pulled LOW. Firmware reading this pin wants active-low logic (or flip it in the pin config). 'My input reads backwards' is this, every time." }
+schematic:
+  parts:
+    - { ref: R1, type: res,   value: 2.2k, footprint: R0603, why: "sets the LED current: (Vin − ~1.2 V)/2.2k ≈ 5–10 mA across a 12–24 V signal — enough for the CTR to pull the output down hard" }
+    - { ref: D1, type: diode, value: 1N4148, footprint: SOD-323, why: "anti-parallel across the LED — opto LEDs die at ~6 V REVERSE, and field wiring gets reversed; this clamps it to a harmless diode drop" }
+    - { ref: U1, type: ic, part: optocoupler, footprint: DIP-4, why: "the isolation barrier: an LED and a phototransistor facing each other across a gap — the only thing that crosses is light" }
+    - { ref: R2, type: res,   value: 10k, footprint: R0603, why: "output pull-up — the phototransistor can only pull LOW; this makes the HIGH, from YOUR logic supply on YOUR side of the barrier" }
+  nets:
+    - { name: IN,  connect: [R1.1, "@in+"] }
+    - { name: A,   connect: [R1.2, U1.a, D1.2] }
+    - { name: K,   connect: [U1.k, D1.1, "@in-"] }
+    - { name: VCC, connect: [R2.1, "@vcc"] }
+    - { name: OUT, connect: [U1.c, R2.2, "@out"] }
+    - { name: GND, connect: [U1.e, "@gnd"] }
+layout:
+  symbols:
+    - { id: P_inp, type: port, ref: in+, x: 40, y: 130, rot: 180 }
+    - { id: R1, type: resistor, ref: R1, value: 2.2k, x: 100, y: 126 }
+    - { id: D1, type: diode, ref: D1, value: 1N4148, x: 190, y: 176, rot: 180 }
+    - { id: P_inn, type: port, ref: in-, x: 40, y: 150, rot: 180 }
+    - { id: U1, type: chip, ref: U1, value: opto, x: 260, y: 120, chip: { profile: dip, pins: 4, mpn: PC817, names: { "1": a, "2": k, "3": e, "4": c } } }
+    - { id: R2, type: resistor, ref: R2, value: 10k, x: 385, y: 81, rot: 90 }
+    - { id: P_vcc, type: port, ref: vcc, x: 470, y: 40 }
+    - { id: P_out, type: port, ref: out, x: 470, y: 130 }
+    - { id: P_gnd, type: port, ref: gnd, x: 315, y: 230, rot: 90 }
+  wires:
+    - { from: P_inp.1, to: R1.1 }
+    - { from: R1.2, to: U1.1 }
+    - { from: P_inn.1, to: U1.2 }
+    - { from: D1.2, to: R1.2 }
+    - { from: D1.1, to: U1.2 }
+    - { from: P_vcc.1, to: R2.1 }
+    - { from: U1.4, to: R2.2 }
+    - { from: R2.2, to: P_out.1 }
+    - { from: U1.3, to: P_gnd.1 }

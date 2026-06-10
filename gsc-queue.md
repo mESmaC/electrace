@@ -48,6 +48,10 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 - [ ] https://www.electrace.net/pricing
 - [ ] https://www.electrace.net/vs
 
+## Batch 3 (new content)
+
+- [ ] https://www.electrace.net/blocks/optocoupler-input
+
 ## Leave to the sitemap (low intent — submit only if bored)
 
 - https://www.electrace.net/blocks/bridge-rectifier

@@ -370,6 +370,39 @@ export const DISCRETE_LIBRARY: Record<string, DiscreteEquivalent> = {
       ],
     },
   },
+  "optocoupler": {
+    ic: "optocoupler",
+    name: "Optocoupler — an LED staring at a phototransistor",
+    note: "The simplest teardown in the library, and the most honest: there is NOTHING else in the package. An LED on one side, a phototransistor on the other, and a deliberate gap between them. Current lights the LED; the light — and only the light — crosses the gap; the phototransistor conducts in proportion (the datasheet's CTR says how much). That gap is the entire product: the two halves share no wire, no ground, nothing. The drawing below has no connection between its left and right halves on purpose.",
+    schematic: {
+      parts: [
+        { ref: "D1", type: "led", why: "the transmitter — an infrared LED; the input signal's current becomes light" },
+        { ref: "Q1", type: "bjt", why: "the receiver — a phototransistor whose base is its own exposed junction: light IS the base current" },
+      ],
+      nets: [
+        { name: "A", connect: ["D1.1", "@a"] },
+        { name: "K", connect: ["D1.2", "@k"] },
+        { name: "C", connect: ["Q1.C", "@c"] },
+        { name: "E", connect: ["Q1.E", "@e"] },
+      ],
+    },
+    layout: {
+      symbols: [
+        { id: "P_a", type: "port", ref: "A", x: 30, y: 50, rot: 180 },
+        { id: "D1", type: "led", ref: "D1", x: 90, y: 38 },
+        { id: "P_k", type: "port", ref: "K", x: 200, y: 50 },
+        { id: "Q1", type: "phototransistor", ref: "Q1", x: 300, y: 28 },
+        { id: "P_c", type: "port", ref: "C", x: 400, y: 20 },
+        { id: "P_e", type: "port", ref: "E", x: 400, y: 80 },
+      ],
+      wires: [
+        { from: "P_a.1", to: "D1.1" },
+        { from: "D1.2", to: "P_k.1" },
+        { from: "Q1.C", to: "P_c.1" },
+        { from: "Q1.E", to: "P_e.1" },
+      ],
+    },
+  },
 };
 
 /** Look up a supported IC part's discrete equivalent (undefined ⇒ not supported / can't break down). */
