@@ -81,8 +81,11 @@ export const getContext = (): ContextItem[] => read(ss(), CTX_KEY);
 export function getConversations(): Conversation[] { return ensureChats().slice().sort((a, b) => b.updatedAt - a.updatedAt); }
 export function getActiveId(): string { return activeId(); }
 
-export function appendChat(role: ChatMessage["role"], text: string): void {
-  const cs = ensureChats(); const id = activeId();
+export function appendChat(role: ChatMessage["role"], text: string, convId?: string): void {
+  // convId binds a message to the conversation it BELONGS to. Without it, a reply that finishes
+  // after the user switched threads (drill-in/out swaps the active chat) lands in the wrong
+  // conversation — the "my reply vanished" bug. Default stays active for plain calls.
+  const cs = ensureChats(); const id = convId ?? activeId();
   const conv = cs.find((c) => c.id === id); if (!conv) return;
   conv.messages.push({ id: uid("m"), role, text, t: Date.now() });
   if (!conv.title && role === "user") conv.title = titleOf(text); // name the chat from its first message
@@ -153,7 +156,8 @@ export async function sendMessage(text: string): Promise<void> {
   if (!t) return;
   const history = getChat().map((m) => ({ role: m.role, text: m.text })); // prior turns, before this message
   const context = getContext();
-  appendChat("user", t);
+  const conv = getActiveId(); // bind the whole run to the conversation it started in
+  appendChat("user", t, conv);
   const body: Record<string, unknown> = { context, history, message: t };
   if (agentSession) { body.design = agentSession.getDesign(); body.blocks = agentSession.getBlocks(); }
   const prog: Progress = { status: "Thinking…", tools: [] };
@@ -164,7 +168,7 @@ export async function sendMessage(text: string): Promise<void> {
     });
     if (!res.ok || !res.body) {
       const data = await res.json().catch(() => ({} as { error?: string }));
-      appendChat("assistant", `⚠️ ${data.error ?? "The assistant is unavailable."}`);
+      appendChat("assistant", `⚠️ ${data.error ?? "The assistant is unavailable."}`, conv);
       return;
     }
     // Read the NDJSON progress stream: status/tool/usage/narration events, then a final "done".
@@ -180,7 +184,7 @@ export async function sendMessage(text: string): Promise<void> {
       else if (ev.type === "tool") { const name = String(ev.name); const label = toolLabel(name); prog.tool = label; prog.status = `${label}…`; if (!prog.tools.includes(label)) prog.tools.push(label); setProgress({ ...prog }); }
       else if (ev.type === "narration") { prog.narration = String(ev.text); setProgress({ ...prog }); }
       else if (ev.type === "usage") { prog.tokensIn = Number(ev.in) || prog.tokensIn; prog.tokensOut = Number(ev.out) || prog.tokensOut; setProgress({ ...prog }); }
-      else if (ev.type === "error") { appendChat("assistant", `⚠️ ${ev.error ?? "model error"}`); out.errored = true; }
+      else if (ev.type === "error") { appendChat("assistant", `⚠️ ${ev.error ?? "model error"}`, conv); out.errored = true; }
       else if (ev.type === "done") out.done = ev as unknown as DoneMsg;
     };
     try {
@@ -199,15 +203,15 @@ export async function sendMessage(text: string): Promise<void> {
     }
     if (out.done) {
       const done = out.done;
-      appendChat("assistant", done.reply || "(done)");
+      appendChat("assistant", done.reply || "(done)", conv);
       if (agentSession && (done.design || done.blocks?.length || done.deletedBlocks?.length || done.blockSchematics?.length)) {
         agentSession.apply({ design: done.design, blocks: done.blocks, deletedBlocks: done.deletedBlocks, blockSchematics: done.blockSchematics });
       }
     } else if (!out.errored) {
-      appendChat("assistant", "⚠️ The assistant stopped unexpectedly.");
+      appendChat("assistant", "⚠️ The assistant stopped unexpectedly.", conv);
     }
   } catch {
-    appendChat("assistant", "⚠️ Couldn't reach the assistant. Is ANTHROPIC_API_KEY set in web/.env.local (and the dev server restarted)?");
+    appendChat("assistant", "⚠️ Couldn't reach the assistant. Is ANTHROPIC_API_KEY set in web/.env.local (and the dev server restarted)?", conv);
   } finally {
     setProgress(null);
   }
