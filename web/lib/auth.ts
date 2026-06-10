@@ -44,7 +44,7 @@ export async function signOut(): Promise<void> {
 // ── auth actions (Supabase when configured, local profile otherwise) ──────────────────────────
 export async function emailSignUp(name: string, email: string, password: string): Promise<{ error?: string; session?: boolean }> {
   if (!supabaseConfigured) { signIn({ name, email }); return { session: true }; }
-  const { data, error } = await supabaseBrowser().auth.signUp({ email, password, options: { data: { name }, emailRedirectTo: `${location.origin}/auth/callback` } });
+  const { data, error } = await supabaseBrowser().auth.signUp({ email, password, options: { data: { name, terms_accepted_at: new Date().toISOString(), terms_version: "2026-06" }, emailRedirectTo: `${location.origin}/auth/callback` } });
   return error ? { error: error.message } : { session: !!data.session }; // session null ⇒ email confirmation required
 }
 export async function emailSignIn(email: string, password: string): Promise<{ error?: string }> {

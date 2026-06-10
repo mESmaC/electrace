@@ -53,6 +53,12 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-[380px]">
             <h1 className="text-[27px] font-extrabold tracking-tight">{signup ? "Create your account" : "Welcome back"}</h1>
+            <p className="mt-2 text-[13px] leading-relaxed text-dim">
+              By continuing — with email, GitHub, or Google — you agree to the{" "}
+              <Link href="/terms" target="_blank" className="font-semibold text-text underline decoration-border-strong underline-offset-2 hover:text-accent">Terms of Use</Link> and{" "}
+              <Link href="/privacy" target="_blank" className="font-semibold text-text underline decoration-border-strong underline-offset-2 hover:text-accent">Privacy Policy</Link>.
+              {signup && <> Free designs are public or link-only; private needs Pro.</>}
+            </p>
             <p className="mb-6 mt-1 text-[14.5px] text-dim">{signup ? "Start understanding your circuits." : "Log in to your designs."}</p>
 
             <div className="mb-5 flex flex-col gap-2.5">
@@ -80,7 +86,6 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
               {error && <div className="mb-3 rounded-lg border border-[#e2837e]/45 bg-[#e2554b]/10 px-3 py-2 text-[12.5px] text-[#e2837e]">{error}</div>}
               {info && <div className="mb-3 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-[12.5px] text-accent">{info}</div>}
               <button type="submit" disabled={busy} className="w-full rounded-xl bg-accent py-3 font-semibold text-white shadow-lg shadow-accent/30 hover:bg-accent-hi disabled:opacity-60">{busy ? "Just a sec…" : signup ? "Create account" : "Log in"}</button>
-              {signup && <p className="mt-4 text-center text-[12px] text-faint">By creating an account you agree to our <Link href="/terms" className="text-dim underline hover:text-text">Terms</Link> and <Link href="/privacy" className="text-dim underline hover:text-text">Privacy Policy</Link>.</p>}
             </form>
           </div>
         </div>
