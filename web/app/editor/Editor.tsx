@@ -1301,7 +1301,15 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                 ))
                 : <div className="mt-1 text-[11px] text-[var(--color-faint)]">no declared loads</div>}
             </div>
-            <div className="mt-2.5 text-[10px] text-[var(--color-border-strong)]">{passportNet.members.length} terminals on this net · click a block instead to inspect it</div>
+            {passportNet.connectorPins?.length ? (
+              <div className="mt-3 border-t border-[var(--color-border)] pt-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">Board I/O</div>
+                {passportNet.connectorPins.map((p) => (
+                  <div key={p} className="mt-1 text-[11.5px]"><span className="font-mono">{p}</span><span className="ml-2 text-[10px] text-[var(--color-faint)]">leaves the board here</span></div>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-2.5 text-[10px] text-[var(--color-border-strong)]">{passportNet.members.length + (passportNet.connectorPins?.length ?? 0)} points on this net · click a block instead to inspect it</div>
           </div>
         )}
         {selectedBlock && (

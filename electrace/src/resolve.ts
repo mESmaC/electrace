@@ -1,4 +1,4 @@
-import type {
+import type { InvalidConnection,
   Block, Design, ResolvedDesign, ResolvedInstance, ResolvedNet, ResolvedPin, NetType, InstanceOverrides,
 } from "./types.js";
 import { UnionFind } from "./uf.js";
@@ -74,10 +74,14 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
     for (const pin of part.pins) { const node = `${conn.ref}.${pin}`; uf.add(node); connectorPins.add(node); }
   }
 
+  // A connection to a pin that no longer exists (block re-authored, terminal renamed) is SKIPPED
+  // and recorded — never thrown. One stale wire killing the whole analysis left users (and agents)
+  // with a single cryptic error and an empty net graph; partial truth + a precise finding beats that.
+  const invalid: InvalidConnection[] = [];
   for (const c of design.connections) {
     const known = (e: string) => pinOf.has(e) || connectorPins.has(e);
-    if (!known(c.from)) throw new Error(`Connection references unknown pin "${c.from}"`);
-    if (!known(c.to)) throw new Error(`Connection references unknown pin "${c.to}"`);
+    const missing = [c.from, c.to].filter((e) => !known(e));
+    if (missing.length) { invalid.push({ from: c.from, to: c.to, missing }); continue; }
     uf.union(c.from, c.to);
   }
 
@@ -113,16 +117,18 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
       .filter((p) => p.def.role === "in")
       .map((p) => ({ pin: p, current: p.def.i }));
     const vsrc = sources.find((p) => p.def.v) ?? pins.find((p) => p.def.v);
-    const external = members.some((m) => connectorPins.has(m)) || pins.some((p) => p.def.external);
+    const connPins = members.filter((m) => connectorPins.has(m)).sort();
+    const external = connPins.length > 0 || pins.some((p) => p.def.external);
     let id = netName(design, new Set(members)) ?? `net${n}`;
     n++;
     if (usedIds.has(id)) { let k = 2; while (usedIds.has(`${id}#${k}`)) k++; id = `${id}#${k}`; } // keep ids unique
     usedIds.add(id);
     nets.push({
       id, type: netType(pins), voltage: vsrc?.def.v,
-      sources, sinks, members: pins, open: pins.length === 1, external,
+      sources, sinks, members: pins, ...(connPins.length ? { connectorPins: connPins } : {}),
+      open: pins.length === 1, external,
     });
   }
 
-  return { design, instances, nets };
+  return { design, instances, nets, ...(invalid.length ? { invalid } : {}) };
 }

@@ -38,3 +38,15 @@ test("unknown connector type throws", () => {
   const d: Design = { id: "d", name: "d", blocks: [{ ref: "L", block: key(load) }], connectors: [{ ref: "J1", connector: "nope" }], connections: [] };
   assert.throws(() => resolve(d, lib(load)), /Unknown connector/);
 });
+
+test("connector pins appear as net MEMBERS (connectorPins) — the graph must not hide board I/O", () => {
+  const mcu = B("@t/mcu", [{ id: "tx", role: "out", type: "signal" }]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "U1", block: key(mcu) }],
+    connectors: [{ ref: "J1", connector: "hdr-4" }],
+    connections: [{ from: "U1.tx", to: "J1.2" }],
+  };
+  const net = resolve(d, lib(mcu)).nets.find((n) => n.members.some((m) => m.terminal === "tx"));
+  assert.deepEqual(net?.connectorPins, ["J1.2"]);
+});

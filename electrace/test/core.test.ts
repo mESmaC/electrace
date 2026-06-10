@@ -132,3 +132,23 @@ test("open-net flags an unconnected terminal", () => {
   const { findings } = analyze(d, lib(a, b));
   assert.ok(findings.some((f) => f.rule === "connectivity/open-net" && f.at[0] === "A.o"));
 });
+
+test("a stale wire doesn't kill the analysis — it becomes a dangling-wire finding with the fix", () => {
+  const src = B("@t/src", [{ id: "out", role: "out", type: "rail", v: { value: 5, unit: "V" } }]);
+  const load = B("@t/load", [{ id: "vin", role: "in", type: "rail" }]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S", block: key(src) }, { ref: "L", block: key(load) }],
+    connections: [
+      { from: "S.out", to: "L.vin" },          // healthy
+      { from: "S.out", to: "L.GATE" },         // stale — L has no GATE
+    ],
+  };
+  const a = analyze(d, lib(src, load));
+  // the healthy wire still resolves into a real net
+  assert.ok(a.resolved.nets.some((n) => n.members.length === 2));
+  // and the stale one is a precise, actionable error — not a thrown analysis
+  const f = a.findings.find((x) => x.rule === "connectivity/dangling-wire");
+  assert.ok(f, "dangling-wire finding emitted");
+  assert.ok(f!.message.includes("L's terminals are: vin"), f!.message);
+});

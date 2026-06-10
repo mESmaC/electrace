@@ -130,17 +130,19 @@ Noted for completeness — add-to-cart / BOM-aware sourcing (distributor PN), bl
   and fetch the completed reply). *(M — start at BlockSchematic's exit affordance)*
 
 - [ ] **Agent-API hardening (verbatim feedback from a GPT-5.5 Sparky session — excellent list):**
-    1. **Connector pins missing from net summaries** — list_nets/whats_on_net don't show J1.1
-       etc. as net members even when docked. Agents can't trust the graph. Likely cause:
-       docked-connector edges are `hidden` edges to connector nodes; the design's connections
-       include them but the net summary path may filter or the resolve path names them
-       differently. INVESTIGATE FIRST — may be a real connectivity-reporting bug. *(M)*
+    1. [x] **Connector pins missing from net summaries** — ✅ 2026-06-09: CONFIRMED REAL BUG in
+       core resolve(): connector pins were used for union-find + the external flag but DROPPED
+       from the net record. Fixed: ResolvedNet.connectorPins carries them (tested); surfaced in
+       list_nets (`connectors=[J1.1]`) and the editor's net passport ("Board I/O" section).
     2. [x] **list_connections tool** — ✅ 2026-06-09: raw wire list with INVALID endpoints marked.
-    3. **Dangling-wire findings in analyze_design** — "connection references missing terminal
-       DRV1.GATE — valid terminals: PWM, GND, VMOT, MOTOR-" + suggested fix. *(S–M)*
+    3. [x] **Dangling-wire findings** — ✅ 2026-06-09, and deeper than asked: resolve() used to
+       THROW on one stale wire (killing the whole analysis — the real reason the graph went
+       untrustworthy after re-authoring). It now skips + records invalid connections, and a new
+       `connectivity/dangling-wire` error names the missing endpoint AND its instance's valid
+       terminals. Tested: healthy nets survive alongside the finding.
     4. [x] **remove_invalid_wires** — ✅ 2026-06-09 (drop-invalid; lists what it removed).
-    5. **author_schematic result should return a terminal DIFF** (added/removed/renamed +
-       orphaned wires) so the agent can re-wire deliberately. *(M)*
+    5. [x] **author_schematic terminal DIFF** — ✅ 2026-06-09: result now reports added /
+       removed(unwired) / auto-reconnected renames / orphaned-with-fix, every authoring call.
     6. [x] **connect errors name the valid terminals** — ✅ 2026-06-09 ("DRV1.GATE doesn't
        exist — DRV1's valid terminals are: PWM, GND, VMOT, MOTOR-").
     7. **Stable terminal IDs vs display labels** (rename ≠ delete+add) — bigger data-model

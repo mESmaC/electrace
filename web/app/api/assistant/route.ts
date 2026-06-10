@@ -176,7 +176,14 @@ function reconcileAuthoredTerminals(b: Block, authored: Block["terminals"], bloc
     if (wired) { merged.push(t); mergedIds.add(t.id); orphaned.push(t.id); }
   }
 
+  // explicit terminal DIFF (agent feedback): added / removed / remapped / orphaned, every time —
+  // re-authoring silently changing the interface is exactly what agents can't recover from
+  const oldIds = new Set(b.terminals.map((t) => t.id));
+  const added = newIds.filter((id) => !oldIds.has(id) && ![...oldIds].some((o) => remap[o] === id));
+  const dropped = b.terminals.map((t) => t.id).filter((id) => !mergedIds.has(id) && !remap[id]);
   const parts: string[] = [];
+  if (added.length) parts.push(` Terminals added: ${added.join(", ")}.`);
+  if (dropped.length) parts.push(` Removed (were unwired): ${dropped.join(", ")}.`);
   if (remapped.length) parts.push(` Auto-reconnected ${remapped.length} wire(s) to renamed terminals (${[...new Set(remapped)].join(", ")}).`);
   if (orphaned.length) parts.push(` ⚠ ${orphaned.length} terminal(s) couldn't be matched and their wires are now open: ${orphaned.join(", ")} — reconnect to the new terminals [${newIds.join(", ")}] or drop via update_block.`);
   return { terminals: merged, message: parts.join("") };
@@ -522,7 +529,9 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         const text = a.resolved.nets.map((nt) => {
           const drv = nt.sources.map((s) => `${s.instance}.${s.terminal}`).join(", ") || "none";
           const load = nt.sinks.map((s) => `${s.pin.instance}.${s.pin.terminal}`).join(", ") || "none";
-          return `${nt.id} (${nt.type}${vstr(nt.voltage)}): drivers=[${drv}] loads=[${load}]`;
+          // board I/O is part of the net — hiding connector pins made the graph untrustworthy
+          const conn = nt.connectorPins?.length ? ` connectors=[${nt.connectorPins.join(", ")}]` : "";
+          return `${nt.id} (${nt.type}${vstr(nt.voltage)}): drivers=[${drv}] loads=[${load}]${conn}`;
         }).join("\n");
         return { text, changed: false };
       } catch (e) { return { text: `Could not derive nets: ${String(e).slice(0, 160)}`, changed: false }; }

@@ -231,9 +231,32 @@ const underUtilized: Rule = (rd) =>
       return [];
     });
 
+/** A wire whose endpoint no longer exists (block re-authored, terminal renamed). Resolve skips it
+ *  rather than dying; this rule turns each skip into a precise repair instruction — naming the
+ *  endpoint's valid terminals — so neither humans nor agents are left guessing (lint principle 4). */
+const danglingWire: Rule = (rd) =>
+  (rd.invalid ?? []).map((c) => {
+    const fix = c.missing.map((e) => {
+      const ref = e.split(".")[0];
+      const inst = rd.instances.find((i) => i.ref === ref);
+      if (inst) return `${e} doesn't exist — ${ref}'s terminals are: ${inst.def.terminals.map((t) => t.id).join(", ")}`;
+      const conn = (rd.design.connectors ?? []).find((x) => x.ref === ref);
+      if (conn) return `${e} doesn't exist — ${ref}'s pins are: ${CONNECTOR_CATALOG[conn.connector]?.pins.join(", ") ?? "?"}`;
+      return `no instance "${ref}" on the design`;
+    }).join("; ");
+    return {
+      rule: "connectivity/dangling-wire",
+      severity: "error" as const,
+      category: "connectivity" as const,
+      at: [c.from, c.to],
+      message: `Wire ${c.from} ↔ ${c.to} references a missing endpoint: ${fix}. Reconnect it or remove the wire.`,
+    };
+  });
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 export const RULES: Rule[] = [
+  danglingWire,
   openNet, overCurrent, overVoltage, polarityConflict, multipleDrivers, undrivenRail, internalShort, // faults
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];

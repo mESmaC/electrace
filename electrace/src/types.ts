@@ -178,9 +178,16 @@ export interface ResolvedNet {
   sources: ResolvedPin[];    // role: out
   sinks: { pin: ResolvedPin; current?: Range }[]; // role: in
   members: ResolvedPin[];
+  connectorPins?: string[];  // board-I/O members ("J1.1") — connector pins ARE part of the net,
+                             // and hiding them made the graph untrustworthy (agents + pin passport)
   open: boolean;             // a single unconnected terminal
   external?: boolean;        // reaches off-board (a connector pin, or a terminal marked external)
 }
+
+/** A connection whose endpoint(s) no longer exist (stale after a re-author/rename). Resolve SKIPS
+ *  these instead of throwing — one dangling wire must not kill the whole analysis — and lint turns
+ *  each into an actionable `connectivity/dangling-wire` finding. */
+export interface InvalidConnection { from: string; to: string; missing: string[] }
 
 export interface ResolvedInstance extends BlockInstance {
   def: Block;
@@ -190,6 +197,7 @@ export interface ResolvedDesign {
   design: Design;
   instances: ResolvedInstance[];
   nets: ResolvedNet[];
+  invalid?: InvalidConnection[]; // stale wires skipped during resolve (→ dangling-wire findings)
 }
 
 // ── Lint ───────────────────────────────────────────────────────────────────
