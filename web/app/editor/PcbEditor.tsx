@@ -360,7 +360,23 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       const k = e.key.toLowerCase();
       if ((e.metaKey || e.ctrlKey) && k === "z") { e.preventDefault(); if (e.shiftKey) redoRef.current(); else undoRef.current(); return; }
       if ((e.metaKey || e.ctrlKey) && k === "y") { e.preventDefault(); redoRef.current(); return; }
-      if (k === "r") { const s = selRef.current; if (s?.kind === "comp") { e.preventDefault(); setPlaces((pl) => { const cur = pl[s.id] ?? { x: 0, y: 0, rot: 0 }; const next = { ...pl, [s.id]: { ...cur, rot: ((cur.rot + (e.shiftKey ? -90 : 90)) % 360 + 360) % 360 } }; persistRef.current(next, tracesRef.current, viasRef.current); return next; }); } }
+      if (k === "r") { const s = selRef.current; if (s?.kind === "comp") { e.preventDefault(); setPlaces((pl) => {
+        const cur = pl[s.id] ?? autoPlacesRef.current[s.id] ?? { x: 0, y: 0, rot: 0 }; // auto-placed parts rotate IN PLACE (used to teleport to 0,0)
+        const rot = ((cur.rot + (e.shiftKey ? -90 : 90)) % 360 + 360) % 360;
+        if (collideRef.current(s.id, cur.x, cur.y, rot)) return pl; // a rotation that lands on a neighbour is refused
+        const next = { ...pl, [s.id]: { ...cur, rot } };
+        persistRef.current(next, tracesRef.current, viasRef.current); return next; }); } }
+      else if (k.startsWith("arrow")) { const s = selRef.current; if (s?.kind !== "comp") return; e.preventDefault();
+        const step = (e.shiftKey ? 5 : 1) * 0.5; // 0.5mm nudge, 2.5mm with shift
+        const dx = k === "arrowleft" ? -step : k === "arrowright" ? step : 0;
+        const dy = k === "arrowup" ? -step : k === "arrowdown" ? step : 0;
+        setPlaces((pl) => {
+          const cur = pl[s.id] ?? autoPlacesRef.current[s.id] ?? { x: 0, y: 0, rot: 0 };
+          const x = cur.x + dx, y = cur.y + dy;
+          if (collideRef.current(s.id, x, y, cur.rot ?? 0)) return pl;
+          const next = { ...pl, [s.id]: { ...cur, x, y } };
+          persistRef.current(next, tracesRef.current, viasRef.current); return next;
+        }); }
       else if (k === "v") {
         // drop a via at the routing tip and switch copper layer, so the trace can change sides
         const dr = drawingRef.current; if (!dr) return; e.preventDefault();
@@ -470,6 +486,25 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     setSel({ kind: "trace", id: t.id });
   };
 
+  // courtyards never overlap: rot-aware bbox test, deflated 0.15mm so flush placement stays legal.
+  // Lives in a ref so the []-dep keyboard handler always sees fresh components/places.
+  const collideRef = useRef<(ref: string, x: number, y: number, rot: number) => boolean>(() => false);
+  collideRef.current = (ref, x, y, rot) => {
+    const me = project.components.find((c) => c.ref === ref);
+    if (!me) return false;
+    const dims = (c: { w: number; h: number }, r: number) => { const up = (((r % 180) + 180) % 180) < 45; return { w: up ? c.w : c.h, h: up ? c.h : c.w }; };
+    const a = dims(me, rot);
+    const ar = { x: x - a.w / 2 + 0.15, y: y - a.h / 2 + 0.15, w: Math.max(0.1, a.w - 0.3), h: Math.max(0.1, a.h - 0.3) };
+    return project.components.some((c, i) => {
+      if (c.ref === ref) return false;
+      const pl = placeOf(c.ref, i);
+      const b = dims(c, pl.rot);
+      const br = { x: pl.x - b.w / 2, y: pl.y - b.h / 2, w: b.w, h: b.h };
+      return ar.x < br.x + br.w && ar.x + ar.w > br.x && ar.y < br.y + br.h && ar.y + ar.h > br.y;
+    });
+  };
+  const autoPlacesRef = useRef(autoPlaces); autoPlacesRef.current = autoPlaces;
+
   const onCompDown = (e: React.PointerEvent, ref: string, pl: Place) => {
     if (e.button !== 0 || tool !== "select") { if (tool === "route") setSel({ kind: "comp", id: ref }); return; }
     e.stopPropagation(); (e.target as Element).setPointerCapture?.(e.pointerId); setSel({ kind: "comp", id: ref });
@@ -496,7 +531,16 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     if (vdrag.current) { const { id, idx } = vdrag.current, g = { x: snap(p.x, grid), y: snap(p.y, grid) }; setTraces((ts) => ts.map((t) => (t.id === id ? { ...t, points: t.points.map((pt, k) => (k === idx ? g : pt)) } : t))); return; }
     const d = drag.current; if (!d) return;
     d.moved = true;
-    setPlaces((prev) => ({ ...prev, [d.ref]: { ...(prev[d.ref] ?? { rot: 0 }), x: snap(p.x - d.dx, grid), y: snap(p.y - d.dy, grid), rot: prev[d.ref]?.rot ?? 0 } }));
+    setPlaces((prev) => {
+      const cur = prev[d.ref] ?? autoPlacesRef.current[d.ref] ?? { x: 0, y: 0, rot: 0 };
+      const rot = cur.rot ?? 0;
+      const wx = snap(p.x - d.dx, grid), wy = snap(p.y - d.dy, grid);
+      // components never overlap: try the full move, then each axis (slides along a neighbour)
+      for (const [x, y] of [[wx, wy], [wx, cur.y], [cur.x, wy]] as [number, number][]) {
+        if (!collideRef.current(d.ref, x, y, rot)) return { ...prev, [d.ref]: { x, y, rot } };
+      }
+      return prev;
+    });
   };
   const onUp = () => {
     if (bdrag.current || bvdrag.current) { bdrag.current = null; bvdrag.current = null; persist(placesRef.current, tracesRef.current, viasRef.current, boardRef.current); return; }
