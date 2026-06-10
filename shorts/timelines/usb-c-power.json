@@ -1,44 +1,44 @@
 {
- "duration": 38.75,
+ "duration": 38.8,
  "tracks": [
   {
    "from": 0,
-   "to": 33.042,
+   "to": 32.984,
    "set": {
     "title": "Why won't USB-C give you 5V?"
    }
   },
   {
-   "from": 3.042,
-   "to": 6.931,
+   "from": 2.902,
+   "to": 6.467,
    "tween": "symbolsShown",
    "start": 0,
    "end": 12
   },
   {
-   "from": 6.931,
-   "to": 12.365,
+   "from": 6.467,
+   "to": 12.039,
    "tween": "wireProgress",
    "start": 0,
    "end": 14
   },
   {
-   "from": 12.365,
-   "to": 16.08,
+   "from": 12.039,
+   "to": 15.813,
    "set": {
     "highlight": "R1"
    }
   },
   {
-   "from": 16.08,
-   "to": 21.932,
+   "from": 15.813,
+   "to": 21.931,
    "set": {
     "highlight": "R2"
    }
   },
   {
-   "from": 21.932,
-   "to": 33.042,
+   "from": 21.931,
+   "to": 32.984,
    "set": {
     "wireProgress": 14,
     "symbolsShown": 12
@@ -46,182 +46,182 @@
   },
   {
    "from": 0,
-   "to": 1.838,
+   "to": 1.7799999999999998,
    "set": {
     "caption": "Why won't USB-C give you"
    }
   },
   {
-   "from": 1.834,
-   "to": 2.8480000000000003,
+   "from": 1.776,
+   "to": 2.709,
    "set": {
     "caption": "five volts?"
    }
   },
   {
-   "from": 3.042,
-   "to": 4.892,
+   "from": 2.902,
+   "to": 4.509,
    "set": {
-    "caption": "You wire up VBUS, plug"
+    "caption": "You wire up V-Bus, plug"
    }
   },
   {
-   "from": 4.83,
-   "to": 5.6930000000000005,
+   "from": 4.447,
+   "to": 5.275,
    "set": {
     "caption": "in a charger..."
    }
   },
   {
-   "from": 5.654,
-   "to": 6.622,
+   "from": 5.271,
+   "to": 6.215,
    "set": {
     "caption": "and get nothing."
    }
   },
   {
-   "from": 6.931,
-   "to": 7.945,
+   "from": 6.467,
+   "to": 7.469,
    "set": {
     "caption": "Here's the secret:"
    }
   },
   {
-   "from": 8.197,
-   "to": 10.197,
+   "from": 7.616,
+   "to": 9.629,
    "set": {
     "caption": "USB-C doesn't hand out power"
    }
   },
   {
-   "from": 10.136,
-   "to": 11.475,
+   "from": 9.578,
+   "to": 11.021999999999998,
    "set": {
     "caption": "to anyone who won't introduce"
    }
   },
   {
-   "from": 11.39,
-   "to": 12.113,
+   "from": 10.937,
+   "to": 11.729999999999999,
    "set": {
     "caption": "themselves."
    }
   },
   {
-   "from": 12.365,
-   "to": 13.668999999999999,
+   "from": 12.039,
+   "to": 13.529,
    "set": {
     "caption": "These two resistors are the"
    }
   },
   {
-   "from": 13.619,
-   "to": 14.562999999999999,
+   "from": 13.468,
+   "to": 14.354,
    "set": {
     "caption": "introduction."
    }
   },
   {
-   "from": 14.873,
-   "to": 17.257,
+   "from": 14.663,
+   "to": 17.001,
    "set": {
     "caption": "5.1k, one on each CC"
    }
   },
   {
-   "from": 17.206,
-   "to": 17.837,
+   "from": 16.951,
+   "to": 17.581,
    "set": {
     "caption": "line —"
    }
   },
   {
-   "from": 17.798,
-   "to": 18.766000000000002,
+   "from": 17.543,
+   "to": 18.719,
    "set": {
     "caption": "they tell the charger:"
    }
   },
   {
-   "from": 18.692,
-   "to": 19.613,
+   "from": 18.762,
+   "to": 19.741,
    "set": {
     "caption": "I'm a device."
    }
   },
   {
-   "from": 19.726,
-   "to": 20.983,
+   "from": 19.818,
+   "to": 21.134,
    "set": {
     "caption": "Give me five volts."
    }
   },
   {
-   "from": 21.932,
-   "to": 22.876,
+   "from": 21.931,
+   "to": 22.968,
    "set": {
     "caption": "No resistors?"
    }
   },
   {
-   "from": 22.918,
-   "to": 24.269000000000002,
+   "from": 23.046,
+   "to": 24.571,
    "set": {
     "caption": "The charger assumes nothing is"
    }
   },
   {
-   "from": 24.207,
-   "to": 25.36,
+   "from": 24.497,
+   "to": 25.662000000000003,
    "set": {
     "caption": "plugged in, and keeps the"
    }
   },
   {
-   "from": 25.275,
-   "to": 26.057000000000002,
+   "from": 25.577,
+   "to": 26.347,
    "set": {
     "caption": "power off."
    }
   },
   {
-   "from": 26.134,
-   "to": 27.287000000000003,
+   "from": 26.459,
+   "to": 27.554000000000002,
    "set": {
     "caption": "That's why the same cable"
    }
   },
   {
-   "from": 27.202,
-   "to": 28.355,
+   "from": 27.469,
+   "to": 28.552,
    "set": {
     "caption": "works on some boards and"
    }
   },
   {
-   "from": 28.293,
-   "to": 29.133000000000003,
+   "from": 28.479,
+   "to": 29.342000000000002,
    "set": {
     "caption": "not others —"
    }
   },
   {
-   "from": 29.106,
-   "to": 30.666,
+   "from": 29.454,
+   "to": 31.107,
    "set": {
     "caption": "somebody forgot the introduction."
    }
   },
   {
-   "from": 31.126,
-   "to": 32.894999999999996,
+   "from": 31.358,
+   "to": 32.836999999999996,
    "set": {
     "caption": "The fix costs two cents."
    }
   },
   {
-   "from": 33.042,
-   "to": 38.75,
+   "from": 32.984,
+   "to": 38.8,
    "set": {
     "cta": true
    }

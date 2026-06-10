@@ -8,6 +8,13 @@ const KEY = readFileSync(".env", "utf8").match(/ELEVENLABS_API_KEY=(\S+)/)[1];
 const VOICE = "SAz9YHcvj6GT2YYXdXww"; // River — chosen 2026-06-10
 const cfg = (await import(resolve(process.argv[2]))).default;
 
+// Pronunciation layer: EE text reads fine but speaks wrong ("VBUS" -> letters). Substitutions
+// apply to the WHOLE pipeline (TTS, captions, anchors) so character alignment stays exact.
+// Per-config `pronounce` extends/overrides the defaults.
+const PRONOUNCE = { "VBUS": "V-Bus", "GPIO": "G-P-I-O", "PCB": "P-C-B", ...(cfg.pronounce ?? {}) };
+const speakable = (t) => Object.entries(PRONOUNCE).reduce((acc, [k, v]) => acc.split(k).join(v), t);
+cfg.script = speakable(cfg.script);
+
 // --- 1. TTS with timestamps ---
 const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE}/with-timestamps?output_format=mp3_44100_128`, {
   method: "POST",
@@ -24,11 +31,13 @@ console.log(`[tts] ${audioEnd.toFixed(1)}s of narration`);
 
 // time of a script substring (first occurrence) — anchor animation cues to spoken words
 const at = (needle) => {
+  needle = speakable(needle);
   const i = cfg.script.indexOf(needle);
   if (i < 0) { console.warn(`[anchor] not found: ${needle}`); return 0; }
   return starts[i] ?? 0;
 };
 const endOf = (needle) => {
+  needle = speakable(needle);
   const i = cfg.script.indexOf(needle);
   return i < 0 ? 0 : (ends[Math.min(i + needle.length - 1, ends.length - 1)] ?? 0);
 };
