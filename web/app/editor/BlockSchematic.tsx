@@ -1010,6 +1010,12 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                 <g transform={`translate(${s.x},${s.y}) rotate(${rot} ${d.w / 2} ${d.h / 2})`}>
                   <g onPointerDown={(e) => onSymDown(e, s)} style={{ cursor: "move" }}>
                     <rect x={-4} y={-4} width={d.w + 8} height={d.h + 8} fill="transparent" />
+                    {/* opaque body: a wire passing beneath is MASKED, not visible through the glyph
+                        — a line through a part otherwise reads as a connection that doesn't exist.
+                        Chips mask their true body; others a box inset enough to keep pin stubs clear. */}
+                    {d.body
+                      ? <rect x={d.body.x} y={d.body.y} width={d.body.w} height={d.body.h} fill="var(--color-bg)" />
+                      : d.w > 14 && d.h > 14 && <rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" />}
                     {glyph}
                   </g>
                   {selected && <rect x={-5} y={-5} width={d.w + 10} height={d.h + 10} fill="none" stroke="#4c8dff" strokeDasharray="4 3" rx="4" />}

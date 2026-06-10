@@ -62,7 +62,11 @@ export default function SchematicPreview({ blockId, layout, height = 84 }: { blo
         const d = symDims(s);
         if (!d) return null;
         const glyph = s.chip ? renderChip(d, s.chip) : SYMBOLS[s.type]?.draw(symStyle);
-        return <g key={s.id} transform={`translate(${s.x},${s.y}) rotate(${normRot(s.rot ?? 0)} ${d.w / 2} ${d.h / 2})`}>{glyph}</g>;
+        // same opaque-body rule as the editor: wires must not show through a part
+        const mask = d.body
+          ? <rect x={d.body.x} y={d.body.y} width={d.body.w} height={d.body.h} fill="var(--color-bg)" />
+          : d.w > 14 && d.h > 14 ? <rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" /> : null;
+        return <g key={s.id} transform={`translate(${s.x},${s.y}) rotate(${normRot(s.rot ?? 0)} ${d.w / 2} ${d.h / 2})`}>{mask}{glyph}</g>;
       })}
     </svg>
   );

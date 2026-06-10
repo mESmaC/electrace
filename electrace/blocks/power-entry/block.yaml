@@ -30,17 +30,17 @@ schematic:
 layout:
   symbols:
     - { id: J1, type: header2, ref: J1, value: DC jack, x: 40,  y: 88 }
-    - { id: Q1, type: pmos,    ref: Q1, value: P-FET,  x: 180, y: 98 }
-    - { id: D1, type: diode,   ref: D1, value: TVS,    x: 285, y: 181, rot: 90 }
-    - { id: C1, type: cap-pol, ref: C1, value: 100µF,  x: 368, y: 176, rot: 90 }
+    - { id: Q1, type: pmos,    ref: Q1, value: P-FET,  x: 180, y: 38 }
+    - { id: D1, type: diode,   ref: D1, value: TVS,    x: 273, y: 181, rot: 90 }
+    - { id: C1, type: cap-pol, ref: C1, value: 100µF,  x: 370, y: 173, rot: 90 }
     - { id: P_vout, type: port, ref: vout, x: 480, y: 150, rot: 0 }
-    - { id: P_gnd,  type: port, ref: gnd,  x: 305, y: 275, rot: 90 }
+    - { id: P_gnd,  type: port, ref: gnd,  x: 260, y: 290, rot: 90 }
   wires:
     - { from: J1.1,  to: Q1.D }
     - { from: Q1.S,  to: D1.1 }
     - { from: D1.1,  to: C1.1 }
     - { from: C1.1,  to: P_vout.1 }
     - { from: J1.2,  to: P_gnd.1 }
-    - { from: Q1.G,  to: P_gnd.1 }
+    - { from: Q1.G,  to: P_gnd.1, via: [[150, 70], [150, 260]] }
     - { from: D1.2,  to: P_gnd.1 }
     - { from: C1.2,  to: P_gnd.1 }

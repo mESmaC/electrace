@@ -280,7 +280,7 @@ export function layoutToModel(layout?: SchematicLayout): Model {
     wires: layout.wires.map((w, i) => {
       const [as, ap] = w.from.split(".");
       const [bs, bp] = w.to.split(".");
-      return { id: `w${i}`, a: { sym: as, pin: ap }, b: { sym: bs, pin: bp }, mid: [] };
+      return { id: `w${i}`, a: { sym: as, pin: ap }, b: { sym: bs, pin: bp }, mid: (w.via ?? []).map(([x, y]) => ({ x, y })) };
     }),
   };
 }
@@ -400,7 +400,10 @@ export function modelToLayout(model: Model): SchematicLayout {
     wires: [
       ...model.wires
         .filter((w) => isPin(w.a) && isPin(w.b))
-        .map((w) => ({ from: `${(w.a as PinRef).sym}.${(w.a as PinRef).pin}`, to: `${(w.b as PinRef).sym}.${(w.b as PinRef).pin}` })),
+        .map((w) => ({
+          from: `${(w.a as PinRef).sym}.${(w.a as PinRef).pin}`, to: `${(w.b as PinRef).sym}.${(w.b as PinRef).pin}`,
+          ...(w.mid.length ? { via: w.mid.map((p) => [p.x, p.y] as [number, number]) } : {}), // bends survive the round-trip
+        })),
       ...junctionBridges(model),
     ],
   };

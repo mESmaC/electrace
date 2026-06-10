@@ -115,7 +115,7 @@ export interface PlacedSymbol {
 /** A parametric chip placed in a schematic: a package profile + pin count, with optional
  *  function names per pin (so a wire to pin "1" can derive as the named net, e.g. VIN). */
 export interface ChipSpec { profile: string; pins: number; names?: Record<string, string>; mpn?: string }
-export interface SchematicWire { from: string; to: string } // "R1.2" → "U1.4" (id.pin)
+export interface SchematicWire { from: string; to: string; via?: [number, number][] } // "R1.2" → "U1.4" (id.pin), optional bend waypoints
 export interface SchematicLayout { symbols: PlacedSymbol[]; wires: SchematicWire[] }
 
 // ── Designs (user project = design.json) ───────────────────────────────────

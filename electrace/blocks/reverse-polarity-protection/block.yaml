@@ -31,15 +31,15 @@ schematic:
 layout:
   symbols:
     - { id: P_vin,  type: port,     ref: vin,  x: 40,  y: 100, rot: 180 }
-    - { id: Q1,     type: pmos,     ref: Q1, value: P-FET, x: 170, y: 88 }
-    - { id: D1,     type: zener,    ref: D1, value: 12V,  x: 196, y: 196, rot: 90 }
-    - { id: R1,     type: resistor, ref: R1, value: 100k, x: 156, y: 286, rot: 90 }
-    - { id: P_vout, type: port,     ref: vout, x: 360, y: 100, rot: 0 }
-    - { id: P_gnd,  type: port,     ref: gnd,  x: 170, y: 400, rot: 90 }
+    - { id: Q1,     type: pmos,     ref: Q1, value: P-FET, x: 170, y: 48 }
+    - { id: D1,     type: zener,    ref: D1, value: 12V,  x: 65, y: 171, rot: 90 }
+    - { id: R1,     type: resistor, ref: R1, value: 100k, x: 85, y: 281, rot: 90 }
+    - { id: P_vout, type: port,     ref: vout, x: 345, y: 100, rot: 0 }
+    - { id: P_gnd,  type: port,     ref: gnd,  x: 115, y: 380, rot: 90 }
   wires:
     - { from: P_vin.1, to: Q1.D }
     - { from: Q1.S,    to: P_vout.1 }
-    - { from: Q1.S,    to: D1.2 }
     - { from: Q1.G,    to: D1.1 }
-    - { from: Q1.G,    to: R1.1 }
+    - { from: D1.1,    to: R1.1 }
+    - { from: D1.2,    to: P_vout.1 }
     - { from: R1.2,    to: P_gnd.1 }
