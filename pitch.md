@@ -79,3 +79,33 @@ a block does. On-concept for the transparency pillar.
 - **Determinism/trust** is a real wedge against LLM copilots that can't promise correctness.
 - The one company that proved the hardware dream (Geppetto) died from vendor-lock + zero
   transparency — the exact two things we're built to avoid.
+
+
+---
+
+## External validation + the agent-native angle (2026-06-09)
+
+An unprompted assessment from a GPT-5.5 session that had just BUILT a design through Sparky
+independently re-derived the wedge (intent layer + deterministic checks + functional blocks)
+— and added two things our docs underweight:
+
+1. **"Agent-native EDA" is a positioning asset in its own right.** Traditional EDA is
+   coordinate-heavy, visually implicit, and unsafe to mutate; Electrace exposes blocks /
+   terminals / nets / connectors / checks — "closer to what AI needs than normal CAD tools."
+   Even for users who never think in those terms, the payoff is: ask in natural language,
+   get a real design mutation. Rare, and worth saying out loud in positioning.
+
+2. **A sharper pitch line** (verbatim, keep):
+   > Electrace is a block-based electrical design IDE for embedded hardware: capture
+   > circuits as reusable functional blocks, get live structural checks and power budgets,
+   > use AI to assemble and wire real BOM-backed schematics, then export to KiCad when you
+   > need full traditional EDA.
+
+3. **Persona note (⟂ owner call, not a change):** it ranked "embedded firmware engineers
+   who also make boards" as the strongest pull — adjacent to, but sharper than, our locked
+   hobbyist-to-intermediate beachhead. Same tool either way; worth watching which persona
+   actually converts once traffic exists.
+
+4. Its risk list (trust framing, library quality over size, clean KiCad escape hatch,
+   debuggability, never hiding too much) matches the existing strategy docs 1:1 — treat
+   that convergence as confirmation the docs are aimed right.
