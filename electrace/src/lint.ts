@@ -1,5 +1,7 @@
 import { rmax } from "./types.js";
 import { CONNECTOR_CATALOG } from "./connectors.js";
+import { NET_CLASSES } from "./netclasses.js";
+import { parseValue } from "./values.js";
 import type { Finding, ResolvedDesign, ResolvedNet, ResolvedPin, Rule, Range } from "./types.js";
 
 // ── Faults (deterministic arithmetic / threshold) ──────────────────────────
@@ -401,9 +403,79 @@ const isolationBridged: Rule = (rd) => {
   return out;
 };
 
+
+/** SI: a declared bus pair (RS-485 / CAN) must have its termination resistor actually present —
+ *  found by scanning the FLATTENED part-level netlist for a resistor of ≈ the class's value
+ *  bridging the two bus nets. `terminated: "external"` silences it (termination off-board). */
+const busTermination: Rule = (rd) => {
+  const assigns = (rd.design.signals ?? []).filter((a) => {
+    const cls = NET_CLASSES[a.cls];
+    return cls?.kind === "buspair" && cls.termOhms != null && a.terminated !== "external" && a.pairPin;
+  });
+  if (!assigns.length) return [];
+  const netOf = (pin: string) => rd.nets.find((n) => n.members.some((m) => m.node === pin));
+  return assigns.flatMap((a) => {
+    const cls = NET_CLASSES[a.cls];
+    const netA = netOf(a.pin), netB = netOf(a.pairPin!);
+    if (!netA || !netB) return [];
+    // a terminator = a resistor of ≈ the class value INSIDE any block, whose two pins reach
+    // terminals landing on the two bus nets. Inspect block internals directly.
+    const reaches = (inst: (typeof rd.instances)[number], partPin: string): Set<string> => {
+      // internal nets containing this part pin → their @terminal exposures → design nets
+      const out = new Set<string>();
+      for (const inet of inst.def.schematic?.nets ?? []) {
+        if (!inet.connect.includes(partPin)) continue;
+        for (const c of inet.connect) {
+          if (!c.startsWith("@")) continue;
+          const dn = netOf(`${inst.ref}.${c.slice(1)}`);
+          if (dn) out.add(dn.id);
+        }
+      }
+      return out;
+    };
+    const hasTerm = rd.instances.some((inst) =>
+      (inst.def.schematic?.parts ?? []).some((part) => {
+        if (part.type !== "res") return false;
+        const v = part.value ? parseValue(part.value) : undefined;
+        if (v == null || Math.abs(v - cls.termOhms!) / cls.termOhms! > 0.25) return false;
+        const r1 = reaches(inst, `${part.ref}.1`), r2 = reaches(inst, `${part.ref}.2`);
+        return (r1.has(netA.id) && r2.has(netB.id)) || (r1.has(netB.id) && r2.has(netA.id));
+      }));
+    if (hasTerm) return [];
+    return [{
+      rule: "si/termination-missing", severity: "warn", category: "connectivity",
+      at: [netA.id, netB.id],
+      message: `${cls.name} declared on ${netA.id}/${netB.id}, but no ~${cls.termOhms} Ω termination bridges the pair. An unterminated bus reflects every edge — works on 10 cm of bench wire, garbles data on a real run. (Termination lives off-board? Mark it external in the signal class.)`,
+      derivation: `class ${cls.id} requires ${cls.termOhms} Ω across the pair; none found in the flattened netlist`,
+    } satisfies Finding];
+  });
+};
+
+/** SI: I2C rise time — τ ≈ 0.847 × R_pullup × C_bus must beat the mode's limit. C_bus is
+ *  estimated (20 pF + 10 pF per attached device) unless declared. All knobs overridable. */
+const i2cRiseTime: Rule = (rd) =>
+  (rd.design.signals ?? []).flatMap((a) => {
+    const cls = NET_CLASSES[a.cls];
+    if (!cls?.riseNsMax) return [];
+    const net = rd.nets.find((n) => n.members.some((m) => m.node === a.pin));
+    if (!net) return [];
+    const r = a.pullupOhms ?? 4700;
+    const devices = net.members.length;
+    const c = a.busCapPf ?? 20 + devices * 10;
+    const rise = 0.847 * r * c / 1000; // ns
+    if (rise <= cls.riseNsMax) return [];
+    const need = Math.floor((cls.riseNsMax * 1000) / (0.847 * c) / 100) * 100;
+    return [{
+      rule: "si/i2c-rise-time", severity: "warn", category: "connectivity",
+      at: [net.id],
+      message: `${net.id} as ${cls.name}: ${r / 1000}k pull-ups into ~${c} pF rise in ~${Math.round(rise)} ns — over the ${cls.riseNsMax} ns limit. Drop the pull-ups to ≤${need} Ω or shorten the bus.`,
+      derivation: `0.847 × ${r} Ω × ${c} pF = ${Math.round(rise)} ns  >  ${cls.riseNsMax} ns`,
+    } satisfies Finding];
+  });
+
 export const RULES: Rule[] = [
   danglingWire,
-  openNet, overCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, // faults
+  openNet, overCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 

@@ -163,6 +163,7 @@ export interface Design {
   connectors?: ConnectorInstance[];
   acks?: Ack[];              // findings the user/agent marked intended (e.g. an intentional diode-OR)
   isolation?: IsolationConstraint[]; // declared galvanic-isolation requirements, checked every pass
+  signals?: import("./netclasses.js").NetClassAssignment[]; // declared SI net classes, checked every pass
 }
 
 /** "These two blocks must share NO conductive path." b is a block ref, or "*" = every other block.

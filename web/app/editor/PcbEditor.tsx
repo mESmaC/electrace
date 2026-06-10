@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pcbProject, drcCheck, toKicadPcb, type Block, type Design, type PcbProject, type PcbComponent, type PcbPad, type Footprint, type DrcViolation, type DrcTrace, type DrcPad, type DrcVia, type DrcComp, type DrcUnrouted, type KicadComp, type KicadTrace, type KicadVia } from "@electrace/core";
+import { pcbProject, drcCheck, toKicadPcb, resolve, NET_CLASSES, criticalLengthMm, type Block, type Design, type PcbProject, type PcbComponent, type PcbPad, type Footprint, type DrcViolation, type DrcTrace, type DrcPad, type DrcVia, type DrcComp, type DrcUnrouted, type KicadComp, type KicadTrace, type KicadVia } from "@electrace/core";
 import AssistantBubble from "./AssistantBubble";
 import FootprintLibrary from "./FootprintLibrary";
 import { setContextItem } from "@/lib/assistant";
@@ -182,6 +182,8 @@ function mst(pts: Pos[]): [number, number][] {
 }
 
 export default function PcbEditor({ design, blocks, onClose }: { design: Design; blocks: Map<string, Block>; onClose: () => void }) {
+  // resolved nets for SI class mapping (pin -> design net id); design is stable while the PCB is open
+  const rdNetsMemo = useMemo(() => { try { return resolve(design, blocks).nets; } catch { return []; } }, [design, blocks]);
   const baseProject: PcbProject = useMemo(() => pcbProject(design, blocks), [design, blocks]);
   const fpLibrary = useFootprints();
   const fpById = useMemo(() => new Map(fpLibrary.map((f) => [f.id, f.footprint])), [fpLibrary]);
@@ -596,7 +598,22 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       const keyed = r.pads.map((k) => ({ k, p: padPos.get(k) })).filter((x) => x.p) as { k: string; p: Pos }[];
       for (const [i, j] of mst(keyed.map((x) => x.p))) if (!routed(keyed[i].k, keyed[j].k)) unrouted.push({ net: r.net, from: keyed[i].p, to: keyed[j].p });
     }
-    setDrc(drcCheck({ traces: tr, pads: padsG, vias: viasG, comps, unrouted, clearance: CLEAR, board: { outline: bd } }));
+    {
+      // resolve declared SI classes to PCB net names (PCB nets are design net ids)
+      const rdNets = rdNetsMemo;
+      const netOf = (pin: string) => rdNets.find((n) => n.members.some((m) => m.node === pin))?.id;
+      const signals = (design.signals ?? []).flatMap((a) => {
+        const cls = NET_CLASSES[a.cls];
+        const net = netOf(a.pin);
+        if (!cls || !net) return [];
+        return [{
+          net, clsName: cls.name,
+          ...(cls.edgeNs ? { maxLenMm: criticalLengthMm(cls.edgeNs) } : {}),
+          ...(a.pairPin && cls.skewMm ? { pairNet: netOf(a.pairPin), skewMm: cls.skewMm } : {}),
+        }];
+      });
+      setDrc(drcCheck({ traces: tr, pads: padsG, vias: viasG, comps, unrouted, clearance: CLEAR, board: { outline: bd }, ...(signals.length ? { signals } : {}) }));
+    }
   };
   const fitBoard = () => { setBoard(autoBoard); persist(placesRef.current, tracesRef.current, viasRef.current, autoBoard); };
 

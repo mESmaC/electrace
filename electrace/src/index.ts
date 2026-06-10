@@ -19,6 +19,8 @@ export { validateBlock } from "./validate.js";
 export type { ValidationIssue } from "./validate.js";
 export { designContext, blockContext, blockBrief } from "./context.js";
 export { parseValue, parallelResistance, seriesSum, formatValue } from "./values.js";
+export { NET_CLASSES, criticalLengthMm } from "./netclasses.js";
+export type { NetClassDef, NetClassAssignment } from "./netclasses.js";
 export { schematicInsights, type InsightComponent, type Insight } from "./insights.js";
 export { CONNECTOR_CATALOG, connectorPart, type ConnectorPart } from "./connectors.js";
 export { authorChipLayout, authorPartLayout, buildBlockLayout, exposeChipPins, inferRoleType } from "./authoring.js";

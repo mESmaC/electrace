@@ -26,9 +26,12 @@ export interface DrcInput {
   unrouted: DrcUnrouted[];
   clearance: number; // minimum copper-to-copper gap, mm
   board?: DrcBoard;  // optional board outline; enables off-board / past-edge rules
+  /** Declared SI classes resolved to PCB net names: enables electrically-long-trace and
+   *  diff-pair skew checks. maxLenMm comes from the class's edge rate (critical length). */
+  signals?: { net: string; clsName: string; maxLenMm?: number; pairNet?: string; skewMm?: number }[];
 }
 
-export type DrcKind = "unrouted" | "short" | "clearance" | "overlap" | "offboard";
+export type DrcKind = "unrouted" | "short" | "clearance" | "overlap" | "offboard" | "si-long" | "si-skew";
 export interface DrcViolation {
   kind: DrcKind;
   severity: "error" | "warn";
@@ -145,6 +148,29 @@ export function drcCheck(input: DrcInput): DrcViolation[] {
       const a = aabb(c), corners = [{ x: a.x0, y: a.y0 }, { x: a.x1, y: a.y0 }, { x: a.x1, y: a.y1 }, { x: a.x0, y: a.y1 }];
       if (corners.some((pt) => outside(pt)))
         out.push({ kind: "offboard", severity: "warn", where: { x: c.x, y: c.y }, msg: `${c.ref} extends past the board edge` });
+    }
+  }
+
+
+  // 6. SI: declared net classes vs routed geometry — electrically-long traces + diff-pair skew
+  if (input.signals?.length) {
+    const firstPt = (net: string) => traces.find((t) => t.net === net)?.path[0] ?? { x: 0, y: 0 };
+    const lenOfNet = (net: string) => traces
+      .filter((t) => t.net === net)
+      .reduce((a, t) => a + t.path.slice(1).reduce((d, p, i) => d + Math.hypot(p.x - t.path[i].x, p.y - t.path[i].y), 0), 0);
+    for (const sig of input.signals) {
+      const len = lenOfNet(sig.net);
+      if (sig.maxLenMm != null && len > sig.maxLenMm) {
+        out.push({ kind: "si-long", severity: "warn", net: sig.net, where: firstPt(sig.net),
+          msg: `${sig.net} (${sig.clsName}) is ${Math.round(len)} mm routed — past the ~${sig.maxLenMm} mm critical length for its edge rate. It now behaves as a transmission line: terminate it, slow the edge, or shorten the run.` });
+      }
+      if (sig.pairNet && sig.skewMm != null) {
+        const lp = len, ln = lenOfNet(sig.pairNet);
+        if (lp > 0 && ln > 0 && Math.abs(lp - ln) > sig.skewMm) {
+          out.push({ kind: "si-skew", severity: "warn", net: sig.net, where: firstPt(sig.net),
+            msg: `${sig.net}/${sig.pairNet} (${sig.clsName}) are length-mismatched by ${Math.round(Math.abs(lp - ln))} mm (limit ${sig.skewMm} mm) — the pair's edges arrive at different times. Match the lengths.` });
+        }
+      }
     }
   }
 

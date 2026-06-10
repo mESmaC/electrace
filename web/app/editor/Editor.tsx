@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
@@ -477,6 +477,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [designName, setDesignName] = useState(design.name);
   const [acks, setAcks] = useState<Ack[]>(design.acks ?? []); // findings marked intended (muted, not counted)
   const [isolation, setIsolation] = useState<IsolationConstraint[]>(design.isolation ?? []); // declared galvanic barriers
+  const [signals, setSignals] = useState<NetClassAssignment[]>(design.signals ?? []); // declared SI net classes
   // A block's edited internal schematic (saved by the in-block editor) is the source of truth:
   // merge each saved layout, re-derive its parts/nets, and analyze against that. `mounted` keeps
   // the first (SSR) render on the authored blocks to avoid a hydration mismatch; `draftV` bumps
@@ -545,8 +546,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         .map((e) => ({ from: `${e.source}.${e.sourceHandle ?? ""}`, to: `${e.target}.${e.targetHandle ?? ""}` })),
       acks,
       ...(isolation.length ? { isolation } : {}),
+      ...(signals.length ? { signals } : {}),
     };
-  }, [nodes, edges, design, designName, acks, isolation]);
+  }, [nodes, edges, design, designName, acks, isolation, signals]);
 
   // analyze() never reads XY positions, so key it on a position-free snapshot — dragging a
   // block repaints the canvas every frame but must not re-run resolve/lint/bom per pixel
@@ -706,14 +708,19 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     if (selectedNet && !nodes.some((n) => n.id === selectedNet.split(".")[0])) setSelectedNet(null);
   }, [nodes, selectedId, selectedNet]);
   useEffect(() => {
+    const refs = new Set(nodes.map((n) => n.id));
     setIsolation((prev) => {
-      const refs = new Set(nodes.map((n) => n.id));
       const next = prev.filter((c) => refs.has(c.a) && (c.b === "*" || refs.has(c.b)));
+      return next.length === prev.length ? prev : next;
+    });
+    setSignals((prev) => {
+      const next = prev.filter((a) => refs.has(a.pin.split(".")[0]) && (!a.pairPin || refs.has(a.pairPin.split(".")[0])));
       return next.length === prev.length ? prev : next;
     });
   }, [nodes]);
   const [drillRef, setDrillRef] = useState<string | null>(null);
   const [isoFor, setIsoFor] = useState<string | null>(null); // block whose isolation constraints are being edited
+  const [sigFor, setSigFor] = useState<string | null>(null); // a pin "REF.term" whose net's signal class is being edited
   const [bottomOpen, setBottomOpen] = useState(true);
   type FormTerm = { id: string; role: TerminalRole; type: NetType; v?: string; i?: string };
   const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; color: string; category: string; terminals: FormTerm[]; editKey?: string } | null>(null);
@@ -861,6 +868,14 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         ]
       : [{ label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) }]);
   }, [duplicateNode, deleteNode]);
+  const onEdgeContextMenu = useCallback((e: ReactMouseEvent, edge: Edge) => {
+    const pin = `${edge.source}.${edge.sourceHandle ?? ""}`;
+    setSelectedNet(pin); setSelectedId(null);
+    openContextMenu(e, [
+      { label: "Signal class…", icon: "∿", onSelect: () => setSigFor(pin) },
+      { label: "Delete wire", icon: "✕", danger: true, hint: "Del", onSelect: () => rfRef.current?.deleteElements({ edges: [{ id: edge.id }] }) },
+    ]);
+  }, []);
   const onPaneContextMenu = useCallback((e: MouseEvent | ReactMouseEvent) => {
     openContextMenu(e as ReactMouseEvent, [
       { label: "Fit to view", icon: "⤢", onSelect: () => rfRef.current?.fitView({ duration: 200 }) },
@@ -947,6 +962,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     if (d.name) setDesignName(d.name);
     setAcks(d.acks ?? []);
     setIsolation(d.isolation ?? []);
+    setSignals(d.signals ?? []);
     setNodes(flow.nodes);
     setEdges(flow.edges);
     history.current = [{ nodes: flow.nodes, edges: flow.edges }];
@@ -1214,6 +1230,63 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <SymbolStyleToggle />
           <ReportBug getDesign={() => designForAnalysis.current} />
         </div>
+      {sigFor && (() => {
+        const current = signals.find((a) => a.pin === sigFor);
+        const choose = (clsId: string | null) => {
+          setSignals((prev) => {
+            const rest = prev.filter((a) => a.pin !== sigFor);
+            return clsId ? [...rest, { ...(current ?? {}), pin: sigFor!, cls: clsId }] : rest;
+          });
+        };
+        const cls = current ? NET_CLASSES[current.cls] : null;
+        const needsPair = cls && cls.kind !== "single";
+        const pairOptions = analysis.resolved.nets.flatMap((n) => n.members.map((m) => m.node)).filter((p) => p !== sigFor);
+        return (
+          <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50" onClick={() => setSigFor(null)}>
+            <div className="w-[420px] rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="text-[15px] font-bold text-[var(--color-text)]">Signal class — net at {sigFor}</div>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-dim)]">
+                Declare what this net IS, and the checker enforces what that requires — termination present,
+                rise time achievable, traces short enough for the edge rate, pair lengths matched.
+              </p>
+              <div className="mt-3 max-h-[230px] overflow-auto rounded-lg border border-[var(--color-border)]">
+                <label className="flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-1.5 text-[13px] text-[var(--color-text)]">
+                  <input type="radio" name="sigcls" checked={!current} onChange={() => choose(null)} className="accent-[var(--color-accent)]" />
+                  <span className="text-[var(--color-faint)]">No class (plain net)</span>
+                </label>
+                {Object.values(NET_CLASSES).map((c) => (
+                  <label key={c.id} className="flex flex-col gap-0.5 border-b border-[var(--color-border)] px-3 py-1.5 text-[13px] text-[var(--color-text)] last:border-0">
+                    <span className="flex items-center gap-2">
+                      <input type="radio" name="sigcls" checked={current?.cls === c.id} onChange={() => choose(c.id)} className="accent-[var(--color-accent)]" />
+                      {c.name}
+                    </span>
+                    {c.note && <span className="pl-6 text-[11px] text-[var(--color-faint)]">{c.note}</span>}
+                  </label>
+                ))}
+              </div>
+              {needsPair && (
+                <label className="mt-3 block text-[12px] text-[var(--color-dim)]">
+                  Pair&apos;s other side (B / L / D−):
+                  <select value={current?.pairPin ?? ""} onChange={(e) => setSignals((prev) => prev.map((a) => a.pin === sigFor ? { ...a, pairPin: e.target.value || undefined } : a))}
+                    className="mt-1 w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-2 py-1.5 text-[13px] text-[var(--color-text)]">
+                    <option value="">— pick the paired pin —</option>
+                    {pairOptions.map((pp) => <option key={pp} value={pp}>{pp}</option>)}
+                  </select>
+                </label>
+              )}
+              {cls?.termOhms && (
+                <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--color-dim)]">
+                  <input type="checkbox" checked={current?.terminated === "external"}
+                    onChange={(e) => setSignals((prev) => prev.map((a) => a.pin === sigFor ? { ...a, terminated: e.target.checked ? "external" : undefined } : a))}
+                    className="accent-[var(--color-accent)]" />
+                  Termination lives off-board (silence the on-board check)
+                </label>
+              )}
+              <button onClick={() => setSigFor(null)} className="mt-4 w-full rounded-xl border border-[var(--color-border-strong)] py-2 text-[13px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Done</button>
+            </div>
+          </div>
+        );
+      })()}
       {isoFor && (() => {
         const others = nodes.filter((n) => n.type === "block" && n.id !== isoFor).map((n) => n.id);
         const mine = isolation.filter((c) => c.a === isoFor || c.b === isoFor);
@@ -1282,6 +1355,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
           onNodeClick={(_, n) => { setSelectedId(n.id); setSelectedNet(null); }}
           onEdgeClick={(_, e) => { setSelectedNet(`${e.source}.${e.sourceHandle}`); setSelectedId(null); }}
+          onEdgeContextMenu={onEdgeContextMenu}
           onPaneClick={() => { setSelectedId(null); setSelectedNet(null); }}
           onInit={(inst) => { rfRef.current = inst; }}
           onNodeDoubleClick={(_, n) => { if (n.type !== "block") return; setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}

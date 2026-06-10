@@ -199,3 +199,75 @@ test("isolate-against-all checks every other block", () => {
   const a = analyze(d, blocks6);
   assert.ok(a.findings.some((f) => f.rule === "isolation/bridged" && f.at.includes("C1")));
 });
+
+// ---- SI net classes ----
+import { drcCheck, NET_CLASSES, criticalLengthMm } from "../src/index.js";
+
+const XCVR: Block = {
+  id: "@t/485", name: "RS485", version: "1", category: "interface",
+  terminals: [
+    { id: "a", role: "out", type: "signal" }, { id: "b", role: "out", type: "signal" },
+    { id: "vcc", role: "in", type: "power", v: { min: 3, max: 5.5, unit: "V" } }, { id: "gnd", role: "in", type: "gnd" },
+  ],
+  schematic: { parts: [], nets: [] },
+};
+const TERM: Block = {
+  id: "@t/term", name: "Term", version: "1", category: "interface",
+  terminals: [{ id: "a", role: "in", type: "signal" }, { id: "b", role: "in", type: "signal" }],
+  schematic: {
+    parts: [{ ref: "RT", type: "res", value: "120" }],
+    nets: [{ name: "A", connect: ["RT.1", "@a"] }, { name: "B", connect: ["RT.2", "@b"] }],
+  },
+};
+
+test("SI: unterminated RS-485 pair warns; adding the 120R termination clears it", () => {
+  const blocks7 = new Map<string, Block>([["@t/485@1", XCVR], ["@t/term@1", TERM]]);
+  const bare: Design = {
+    id: "s1", name: "s1",
+    blocks: [{ ref: "X1", block: "@t/485@1" }, { ref: "X2", block: "@t/485@1" }],
+    connections: [{ from: "X1.a", to: "X2.a" }, { from: "X1.b", to: "X2.b" }],
+    signals: [{ pin: "X1.a", pairPin: "X1.b", cls: "rs485" }],
+  };
+  const a1 = analyze(bare, blocks7);
+  assert.ok(a1.findings.some((f) => f.rule === "si/termination-missing"), "expected termination warning");
+  const terminated: Design = {
+    ...bare, id: "s2",
+    blocks: [...bare.blocks, { ref: "T1", block: "@t/term@1" }],
+    connections: [...bare.connections, { from: "X1.a", to: "T1.a" }, { from: "X1.b", to: "T1.b" }],
+  };
+  const a2 = analyze(terminated, blocks7);
+  assert.ok(!a2.findings.some((f) => f.rule === "si/termination-missing"),
+    "termination present should clear it; got " + a2.findings.filter((f) => f.rule.startsWith("si/")).map((f) => f.message).join("|"));
+});
+
+test("SI: I2C 400k with weak pull-ups warns with the fix in the message", () => {
+  const d: Design = {
+    id: "s3", name: "s3",
+    blocks: [{ ref: "C1", block: "@t/chip@1" }, { ref: "C2", block: "@t/chip@1" }],
+    connections: [{ from: "C1.out", to: "C2.vcc" }],
+    signals: [{ pin: "C1.out", cls: "i2c-400k", pullupOhms: 10000 }],
+  };
+  const a = analyze(d, blocks);
+  const hit = a.findings.find((f) => f.rule === "si/i2c-rise-time");
+  assert.ok(hit, "expected rise-time warning");
+  assert.match(hit!.message, /Drop the pull-ups/);
+});
+
+test("SI: DRC flags electrically-long traces and pair skew", () => {
+  const edge = NET_CLASSES["fast-edge"].edgeNs!;
+  const lim = criticalLengthMm(edge); // 2ns -> 50mm
+  const v = drcCheck({
+    traces: [
+      { id: "t1", net: "CLK", layer: "F.Cu", width: 0.3, path: [{ x: 0, y: 0 }, { x: lim + 30, y: 0 }] },
+      { id: "t2", net: "DP", layer: "F.Cu", width: 0.3, path: [{ x: 0, y: 5 }, { x: 40, y: 5 }] },
+      { id: "t3", net: "DN", layer: "F.Cu", width: 0.3, path: [{ x: 0, y: 6 }, { x: 52, y: 6 }] },
+    ],
+    pads: [], vias: [], comps: [], unrouted: [], clearance: 0.2,
+    signals: [
+      { net: "CLK", clsName: "Fast edge", maxLenMm: lim },
+      { net: "DP", clsName: "USB FS", pairNet: "DN", skewMm: 4 },
+    ],
+  });
+  assert.ok(v.some((x) => x.kind === "si-long" && x.net === "CLK"), "expected si-long");
+  assert.ok(v.some((x) => x.kind === "si-skew"), "expected si-skew (12mm mismatch > 4mm)");
+});
