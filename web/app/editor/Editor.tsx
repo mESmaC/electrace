@@ -10,6 +10,7 @@ import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlo
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
 import { pushDesignNow } from "@/lib/designsSync";
+import BomPanel from "./BomPanel";
 import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
@@ -1359,11 +1360,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         </Panel>
 
         <Panel title={`BOM · ${analysis.bom.length}`}>
-          <div className="mt-2 space-y-1 font-mono text-[11px] text-[var(--color-text)]">
-            {analysis.bom.map((r, i) => (
-              <div key={i}>{r.qty}× {r.value ?? r.part ?? r.type}{r.polarized && <span className="ml-1 rounded-sm bg-[#4c8dff26] px-1 text-[10px] text-[var(--color-link)]">pol</span>} <span className="text-[var(--color-faint)]">{r.refs.join(", ")}</span></div>
-            ))}
-          </div>
+          <BomPanel rows={analysis.bom} designName={designName} />
         </Panel>
 
         {consolidation.length > 0 && (

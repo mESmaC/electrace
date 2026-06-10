@@ -20,7 +20,10 @@ export type ElectraceEvent =
   | { kind: "sym.rotate"; block: string }
   | { kind: "pin.name"; block: string; sym: string; pin: string; name: string }
   | { kind: "mpn.enter"; block: string; sym: string; mpn: string }
-  | { kind: "block.validate"; block: string; issues: string[] };           // validation issue codes
+  | { kind: "block.validate"; block: string; issues: string[] }            // validation issue codes
+  // ── purchase intent (BOM → distributor) — strong corpus signal: this design got real enough to buy
+  | { kind: "bom.buy"; q: string }                                         // one row's outbound query
+  | { kind: "bom.cart"; parts: number };                                   // whole-BOM cart push, line count
 
 /** A captured event: the structured event + when and which anonymous session. */
 export interface CapturedEvent {

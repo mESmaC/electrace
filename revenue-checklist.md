@@ -61,15 +61,16 @@ All of todo.md §4's storage/accounts half. Nothing can be sold without accounts
 - [ ] Billing terms added to `/terms`; upgrade/downgrade/cancel flows tested end-to-end
 
 ### BOM affiliate
-- [ ] MPN (manufacturer part number) as a first-class field on parts; backfill the library
+- [x] MPN as a first-class field — ✅ already existed (`PartSpec.part` = "mpn / family", chips carry `chip.mpn`); flows into BOM rows. Library backfill happens with the Wave-1 authoring (Phase D)
 - [ ] Server-side route: MPN → Digi-Key product URL/price/stock via the Product
       Information API (free registration, OAuth2 client-credentials; cache with TTL,
-      keys never client-side)
-- [ ] BOM view: per-line "Buy" links + whole-BOM "Send to Digi-Key cart" via the
-      MyLists third-party endpoint (no auth required, returns single-use cart URL)
-- [ ] FTC disclosure near the BOM: "Electrace may earn a commission on parts ordered
-      through these links, at no extra cost to you. Links never influence part
-      recommendations." (the second sentence is vendor-neutrality positioning)
+      keys never client-side) — v2; v1 ships search links + cart push without any API keys.
+      Affiliate wrapping is ready: set NEXT_PUBLIC_AFFILIATE_LINK_TEMPLATE once approved
+- [x] BOM view — ✅ 2026-06-09: per-line "buy ↗" links (part number, else value+package), CSV
+      download, and whole-BOM "Send to Digi-Key" via the MyLists endpoint (verified live:
+      real BOM → working cart URL). Note: live API returns a bare short-URL string, not the
+      documented `{singleUseUrl}` — the route accepts both
+- [x] FTC disclosure — ✅ shown under the BOM panel, exactly as drafted
 - [ ] **After Phase D content is live:** apply to the Digi-Key affiliate program through
       its network (Impact) — programs reject empty sites, so sequence matters
 - [ ] **Open question to resolve before relying on cart-push revenue:** does a
