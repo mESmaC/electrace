@@ -110,7 +110,16 @@ Noted for completeness — add-to-cart / BOM-aware sourcing (distributor PN), bl
 - [ ] **Sparky chat loses its stream when you drill OUT of a block schematic mid-response.**
   Repro: open chat, send a message, exit the schematic while it's processing → chat shows the
   user message with no reply (the server-side run COMPLETES; only the client loses it).
-  DIAGNOSIS (2026-06-09 session): sendMessage + its stream reader are MODULE-LEVEL in
+  DIAGNOSIS v2 (later same session): the breadcrumb is a BUTTON (setDrillRef(null)) — NOT
+  navigation. And the owner confirms the run COMPLETES. Refined hypothesis: conversation
+  identity — drill-in may switch the ACTIVE conversation id (block-scoped thread), so
+  appendChat writes the reply into the drilled thread while drill-out shows the previous
+  thread (reply exists, but in the other conversation; status/progress also reset). VERIFY:
+  check getActiveId()/setActive calls around drill-in/out and whether sendMessage captures
+  the conversation id at SEND time (it should append to the ORIGINATING conversation, not
+  whatever is active at completion). Fix: bind the run to its conversation id when sent.
+  Earlier diagnosis kept below for context:
+  DIAGNOSIS v1 (2026-06-09 session): sendMessage + its stream reader are MODULE-LEVEL in
   lib/assistant.ts — a component unmount can NOT kill them. Therefore the drill-out path must
   be a real PAGE NAVIGATION (suspect: the "← <project>" breadcrumb in the BlockSchematic header
   is a Link, killing the fetch wholesale; server run completes). Fix in two layers:
