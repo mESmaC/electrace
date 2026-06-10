@@ -738,6 +738,35 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
         {field("Type", <span className="text-[var(--color-faint)]">{pad.drill ? "through-hole" : "SMD"}</span>)}
         {field("Size", <span className="font-mono text-[11px] text-[var(--color-faint)]">{+pad.w.toFixed(2)}×{+pad.h.toFixed(2)} mm</span>)}
         {p && field("Position", <span className="font-mono text-[11px] text-[var(--color-faint)]">{p.x.toFixed(2)}, {p.y.toFixed(2)}</span>)}
+        {net && (() => {
+          // the net passport: everything riding on this copper — every pad (click to jump),
+          // how much of it is actually routed, and in how many traces
+          const pads = project.ratsnest.find((r) => r.net === net)?.pads ?? [];
+          const netTraces = traces.filter((t) => t.net === net);
+          const len = netTraces.reduce((sum, t) => {
+            const a = nodePos.get(t.a), b2 = nodePos.get(t.b);
+            if (!a || !b2) return sum;
+            const path = [a, ...t.points, b2];
+            let l = 0; for (let i = 1; i < path.length; i++) l += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+            return sum + l;
+          }, 0);
+          return (
+            <div className="mt-2 border-t border-[var(--color-border)] pt-2">
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--color-faint)]">On {net}</div>
+              {field("Copper", <span className="font-mono text-[11px] text-[var(--color-faint)]">{len.toFixed(1)} mm · {netTraces.length} trace{netTraces.length === 1 ? "" : "s"}</span>)}
+              <div className="mt-1 flex flex-wrap gap-1">
+                {pads.slice(0, 14).map((k) => (
+                  <button key={k} onClick={() => { const pp = padPos.get(k); if (pp) panTo(pp); setSel({ kind: "pad", id: k }); }}
+                    title="Jump to this pad"
+                    className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${k === sel.id ? "bg-[#1b3a66] text-[var(--color-link)]" : "bg-[var(--color-bg)] text-[var(--color-dim)] hover:text-[var(--color-text)]"}`}>
+                    {k.split("/").pop()}
+                  </button>
+                ))}
+                {pads.length > 14 && <span className="text-[9px] text-[var(--color-faint)]">+{pads.length - 14} more</span>}
+              </div>
+            </div>
+          );
+        })()}
         <button onClick={() => setSel({ kind: "comp", id: ref })} className={`${btn(false)} mt-1 w-full`}>Select footprint</button>
       </>);
     }
