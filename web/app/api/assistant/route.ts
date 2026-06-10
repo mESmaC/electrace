@@ -18,6 +18,16 @@ const QUOTA_RE = /credit balance|insufficient_quota|exceeded your current quota|
 class QuotaError extends Error { constructor() { super("quota"); this.name = "QuotaError"; } }
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.5"; // flagship; gpt-5.4-mini for a cheaper run
+// $ per 1M tokens, used to price each run into sparky_usage. Keep in sync with provider price pages.
+const PRICE_CARDS: Record<string, { inp: number; out: number; cached: number; write: number }> = {
+  "gpt-5.5": { inp: 5, out: 30, cached: 0.5, write: 5 },
+  "claude-sonnet-4-6": { inp: 3, out: 15, cached: 0.3, write: 3.75 },
+  "claude-haiku-4-5": { inp: 1, out: 5, cached: 0.1, write: 1.25 },
+};
+const FALLBACK_CARD = { inp: 5, out: 30, cached: 0.5, write: 5 }; // unknown model → price like the flagship
+// Monthly fair-use budget per user in USD. Unset/0 = unlimited (the early-adopter default) —
+// metering records regardless, so flipping this on later is just an env change.
+const MONTHLY_BUDGET = Number(process.env.SPARKY_MONTHLY_BUDGET_USD || 0);
 const MAX_TURNS = 24; // big ports (e.g. an Arduino Nano: many blocks + wires) need more tool turns
 const SPARK_MAX_TURNS = 12; // a spark builds ONE block — fewer steps than the orchestrator
 
@@ -596,17 +606,32 @@ export async function POST(req: Request) {
 
   // Sparky is a paid (Pro) feature, and every call costs real Claude API spend — enforce the gate
   // HERE so it can't be bypassed by hitting the endpoint directly (a hidden UI button isn't enough).
+  let meterCtx: { sb: Awaited<ReturnType<typeof supabaseServer>>; userId: string } | null = null;
   if (supabaseConfigured) {
     const sb = await supabaseServer();
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return Response.json({ error: "Please sign in to use Sparky." }, { status: 401 });
-    let pro = canUseSparky(user.email); // interim allowlist
+    const allowlisted = canUseSparky(user.email); // interim allowlist (founder/dev — exempt from the budget gate)
+    let pro = allowlisted;
     if (!pro) {
       // users.plan is what billing flips — a paying subscriber is pro regardless of the allowlist
       const { data } = await sb.from("users").select("plan").eq("id", user.id).maybeSingle();
       pro = data?.plan === "pro";
     }
     if (!pro) return Response.json({ error: "Sparky is a Pro feature — upgrade to let it build and explain your designs.", code: "upgrade" }, { status: 403 });
+    meterCtx = { sb, userId: user.id };
+    if (MONTHLY_BUDGET > 0 && !allowlisted) {
+      // month-to-date spend (RLS scopes the query to this user; one row per run, so this stays tiny)
+      const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
+      const { data: rows } = await sb.from("sparky_usage").select("cost_usd").gte("created_at", monthStart.toISOString());
+      const spent = (rows ?? []).reduce((a, r) => a + Number(r.cost_usd ?? 0), 0);
+      if (spent >= MONTHLY_BUDGET) {
+        return Response.json({
+          error: "You've used this month's included Sparky capacity — it resets on the 1st. Your designs and checks are unaffected.",
+          code: "capacity",
+        }, { status: 429 });
+      }
+    }
   } else if (process.env.NODE_ENV === "production") {
     // Fail CLOSED: never serve a paid endpoint unauthenticated in production. If we get here in prod the
     // Supabase env vars are missing/misconfigured — deny rather than leave the cost wide open. (Local dev
@@ -746,7 +771,32 @@ export async function POST(req: Request) {
   };
 
   // The active model caller — same signature + return shape either way.
-  const callModel = PROVIDER === "openai" ? openai : anthropic;
+  const callModelRaw = PROVIDER === "openai" ? openai : anthropic;
+  // Request-scoped meter: every model call in this run (main loop, sparks, warmers) flows through
+  // here, so the recorded row is the TRUE total — not just the main loop's share.
+  const meter = { full: 0, cached: 0, write: 0, out: 0 };
+  const callModel: typeof callModelRaw = async (...args) => {
+    const data = await callModelRaw(...args);
+    const u = (data?.usage ?? {}) as Record<string, number>;
+    meter.full += u.input_tokens ?? 0;
+    meter.cached += u.cache_read_input_tokens ?? 0;
+    meter.write += u.cache_creation_input_tokens ?? 0;
+    meter.out += u.output_tokens ?? 0;
+    return data;
+  };
+  const recordUsage = async () => {
+    if (!meterCtx || (meter.full + meter.cached + meter.write + meter.out) === 0) return;
+    const modelId = PROVIDER === "openai" ? OPENAI_MODEL : MODEL;
+    const card = PRICE_CARDS[modelId] ?? FALLBACK_CARD;
+    const cost = (meter.full * card.inp + meter.cached * card.cached + meter.write * card.write + meter.out * card.out) / 1_000_000;
+    try {
+      await meterCtx.sb.from("sparky_usage").insert({
+        owner_id: meterCtx.userId, model: modelId,
+        in_full: meter.full, in_cached: meter.cached, in_write: meter.write, out_tokens: meter.out,
+        cost_usd: cost.toFixed(6),
+      });
+    } catch { /* metering must never break the reply; table may predate migration 0004 */ }
+  };
 
   const eff: Effects = { upserts: new Map(), deleted: new Set(), schematics: new Map() };
 
@@ -857,6 +907,8 @@ export async function POST(req: Request) {
             ? "Sparky is temporarily unavailable — we've hit our AI capacity for the moment (it happens during development). Your design is untouched; try again a bit later."
             : "Could not reach the model." }); // detail logged server-side, not sent to the client
         }
+      } finally {
+        await recordUsage(); // tokens were spent even on error/abort — always record before closing
       }
       try { controller.close(); } catch { /* already closed by the consumer */ }
     },

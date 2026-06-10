@@ -13,7 +13,7 @@
 //   write:  owner_id = auth.uid()  (and private requires plan = 'pro')
 // The API routes repeat the same checks for friendlier errors; RLS is the backstop that makes a
 // route bug a 0-row result instead of a data leak.
-import { pgTable, text, uuid, jsonb, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, jsonb, timestamp, index, bigint, numeric } from "drizzle-orm/pg-core";
 
 /** Mirror of auth.users we own: plan + settings live here (auth.users is Supabase's). A trigger
  *  inserts this row on signup; `plan` is what billing will flip (entitlements.ts reads it at P3 —
@@ -52,3 +52,17 @@ export const userKv = pgTable("user_kv", {
   v: text("v").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("user_kv_owner_idx").on(t.ownerId)]);
+
+/** Sparky usage metering — one append-only row per assistant run. Sums per owner per month drive
+ *  the fair-use budget gate (env SPARKY_MONTHLY_BUDGET_USD; unset = unlimited). RLS: owner-only. */
+export const sparkyUsage = pgTable("sparky_usage", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  ownerId: uuid("owner_id").notNull(),
+  model: text("model").notNull(),
+  inFull: bigint("in_full", { mode: "number" }).notNull().default(0),
+  inCached: bigint("in_cached", { mode: "number" }).notNull().default(0),
+  inWrite: bigint("in_write", { mode: "number" }).notNull().default(0),
+  outTokens: bigint("out_tokens", { mode: "number" }).notNull().default(0),
+  costUsd: numeric("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("sparky_usage_owner_time_idx").on(t.ownerId, t.createdAt)]);
