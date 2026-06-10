@@ -154,7 +154,21 @@ export function registerAgentSession(s: AgentSession): () => void {
 export async function sendMessage(text: string): Promise<void> {
   const t = text.trim();
   if (!t) return;
-  const history = getChat().map((m) => ({ role: m.role, text: m.text })); // prior turns, before this message
+  // Prior turns, capped: long-lived conversations otherwise grow the payload (and the bill) linearly —
+  // every message would re-send the whole history. Last 16 turns within ~24k chars is plenty of memory;
+  // anything older is ancient history the user can re-state.
+  const history = (() => {
+    const all = getChat().map((m) => ({ role: m.role, text: m.text }));
+    const recent = all.slice(-16);
+    let budget = 24_000;
+    const kept: typeof recent = [];
+    for (let i = recent.length - 1; i >= 0; i--) {
+      budget -= recent[i].text.length;
+      if (budget < 0 && kept.length) break;
+      kept.unshift(recent[i]);
+    }
+    return kept;
+  })();
   const context = getContext();
   const conv = getActiveId(); // bind the whole run to the conversation it started in
   appendChat("user", t, conv);

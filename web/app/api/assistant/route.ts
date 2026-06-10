@@ -18,6 +18,11 @@ const QUOTA_RE = /credit balance|insufficient_quota|exceeded your current quota|
 class QuotaError extends Error { constructor() { super("quota"); this.name = "QuotaError"; } }
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.5"; // flagship; gpt-5.4-mini for a cheaper run
+// Optional cheaper model for SPARKS (scoped one-block builders) while the orchestrator stays on the
+// flagship — the delegate fan-outs are the most expensive runs, and this is the knob that halves them.
+// Unset = sparks use the main model. NOTE: usage rows price everything at the MAIN model's card
+// (conservative over-estimate when this is set).
+const SPARK_MODEL = process.env.SPARK_MODEL || "";
 // $ per 1M tokens, used to price each run into sparky_usage. Keep in sync with provider price pages.
 const PRICE_CARDS: Record<string, { inp: number; out: number; cached: number; write: number }> = {
   "gpt-5.5": { inp: 5, out: 30, cached: 0.5, write: 5 },
@@ -55,7 +60,9 @@ their design. Keep your tone warm and concise; let your work (correct, complete 
 When the user asks you to change the design (add a block, wire something, etc.), use the tools to
 do it — don't just describe it. Add blocks, then connect their terminals (power→power, gnd→gnd,
 out→in). Call analyze_design to check your work. Keep going until the request is done, then give a
-short summary of what you did. When the user is just asking a question, answer concisely from the
+short summary of what you did. While working, narrate at most ONE short line between tool calls —
+say what you're doing next, never recap what already happened; the user watches the tool feed live.
+The final summary covers outcome + anything they must decide, in a few sentences, not a play-by-play. When the user is just asking a question, answer concisely from the
 provided Workspace context and general EE knowledge; don't change anything.
 
 BIAS TO ACTION — finish the job, don't ask permission for the obvious. If a next step clearly completes
@@ -684,10 +691,10 @@ export async function POST(req: Request) {
   // One model call (used by both Sparky and the sparks). Web search is offered; if the host rejects it,
   // retry without it. cacheTail caches the conversation prefix.
   const headers = { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" };
-  const anthropic = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[], maxTokens = 4096) => {
+  const anthropic = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[], maxTokens = 4096, modelOverride = "") => {
     const send = (ts: unknown[]) => fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers, signal: req.signal, // abort the in-flight model call if the client disconnects
-      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: sys, messages: cacheTail(msgs), ...(ts.length ? { tools: ts } : {}) }),
+      body: JSON.stringify({ model: modelOverride || MODEL, max_tokens: maxTokens, system: sys, messages: cacheTail(msgs), ...(ts.length ? { tools: ts } : {}) }),
     });
     let r = await send([WEB_SEARCH, ...tools]);
     if (r.status === 400) {
@@ -736,12 +743,12 @@ export async function POST(req: Request) {
     }
     return out;
   };
-  const openai = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[], maxTokens = 4096) => {
+  const openai = async (sys: unknown[], msgs: { role: string; content: unknown }[], tools: unknown[], maxTokens = 4096, modelOverride = "") => {
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST", signal: req.signal,
       headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
+        model: modelOverride || OPENAI_MODEL,
         max_completion_tokens: Math.max(maxTokens, 16000), // headroom for reasoning tokens on gpt-5.x
         messages: oaiMessages(sys, msgs),
         ...(tools.length ? { tools: oaiTools(tools), tool_choice: "auto" } : {}),
@@ -809,7 +816,7 @@ export async function POST(req: Request) {
     const msgs: { role: string; content: unknown }[] = [{ role: "user", content: goal }];
     let changed = false;
     for (let t = 0; t < SPARK_MAX_TURNS; t++) {
-      const data = await callModel(sparkSys, msgs, sparkTools);
+      const data = await callModel(sparkSys, msgs, sparkTools, 4096, SPARK_MODEL);
       const su = data.usage ?? {};
       console.log(`[spark] turn ${t}: in=${su.input_tokens ?? 0} cache_read=${su.cache_read_input_tokens ?? 0} cache_write=${su.cache_creation_input_tokens ?? 0} out=${su.output_tokens ?? 0}`);
       const content = Array.isArray(data.content) ? data.content : [];
