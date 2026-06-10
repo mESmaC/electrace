@@ -6,8 +6,20 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <div className="mb-3 text-[12.5px] font-bold uppercase tracking-[1.4px] text-accent">{children}</div>
 );
 
+  const appLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Electrace",
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Web",
+    url: "https://www.electrace.net",
+    description: "Block-based electrical design IDE: schematics that explain themselves, live deterministic checks, BOM, PCB, and KiCad export.",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD", description: "Free Hobby plan — the full understand-your-circuit loop" },
+  };
 export default function Home() {
   return (
+    <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(appLd) }} />
     <main className="overflow-x-hidden">
       {/* ===== HERO ===== */}
       <header className="relative px-7 pb-16 pt-[74px] text-center">
@@ -204,12 +216,13 @@ export default function Home() {
       <footer className="border-t border-border px-7 py-10 text-[14px] text-faint">
         <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-between gap-7">
           <Logo className="text-[16px] text-text" />
-          <div className="flex flex-wrap gap-x-9 gap-y-2"><a href="#how" className="text-dim hover:text-text">Product</a><a href="#why" className="text-dim hover:text-text">Why</a><Link href="/pricing" className="text-dim hover:text-text">Pricing</Link><Link href="/help" className="text-dim hover:text-text">Docs</Link><Link href="/blocks" className="text-dim hover:text-text">Blocks</Link><Link href="/privacy" className="text-dim hover:text-text">Privacy</Link><Link href="/terms" className="text-dim hover:text-text">Terms</Link></div>
+          <div className="flex flex-wrap gap-x-9 gap-y-2"><a href="#how" className="text-dim hover:text-text">Product</a><a href="#why" className="text-dim hover:text-text">Why</a><Link href="/pricing" className="text-dim hover:text-text">Pricing</Link><Link href="/help" className="text-dim hover:text-text">Docs</Link><Link href="/blocks" className="text-dim hover:text-text">Blocks</Link><Link href="/blocks/buck-converter" className="text-dim hover:text-text">Buck converter explained</Link><Link href="/blocks/timer-555" className="text-dim hover:text-text">555 timer explained</Link><Link href="/blocks/reverse-polarity-protection" className="text-dim hover:text-text">Reverse-polarity protection</Link><Link href="/blocks/usb-c-power" className="text-dim hover:text-text">USB-C 5V power</Link><Link href="/privacy" className="text-dim hover:text-text">Privacy</Link><Link href="/terms" className="text-dim hover:text-text">Terms</Link></div>
           <span>© 2026 <a href="https://usnylon.com" target="_blank" rel="noopener" className="hover:text-text">US Nylon</a></span>
         </div>
       </footer>
       <RevealScript />
     </main>
+    </>
   );
 }
 

@@ -5,6 +5,7 @@ import UpgradeCta from "./UpgradeCta";
 export const metadata = {
   title: "Pricing — Electrace",
   description: "Maker-first pricing: the whole understand-your-circuit loop is free. You pay only for privacy or to ship.",
+  alternates: { canonical: "https://www.electrace.net/pricing" },
 };
 
 const FAQ = [
@@ -14,8 +15,14 @@ const FAQ = [
 ];
 
 export default function PricingPage() {
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+  };
   return (
     <main className="mx-auto max-w-[1140px] px-7 py-16">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       {/* header */}
       <div className="mx-auto max-w-2xl text-center">
         <div className="mb-3 text-[12.5px] font-bold uppercase tracking-[1.4px] text-accent">Pricing</div>

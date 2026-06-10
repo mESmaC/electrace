@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return {
       title: `${title} — Electrace`,
       description,
-      alternates: { canonical: `https://electrace.net/blocks/${slug}` },
+      alternates: { canonical: `https://www.electrace.net/blocks/${slug}` },
       openGraph: { title, description, type: "article" },
     };
   } catch {
@@ -61,11 +61,18 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "TechArticle",
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Block library", item: "https://www.electrace.net/blocks" },
+        { "@type": "ListItem", position: 2, name: block.name, item: `https://www.electrace.net/blocks/${slug}` },
+      ],
+    },
     headline: `${block.name} — what it does and how it works`,
     description: summary(explain),
     author: { "@type": "Organization", name: "Electrace" },
-    publisher: { "@type": "Organization", name: "Electrace", url: "https://electrace.net" },
-    mainEntityOfPage: `https://electrace.net/blocks/${slug}`,
+    publisher: { "@type": "Organization", name: "Electrace", url: "https://www.electrace.net" },
+    mainEntityOfPage: `https://www.electrace.net/blocks/${slug}`,
   };
 
   return (

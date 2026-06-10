@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE } from "@/lib/site";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -15,17 +16,17 @@ import { Logo } from "./Logo";
 const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://electrace.net"),
+  metadataBase: new URL(SITE),
   title: "Electrace — see inside every circuit",
-  description: "The electrical engineer's IDE — block-based schematics that explain themselves, with live deterministic checks and no SPICE.",
+  description: "Free online circuit & PCB design tool where every block explains itself — schematics with live electrical checks, automatic BOM, and KiCad export. No SPICE, no install.",
   applicationName: "Electrace",
-  keywords: ["schematic", "EDA", "PCB", "electrical engineering", "circuit design", "block-based", "BOM"],
+  keywords: ["schematic editor", "circuit design online", "PCB design tool", "EDA", "electrical engineering", "block-based design", "BOM generator", "KiCad export", "learn electronics", "circuit checker"],
   openGraph: {
     type: "website",
     siteName: "Electrace",
     url: "/",
     title: "Electrace — see inside every circuit",
-    description: "The electrical engineer's IDE — block-based schematics that explain themselves, with live deterministic checks and no SPICE.",
+    description: "Free online circuit & PCB design tool where every block explains itself — schematics with live electrical checks, automatic BOM, and KiCad export. No SPICE, no install.",
   },
   twitter: {
     card: "summary_large_image",
@@ -39,6 +40,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className="h-full antialiased" data-theme="mid" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: NO_FLASH }} /></head>
       <body className="min-h-full flex flex-col">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            { "@type": "Organization", "@id": `${SITE}#org`, name: "Electrace", url: SITE, logo: `${SITE}/icon.svg` },
+            { "@type": "WebSite", "@id": `${SITE}#site`, name: "Electrace", url: SITE, publisher: { "@id": `${SITE}#org` } },
+          ],
+        }) }} />
         <SiteBackdrop />
         <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
