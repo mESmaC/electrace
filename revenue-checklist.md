@@ -68,10 +68,13 @@ Shorts, embeds, one-way submissions. Nothing below depends on community engageme
 The corpus IS the distribution (business-strategy.md). This phase is also the affiliate
 application prerequisite.
 
-- [ ] Public, statically-generated block explainer pages — indexable, one per block,
-      titled as the question learners search ("how does a buck converter work"),
-      proper meta + OG images + structured data
-- [ ] `sitemap.xml` + Google Search Console + indexing verified
+- [x] Public SSG block explainer pages — ✅ 2026-06-09: question-form titles ("Buck
+      Converter — what it does and how it works"), meta descriptions from explain.md,
+      TechArticle JSON-LD, canonical URLs, the actual schematic rendered, per-part whys,
+      an "Inside the chip" discrete-equivalent section, related-block links, signup CTA.
+      Spec-search wired into the /blocks index too. (Per-block OG images: later polish)
+- [ ] `sitemap.xml` ✅ (already lists block pages) → **human step: add the site to Google
+      Search Console + submit the sitemap + verify indexing**
 - [ ] Author wave 1 blocks (power spine): USB-C 5V input, Li-ion charger,
       reverse-polarity protection, boost converter, input protection (fuse+TVS),
       voltage divider/reference

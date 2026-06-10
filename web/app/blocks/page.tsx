@@ -4,11 +4,15 @@ import BlocksBrowser from "./BlocksBrowser";
 export const metadata = { title: "Block library — Electrace" };
 
 export default function BlocksIndex() {
-  // shape only what the browser needs (and keep it serializable across the server→client boundary)
+  // shape only what the browser needs (and keep it serializable across the server→client boundary);
+  // id/topology/terminals ride along so the client can spec-search ("18V → 5V at 3A") on declared data
   const items = listBlocks().map(({ slug, block, explain }) => ({
     slug,
     explain,
-    block: { name: block.name, glyph: block.glyph, category: block.category, spec: block.spec },
+    block: {
+      id: block.id, name: block.name, version: block.version, glyph: block.glyph,
+      category: block.category, topology: block.topology, spec: block.spec, terminals: block.terminals,
+    },
   }));
 
   return (

@@ -1,18 +1,35 @@
+// The public block-explainer page — the SEO surface AND the product content, generated from the
+// same authored source that powers the editor (business-strategy.md: "the corpus IS the
+// distribution"). Statically generated per block; every section is declared data, never inference.
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { marked } from "marked";
+import { discreteEquivalentFor, type Terminal } from "@electrace/core";
 import { listBlocks, loadBlock, fmtSpec, type LoadedBlock } from "@/lib/blocks";
-import type { Terminal } from "@electrace/core";
+import SchematicPreview from "@/app/editor/SchematicPreview";
 
 export function generateStaticParams() {
   return listBlocks().map((b) => ({ slug: b.slug }));
 }
 
+/** First explain.md paragraph, de-markdown'd — the meta description learners actually search for. */
+function summary(explain: string): string {
+  const para = explain.split(/\n\s*\n/).map((p) => p.trim()).find((p) => p && !p.startsWith("#")) ?? "";
+  return para.replace(/[*_`>#[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
-    const { block } = loadBlock(slug);
-    return { title: `${block.name} — Electrace block` };
+    const { block, explain } = loadBlock(slug);
+    const title = `${block.name} — what it does and how it works`;
+    const description = summary(explain) || `${block.name}: a self-explaining circuit block on Electrace.`;
+    return {
+      title: `${title} — Electrace`,
+      description,
+      alternates: { canonical: `https://electrace.net/blocks/${slug}` },
+      openGraph: { title, description, type: "article" },
+    };
   } catch {
     return {};
   }
@@ -35,9 +52,25 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
   }
   const { block, explain } = data!;
   const html = await marked.parse(explain);
+  // the chips inside this block that have an authored discrete equivalent — the "nothing is a
+  // black box" payoff, rendered right on the public page
+  const discretes = (block.schematic?.parts ?? [])
+    .flatMap((p) => { const eq = discreteEquivalentFor(p.part); return eq ? [{ part: p, eq }] : []; });
+  const related = listBlocks().filter((b) => b.slug !== slug && b.block.category === block.category).slice(0, 4);
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline: `${block.name} — what it does and how it works`,
+    description: summary(explain),
+    author: { "@type": "Organization", name: "Electrace" },
+    publisher: { "@type": "Organization", name: "Electrace", url: "https://electrace.net" },
+    mainEntityOfPage: `https://electrace.net/blocks/${slug}`,
+  };
 
   return (
     <main className="mx-auto max-w-5xl px-7 py-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <Link href="/blocks" className="text-sm text-faint hover:text-dim">← Block library</Link>
 
       <header className="mt-5 flex items-start gap-4 border-b border-border pb-7">
@@ -58,6 +91,13 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
           </div>
         </div>
       </header>
+
+      {block.layout && (
+        <figure className="mt-8 max-w-3xl">
+          <SchematicPreview blockId={block.id} layout={block.layout} height={200} />
+          <figcaption className="mt-2 text-[12.5px] text-faint">The actual schematic inside this block — every part is explained below.</figcaption>
+        </figure>
+      )}
 
       <article className="prose-block mt-8 max-w-3xl" dangerouslySetInnerHTML={{ __html: html }} />
 
@@ -91,6 +131,19 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
         </>
       ) : null}
 
+      {discretes.map(({ part, eq }) => (
+        <section key={part.ref} className="mt-10">
+          <h2 className="text-xl font-bold">Inside the chip: {eq.name}</h2>
+          <p className="mt-1 text-[13px] text-faint">What {part.ref} actually does, drawn out in discrete parts — the same view the editor&apos;s &ldquo;break into discrete&rdquo; shows.</p>
+          {eq.layout && (
+            <div className="mt-3 max-w-3xl">
+              <SchematicPreview blockId={`${block.id}::discrete:${eq.ic}`} layout={eq.layout} height={170} />
+            </div>
+          )}
+          {eq.note && <p className="mt-3 max-w-3xl text-sm leading-relaxed text-dim">{eq.note}</p>}
+        </section>
+      ))}
+
       {block.limits?.length ? (
         <>
           <h2 className="mt-10 text-xl font-bold">Limits &amp; gotchas</h2>
@@ -105,7 +158,29 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
         </>
       ) : null}
 
-      <div className="mt-12 flex gap-3 rounded-xl border border-dashed border-border bg-surface px-4 py-3 text-sm text-dim">
+      <div className="mt-12 flex flex-wrap items-center gap-4 rounded-2xl border border-accent/30 bg-accent/10 px-5 py-4">
+        <div className="min-w-[240px] flex-1">
+          <div className="text-[15px] font-bold text-text">Use this block in a real design</div>
+          <div className="mt-0.5 text-[13px] text-dim">Drop it on a canvas, wire it up, and watch the live checks — free, no card.</div>
+        </div>
+        <Link href="/signup" className="rounded-xl bg-accent px-4 py-2 text-[14px] font-semibold text-white hover:opacity-90">Start designing →</Link>
+      </div>
+
+      {related.length > 0 && (
+        <nav className="mt-10">
+          <h2 className="text-[13px] font-bold uppercase tracking-wide text-faint">Related blocks</h2>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {related.map((r) => (
+              <Link key={r.slug} href={`/blocks/${r.slug}`}
+                className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[13px] text-dim transition hover:border-accent hover:text-text">
+                {r.block.glyph ?? "▦"} {r.block.name}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
+
+      <div className="mt-10 flex gap-3 rounded-xl border border-dashed border-border bg-surface px-4 py-3 text-sm text-dim">
         <span className="text-accent">✦</span>
         <span>This page is generated from the block&apos;s source — the same content powers the editor&apos;s explanations and live checks.</span>
       </div>

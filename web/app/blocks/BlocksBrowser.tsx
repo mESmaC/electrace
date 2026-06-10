@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { searchBlocks, type Block } from "@electrace/core";
 
-type Item = { slug: string; explain?: string; block: { name: string; glyph?: string; category?: string; spec?: Record<string, unknown> } };
+type Item = { slug: string; explain?: string; block: Block };
 
 // inlined from lib/blocks (that module imports node:fs, so it can't be pulled into a client bundle)
 function fmtSpec(v: unknown): string {
@@ -28,9 +29,12 @@ export default function BlocksBrowser({ items }: { items: Item[] }) {
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    // spec-search on declared numbers ("18V → 5V at 3A") joins plain text search — union of both
+    const specHits = needle ? new Set(searchBlocks(items.map((i) => i.block), needle).map((m) => m.block)) : null;
     return items.filter((i) => {
       if (cat !== "All" && i.block.category !== cat) return false;
       if (!needle) return true;
+      if (specHits?.has(i.block)) return true;
       const hay = `${i.block.name} ${i.block.category ?? ""} ${i.explain ?? ""} ${Object.keys(i.block.spec ?? {}).join(" ")}`.toLowerCase();
       return hay.includes(needle);
     });
@@ -42,7 +46,7 @@ export default function BlocksBrowser({ items }: { items: Item[] }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search blocks…"
+          placeholder={'Search — or a spec like "18V → 5V at 3A"'}
           className="w-64 rounded-lg border border-border-strong bg-surface px-3.5 py-2 text-sm text-text outline-none focus:border-accent"
         />
         <div className="flex flex-wrap gap-1.5">
