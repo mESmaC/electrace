@@ -334,14 +334,20 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
     const el = svgRef.current; if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault(); const r = el.getBoundingClientRect(), z = zoomRef.current;
-      const mouseWheel = e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 100 && Number.isInteger(e.deltaY));
+      // Normalize deltas across browsers: Firefox reports LINES (deltaMode 1, ±3) where Chrome
+      // reports pixels (±120) — unnormalized, zoom crawled at ~2%/notch in Firefox. And Firefox's
+      // pixel deltas are FRACTIONAL, so the old Number.isInteger mouse-wheel test made the wheel
+      // PAN instead of zoom there. Same fix as the schematic editor.
+      const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 120 : 1;
+      const dx = e.deltaX * k, dy = e.deltaY * k;
+      const mouseWheel = e.deltaMode !== 0 || (dx === 0 && Math.abs(dy) >= 80);
       if (e.ctrlKey || mouseWheel) {
-        const pinch = e.ctrlKey && Math.abs(e.deltaY) < 50;
-        const nz = clamp(z * Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * (pinch ? 0.02 : 0.008)), 0.5, 40);
+        const pinch = e.ctrlKey && Math.abs(dy) < 50;
+        const nz = clamp(z * Math.exp(-Math.max(-120, Math.min(120, dy)) * (pinch ? 0.02 : 0.008)), 0.5, 40);
         const ox = e.clientX - r.left, oy = e.clientY - r.top;
         // functional updater reads the latest committed pan (panRef lags un-flushed updates on fast wheels)
         setZoom(nz); setPan((p) => { const cx = p.x + ox / z, cy = p.y + oy / z; return { x: cx - ox / nz, y: cy - oy / nz }; });
-      } else setPan((p) => ({ x: p.x + e.deltaX / z, y: p.y + e.deltaY / z }));
+      } else setPan((p) => ({ x: p.x + dx / z, y: p.y + dy / z }));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);

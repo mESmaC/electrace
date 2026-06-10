@@ -4,7 +4,7 @@
 // connectivity by name (how real multi-sheet schematics read; no global routing needed). Read-only:
 // it's the review/handoff surface — double-click a block's drawing to edit it in its own editor.
 import { useMemo, useRef } from "react";
-import type { Block, ResolvedDesign } from "@electrace/core";
+import { CONNECTOR_CATALOG, type Block, type ResolvedDesign } from "@electrace/core";
 import { SYMBOLS, renderChip, useSymbolStyle, type SymStyle } from "./symbols";
 import {
   type Model, type Sym, ortho, wireAbsPath, pickModel, modelBounds, orientPorts, symDims, normRot, placeLabels,
@@ -33,7 +33,7 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
   const symStyle = useSymbolStyle();
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const { items, sheetW, sheetH } = useMemo(() => {
+  const { items, connItems, sheetW, sheetH } = useMemo(() => {
     // node → net id for the whole design (connector pins included)
     const netOf = new Map<string, { id: string; type: string }>();
     for (const n of resolved.nets) {
@@ -59,14 +59,25 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
       const b = modelBounds(model);
       return [{ ref: inst.ref, name: def.name, model, why, netOfTerm, netTypeOfTerm, bx: b.x, by: b.y, w: b.w, h: b.h, x: 0, y: 0 }];
     });
+    // board I/O: every design-level connector is a region too — a schematic without its
+    // headers/jacks is missing exactly the pins a reviewer checks first
+    const conns = (resolved.design.connectors ?? []).map((c) => {
+      const part = CONNECTOR_CATALOG[c.connector];
+      const pins = (part?.pins ?? []).map((pin) => {
+        const net = netOf.get(`${c.ref}.${pin}`);
+        return { pin, net: net?.id, type: net?.type ?? "signal" };
+      });
+      const w = 90 + Math.max(60, ...pins.map((p) => (p.net ?? "open").length * 7));
+      return { ref: c.ref, name: part?.name ?? c.connector, pins, w, h: pins.length * 22 + 24, x: 0, y: 0 };
+    });
     // simple flow layout: left→right, wrap; titles need headroom
     let x = PAD, y = PAD + 30, rowH = 0;
-    for (const it of raw) {
+    for (const it of [...raw, ...conns]) {
       if (x + it.w + PAD > ROW_W && x > PAD) { x = PAD; y += rowH + PAD + 30; rowH = 0; }
       it.x = x; it.y = y;
       x += it.w + PAD; rowH = Math.max(rowH, it.h);
     }
-    return { items: raw as Item[], sheetW: Math.max(ROW_W, 400), sheetH: y + rowH + PAD };
+    return { items: raw as Item[], connItems: conns, sheetW: Math.max(ROW_W, 400), sheetH: y + rowH + PAD };
   }, [resolved, blockOf]);
 
   const downloadSvg = () => {
@@ -89,7 +100,26 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
       <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" width={sheetW} height={sheetH} viewBox={`0 0 ${sheetW} ${sheetH}`}
         style={{ color: "var(--color-text)", display: "block", minWidth: "100%" }} fontFamily="var(--font-mono)">
         {items.map((it) => <InstanceSheet key={it.ref} it={it} symStyle={symStyle} onOpen={onOpenBlock} />)}
-        {items.length === 0 && <text x={40} y={60} fontSize={13} fill="var(--color-faint)">Nothing placed yet — add blocks on the canvas first.</text>}
+        {connItems.map((c) => (
+          <g key={c.ref} transform={`translate(${c.x},${c.y})`}>
+            <rect x={-14} y={-22} width={c.w + 28} height={c.h + 30} rx={6} fill="none" stroke="var(--color-border)" strokeDasharray="5 4" />
+            <text x={-6} y={-28} fontSize={11.5} fontWeight={700} fill="var(--color-dim)">{c.ref} — {c.name}</text>
+            {/* the connector body + one row per pin, each flying its net flag */}
+            <rect x={0} y={0} width={26} height={c.h - 10} rx={3} fill="var(--color-bg)" stroke="currentColor" strokeWidth={1.5} />
+            {c.pins.map((p, i) => {
+              const py = 14 + i * 22;
+              return (
+                <g key={p.pin}>
+                  <line x1={26} y1={py} x2={48} y2={py} stroke={p.net ? "#46dca6" : "var(--color-faint)"} strokeWidth={1.6} strokeDasharray={p.net ? undefined : "3 3"} />
+                  <text x={13} y={py} fontSize={9} textAnchor="middle" dominantBaseline="middle" fill="currentColor">{p.pin}</text>
+                  <text x={54} y={py} fontSize={10.5} fontWeight={700} dominantBaseline="middle"
+                    fill={p.net ? (NET_COLOR[p.type] ?? "#4c8dff") : "var(--color-faint)"}>{p.net ?? "open"}</text>
+                </g>
+              );
+            })}
+          </g>
+        ))}
+        {items.length === 0 && connItems.length === 0 && <text x={40} y={60} fontSize={13} fill="var(--color-faint)">Nothing placed yet — add blocks on the canvas first.</text>}
       </svg>
     </div>
   );

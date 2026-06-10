@@ -553,7 +553,8 @@ export function placeLabels(model: Model, symStyle: string, extraObstacles: { x:
     if (ON_BODY.has(s.type) || s.chip) {
       const fs = 9;
       const lines = wrapLabel(combined, fs, Math.max(40, own.w - 10));
-      const y = s.chip?.mpn ? cy - 12 : cy;
+      // chips draw their MPN at centre; regulator/op-amp glyphs draw their own text there too
+      const y = s.chip?.mpn || s.type === "regulator" || s.type === "opamp" ? cy - 12 : cy;
       placed.push({ x: cx - blockW(lines, fs) / 2, y: y - blockH(lines, fs) / 2, w: blockW(lines, fs), h: blockH(lines, fs) });
       out.push({ sym: s.id, lines, x: cx, y, fontSize: fs, inside: true });
       continue;

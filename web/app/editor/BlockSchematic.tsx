@@ -209,19 +209,23 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       //  · pinch / ctrl-wheel  → zoom (trackpad pinch sets ctrlKey)
       //  · a mouse wheel       → zoom (line-mode, or big quantized vertical-only steps)
       //  · two-finger trackpad → pan  (everything else: small/fractional, or horizontal)
-      const mouseWheel = e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 100 && Number.isInteger(e.deltaY));
+      // Normalize deltas: Firefox uses LINE mode (±3) and fractional pixel deltas — unnormalized,
+      // zoom crawled and the integer test misrouted the wheel to pan (same fix as the PCB editor).
+      const km = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 120 : 1;
+      const dxn = e.deltaX * km, dyn = e.deltaY * km;
+      const mouseWheel = e.deltaMode !== 0 || (dxn === 0 && Math.abs(dyn) >= 80);
       if (e.ctrlKey || mouseWheel) {
         // pinch sends tiny deltas (needs a steeper curve); a wheel notch sends big ones
-        const pinch = e.ctrlKey && Math.abs(e.deltaY) < 50;
+        const pinch = e.ctrlKey && Math.abs(dyn) < 50;
         const k = pinch ? 0.016 : 0.006; // zoom-per-notch sensitivity (higher = faster zoom)
-        const step = Math.max(-120, Math.min(120, e.deltaY));
+        const step = Math.max(-120, Math.min(120, dyn));
         const nz = clamp(z * Math.exp(-step * k), 0.35, 3.5);
         const ox = e.clientX - r.left, oy = e.clientY - r.top;
         const cx = panRef.current.x + ox / z, cy = panRef.current.y + oy / z;
         setZoom(nz);
         setPan({ x: cx - ox / nz, y: cy - oy / nz });
       } else {
-        setPan((p) => ({ x: p.x + e.deltaX / z, y: p.y + e.deltaY / z }));
+        setPan((p) => ({ x: p.x + dxn / z, y: p.y + dyn / z }));
       }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
