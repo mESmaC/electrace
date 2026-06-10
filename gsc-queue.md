@@ -51,6 +51,10 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 ## Batch 3 (new content)
 
 - [ ] https://www.electrace.net/blocks/optocoupler-input
+- [ ] https://www.electrace.net/calculators/parallel-resistor
+- [ ] https://www.electrace.net/calculators/555-timer
+- [ ] https://www.electrace.net/calculators/ohms-law
+- [ ] https://www.electrace.net/calculators/rc-filter
 
 ## Leave to the sitemap (low intent — submit only if bored)
 

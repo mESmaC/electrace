@@ -8,7 +8,8 @@ import SchematicPreview from "@/app/editor/SchematicPreview";
 
 export interface CalcMeta {
   slug: string; title: string; h1: string; tagline: string;
-  blockSlug: string; faq: { q: string; a: string }[];
+  blockSlug?: string; // omit for pure-math calculators (no natural related block)
+  faq: { q: string; a: string }[];
 }
 
 export function calcMetadata(c: CalcMeta) {
@@ -20,7 +21,7 @@ export function calcMetadata(c: CalcMeta) {
 }
 
 export default function CalcShell({ c, prose, children }: { c: CalcMeta; prose: React.ReactNode; children: React.ReactNode }) {
-  const b = loadBlock(c.blockSlug);
+  const b = c.blockSlug ? loadBlock(c.blockSlug) : null;
   const faqLd = {
     "@context": "https://schema.org", "@type": "FAQPage",
     mainEntity: c.faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
@@ -34,13 +35,15 @@ export default function CalcShell({ c, prose, children }: { c: CalcMeta; prose: 
 
       <div className="mt-8">{children}</div>
 
-      <div className="mt-10 rounded-2xl border border-border bg-surface p-5">
-        <div className="mb-1 flex items-baseline justify-between gap-3">
-          <h2 className="text-[15px] font-bold">The circuit this computes</h2>
-          <Link href={`/blocks/${c.blockSlug}`} className="text-[13px] font-semibold text-accent hover:underline">{b.block.name} — fully explained →</Link>
+      {b && (
+        <div className="mt-10 rounded-2xl border border-border bg-surface p-5">
+          <div className="mb-1 flex items-baseline justify-between gap-3">
+            <h2 className="text-[15px] font-bold">The circuit this computes</h2>
+            <Link href={`/blocks/${c.blockSlug}`} className="text-[13px] font-semibold text-accent hover:underline">{b.block.name} — fully explained →</Link>
+          </div>
+          <SchematicPreview blockId={b.block.id} layout={b.block.layout} height="fit" />
         </div>
-        <SchematicPreview blockId={b.block.id} layout={b.block.layout} height="fit" />
-      </div>
+      )}
 
       <div className="prose-block mt-10 max-w-3xl">{prose}</div>
 

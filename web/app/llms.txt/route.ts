@@ -35,7 +35,7 @@ export function GET() {
     "",
     "Interactive calculators that also show the real schematic and link to its full explainer.",
     "",
-    ...["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain"].map(
+    ...["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain", "parallel-resistor", "555-timer", "rc-filter", "ohms-law"].map(
       (c) => `- [${c.replace(/-/g, " ")}](${SITE}/calculators/${c})`),
     "",
     "## Product",

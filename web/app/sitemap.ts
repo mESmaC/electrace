@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { listBlocks } from "@/lib/blocks";
 import { COMPARISONS } from "@/lib/comparisons";
 
-const CALC_SLUGS = ["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain"];
+const CALC_SLUGS = ["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain", "parallel-resistor", "555-timer", "rc-filter", "ohms-law"];
 
 const BASE = "https://www.electrace.net";
 const NOW = new Date();
