@@ -19,7 +19,7 @@ import { modelToLayout, layoutToModel } from "./schematic-model";
 import { track } from "@/lib/telemetry";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
-import TelemetryToggle from "./TelemetryToggle";
+import ReportBug from "./ReportBug";
 import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import PcbEditor from "./PcbEditor";
@@ -1173,7 +1173,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           {savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
           <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
           <SymbolStyleToggle />
-          <TelemetryToggle />
+          <ReportBug getDesign={() => designForAnalysis.current} />
         </div>
         <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]/80 px-3 py-1.5 text-[11px] text-[var(--color-faint)]">
           Drag between ports to wire · select a wire + Delete to remove

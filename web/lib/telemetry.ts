@@ -1,6 +1,7 @@
-// Consent-gated local capture for editor telemetry. Default OFF — `track()` is a no-op until
-// the user opts in. Events buffer to localStorage (capped) in the canonical core shape, ready
-// to inspect, export, or later ship to a collection endpoint. No PII: only structured ids/types.
+// Always-on LOCAL capture — the Shadowplay model. A rolling buffer of editor events lives in
+// localStorage (capped, device-only, excluded from cloud sync via NO_MIRROR) and is transmitted
+// in exactly one case: the user presses "Report a bug" and confirms a dialog that shows what's
+// attached. No PII in events: only structured ids/types.
 import type { ElectraceEvent, CapturedEvent } from "@electrace/core";
 
 const CONSENT_KEY = "electrace:telemetry";
@@ -27,7 +28,7 @@ export function setTelemetry(on: boolean): void {
 
 /** Record an event — a no-op unless the user has opted in. */
 export function track(ev: ElectraceEvent): void {
-  if (typeof window === "undefined" || !telemetryEnabled()) return;
+  if (typeof window === "undefined") return;
   try {
     const arr: CapturedEvent[] = JSON.parse(localStorage.getItem(STORE_KEY) ?? "[]");
     arr.push({ t: Date.now(), session: sessionId(), ev });

@@ -66,3 +66,15 @@ export const sparkyUsage = pgTable("sparky_usage", {
   costUsd: numeric("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("sparky_usage_owner_time_idx").on(t.ownerId, t.createdAt)]);
+
+/** Bug reports — inserted only by /api/feedback (service role) on the user's explicit send.
+ *  RLS enabled with no policies: invisible to the public API. */
+export const bugReports = pgTable("bug_reports", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  email: text("email"),
+  description: text("description").notNull(),
+  events: jsonb("events"),
+  design: jsonb("design"),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

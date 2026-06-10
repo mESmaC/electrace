@@ -53,8 +53,8 @@ export default function PrivacyPage() {
         <p>We use privacy-respecting, aggregate analytics (page views and web performance) to understand what&apos;s used and what&apos;s slow. No advertising identifiers, no cross-site tracking.</p>
       </Section>
 
-      <Section title="Local-only telemetry">
-        <p>The editor has an opt-in &quot;capture&quot; toggle (off by default) that records anonymized editor events. These stay <strong>in your browser</strong> — they are never transmitted — and you can inspect, export, or clear them at any time.</p>
+      <Section title="Bug reports and the local capture buffer">
+        <p>The editor keeps a short rolling log of anonymized editor events (actions, not content) <strong>on your device only</strong> — think of it like a game recorder&apos;s replay buffer. It is transmitted in exactly one case: you press <strong>Report a bug</strong> and confirm a dialog that lists everything being attached — the event log, optionally a snapshot of the current design, and your browser version. You can view the exact data before sending, and nothing is ever sent without that confirmation.</p>
       </Section>
 
       <Section title="Contact">
