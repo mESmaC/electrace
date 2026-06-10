@@ -12,6 +12,11 @@ export interface ConnectorPart {
 const numbered = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1));
 
 export const CONNECTOR_CATALOG: Record<string, ConnectorPart> = {
+  "jst-ph-2": { id: "jst-ph-2", name: "JST PH 2-pin (LiPo)", pins: numbered(2), footprint: "JST_PH_1x02_P2.00mm" },
+  "jst-xh-2": { id: "jst-xh-2", name: "JST XH 2-pin", pins: numbered(2), footprint: "JST_XH_1x02_P2.50mm" },
+  "jst-xh-3": { id: "jst-xh-3", name: "JST XH 3-pin", pins: numbered(3), footprint: "JST_XH_1x03_P2.50mm" },
+  "jst-xh-4": { id: "jst-xh-4", name: "JST XH 4-pin", pins: numbered(4), footprint: "JST_XH_1x04_P2.50mm" },
+  "audio-3.5": { id: "audio-3.5", name: "Audio jack 3.5 mm (TRS)", pins: ["tip", "ring", "sleeve"], footprint: "Jack_3.5mm_TRS" },
   "hdr-2":    { id: "hdr-2",    name: "Header 1×2",   pins: numbered(2),  footprint: "PinHeader_1x02_P2.54mm" },
   "hdr-3":    { id: "hdr-3",    name: "Header 1×3",   pins: numbered(3),  footprint: "PinHeader_1x03_P2.54mm" },
   "hdr-4":    { id: "hdr-4",    name: "Header 1×4",   pins: numbered(4),  footprint: "PinHeader_1x04_P2.54mm" },

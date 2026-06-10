@@ -85,6 +85,9 @@ export function connectorFootprint(id: string, pins: string[]): { footprint: Foo
   else if (id.startsWith("hdr-")) footprint = header(n);
   else if (id.startsWith("screw-")) footprint = header(n, 5.0);
   else if (id === "barrel") footprint = SPECIFIC["DCJACK"]();
+  else if (id.startsWith("jst-ph")) footprint = header(n, 2.0);   // JST PH: 2.0 mm pitch
+  else if (id.startsWith("jst-xh")) footprint = header(n, 2.5);   // JST XH: 2.5 mm pitch
+  else if (id === "audio-3.5") footprint = header(n, 2.54);       // TRS jack stand-in: inline THT
   else if (id === "rj45") footprint = headerGrid(2, Math.ceil(n / 2));
   else footprint = header(n); // usb / unknown — placeholder pad row (real USB lands are a later refinement)
   // map each connector pin (in catalog order) to pad number = its position
@@ -189,6 +192,20 @@ function infer(type: string, n: number): Footprint {
     case "relay": return n > 5 ? dip(n % 2 ? n + 1 : n) : header(n || 5); // multi-pin relay: pads match its pins
     case "crystal": return SPECIFIC["HC-49"]();
     case "battery": case "source": return header(2);
+    // the long tail — sensible physical defaults instead of a blind 0805
+    case "fuse": return chip("1206");
+    case "thermistor": return chip("0603");
+    case "ldr": case "phototransistor": return radial(5);     // classic 5 mm THT photo devices
+    case "varistor": return radial(7);
+    case "scr": case "triac": return header(3, 2.54);         // TO-220 leads: 3 inline at 2.54 mm
+    case "jfet": return SPECIFIC["SOT-23"]();
+    case "diac": return SPECIFIC["SOD-123"]();
+    case "switch": return n <= 2 ? header(2) : dual("TACT-6x6", 4, 4.5, 1.0, 1.4, 6.5); // 6 mm tact
+    case "buzzer": return radial(12);
+    case "motor": case "speaker": case "lamp": return header(2); // off-board: wire pads
+    case "transformer": return header(n || 4, 2.54);
+    case "testpoint": return header(1);
+    case "antenna": return chip("1206");                       // chip antenna stand-in
     default: return chip("0805");
   }
 }
