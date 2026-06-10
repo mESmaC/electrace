@@ -54,6 +54,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/" aria-label="Electrace home"><Logo className="text-[17px]" /></Link>
             <Link href="/projects" className="text-sm text-dim hover:text-text">Projects</Link>
             <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
+            <Link href="/calculators" className="text-sm text-dim hover:text-text">Calculators</Link>
             <Link href="/pricing" className="text-sm text-dim hover:text-text">Pricing</Link>
             <Link href="/help" className="text-sm text-dim hover:text-text">Help</Link>
             <div className="ml-auto flex items-center gap-4">
