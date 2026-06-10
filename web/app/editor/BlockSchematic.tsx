@@ -13,7 +13,7 @@ import { confirmDialog } from "@/app/ui/dialog";
 import { deriveSchematicNets, schematicInsights, discreteEquivalentFor, type InsightComponent, type SchematicLayout, type Terminal, type Block, type NetType } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type WireTap, type Endpoint, type Sym, type Wire, type Model,
-  isPin, isTap, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin, nearestWirePoint, wireAtPoint, pinAtCoord,
+  isPin, isTap, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin, nearestWirePoint, wireAtPoint, pinAtCoord, orientPorts, placeLabels,
   PROFILES, type ChipSpec,
 } from "./schematic-model";
 
@@ -82,6 +82,19 @@ function computeFit(m: Model, sz: { w: number; h: number }) {
 export default function BlockSchematic({ blockId, initial, terminals = [], block }: { blockId: string; initial?: SchematicLayout; terminals?: Terminal[]; block?: Block }) {
   const LS = `electrace:blocksch:${blockId}`;
   const [model, setModel] = useState<Model>({ syms: [], wires: [] });
+  // Ports ALWAYS face their wire — normalize the model itself whenever it changes, so a port
+  // placed backwards (Sparky's habit, or a paste) snaps to face its connection everywhere: the
+  // canvas, previews, and what gets saved. orientPorts is idempotent; iterate to a fixpoint and
+  // only write back when a rotation actually changed (no render loop).
+  useEffect(() => {
+    let m = model;
+    for (let i = 0; i < 3; i++) {
+      const o = orientPorts(m);
+      if (o.syms.every((s, j) => normRot(s.rot ?? 0) === normRot(m.syms[j].rot ?? 0))) break;
+      m = o;
+    }
+    if (m !== model) setModel(m);
+  }, [model]);
   // selection is a set of namespaced keys: "sym:<id>" / "wire:<id>"
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [draw, setDraw] = useState<{ a: PinRef; pts: Pt[] } | null>(null);
@@ -793,6 +806,10 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
   }, [model, terminals]);
   const { junctions, crossings, nets, pinNet, wireState, wireColor, shortCount, realNets, termStatus, unwiredTerms, termOf, portConnected, netLabel, externalTerms, problems, probCount } = derived;
 
+  // collision-avoided ref/value placement (memoized with the rest of the geometry — it scans
+  // every symbol box and wire segment, so keep it off the cursor/pan path)
+  const labels = useMemo(() => placeLabels(model, symStyle), [model, symStyle]);
+
   // Propagate off-board terminals onto the block definition (user blocks only), so the design-level
   // analyzer knows can_power & friends are externally driven. Guarded to avoid a save→reload loop.
   const extKey = [...externalTerms].sort().join("|");
@@ -955,12 +972,8 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                     );
                   })}
                 </g>
-                {/* label stays upright, above the rotated bounding box */}
-                {(s.ref || s.value) && (
-                  <text x={(bb.minX + bb.maxX) / 2} y={bb.minY - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={isPort ? 11 : 10} fontWeight={isPort ? 700 : 400} fill={labelFill}>
-                    {s.ref}{s.value ? ` ${s.value}` : ""}
-                  </text>
-                )}
+                {/* ref/value labels render in a dedicated layer below — collision-avoided, wrapped,
+                    with leader lines when pushed away (see placeLabels in schematic-model) */}
                 {/* every pin gets an upright indicator (its function name, else its number),
                     nudged INWARD off the pin's edge so rows of chip pins stay aligned */}
                 {!isPort && d.pins.map((p) => {
@@ -982,6 +995,27 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
           {junctions.map((j, i) => (
             <circle key={`j${i}`} cx={j.x} cy={j.y} r={4.5} fill="#4c8dff" pointerEvents="none" />
           ))}
+
+          {/* ref/value labels — collision-avoided against symbols, wires, and each other; wrapped
+              past the width budget; leader-lined back to their part when pushed away */}
+          {labels.map((L, i) => {
+            const lineH = L.fontSize + 2.5;
+            const fill = L.port
+              ? (NET_COLOR[termOf(L.sym)?.type ?? ""] ?? "#4c8dff")
+              : L.inside ? "var(--color-text)" : "currentColor";
+            return (
+              <g key={`lbl${i}`} pointerEvents="none">
+                {L.leader && (
+                  <line x1={L.leader.x1} y1={L.leader.y1} x2={L.leader.x2} y2={L.leader.y2}
+                    stroke="var(--color-faint)" strokeWidth={1} strokeDasharray="2 3" opacity={0.55} />
+                )}
+                <text x={L.x} y={L.y - ((L.lines.length - 1) * lineH) / 2} textAnchor="middle" dominantBaseline="middle"
+                  fontFamily="var(--font-mono)" fontSize={L.fontSize} fontWeight={L.port ? 700 : 400} fill={fill}>
+                  {L.lines.map((ln, k) => <tspan key={k} x={L.x} dy={k ? lineH : 0}>{ln}</tspan>)}
+                </text>
+              </g>
+            );
+          })}
 
           {bandRect && (
             <rect x={bandRect.x} y={bandRect.y} width={bandRect.w} height={bandRect.h}

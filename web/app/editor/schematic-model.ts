@@ -415,6 +415,161 @@ export function pickModel(blockId: string, layout?: SchematicLayout): Model {
   return layoutToModel(layout);
 }
 
+// ── label placement ────────────────────────────────────────────────────────
+// Labels (ref + value) must never sit on other text, symbols, or wires. Strategy:
+//  · big-bodied parts (chips, ICs, regulators, op-amps) carry their label ON the body;
+//  · IEC box-style passives (resistor/fuse/ferrite, drawn horizontal) take the VALUE inside
+//    the box — that's what the box is for — with the ref placed beside;
+//  · everything else tries a ring of candidate spots around the symbol (preferring the side
+//    away from a port's wire) and takes the first collision-free one;
+//  · when the winning spot is far from the symbol, the label gets a light dotted leader line
+//    back to its component so ownership stays obvious.
+
+export interface PlacedLabel {
+  sym: string;
+  lines: string[];            // word-wrapped — long labels break instead of running over neighbours
+  x: number; y: number;       // anchor: textAnchor=middle, first line's baseline derived from these
+  fontSize: number;
+  inside?: boolean;           // mounted on the body
+  port?: boolean;             // styling hint (ports colour their label by net type)
+  leader?: { x1: number; y1: number; x2: number; y2: number };
+}
+
+type LRect = { x: number; y: number; w: number; h: number };
+const lrOverlap = (a: LRect, b: LRect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+const labelW = (text: string, fs: number) => Math.max(10, text.length * fs * 0.62);
+const LINE_H = (fs: number) => fs + 2.5;
+
+/** Greedy word-wrap to a pixel budget — a long label becomes a small stack, not a runway. */
+export function wrapLabel(text: string, fs: number, maxW = 86): string[] {
+  if (labelW(text, fs) <= maxW) return [text];
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (cur && labelW(next, fs) > maxW) { lines.push(cur); cur = w; }
+    else cur = next;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+const blockW = (lines: string[], fs: number) => Math.max(...lines.map((l) => labelW(l, fs)));
+const blockH = (lines: string[], fs: number) => lines.length * LINE_H(fs);
+const ON_BODY = new Set(["chip", "ic", "regulator", "opamp", "relay", "ssr"]);
+const IEC_BOX = new Set(["resistor", "fuse", "ferrite", "thermistor", "ldr", "varistor"]);
+
+/** Where a segment from `from` toward the centre of `r` crosses r's edge (for leader endpoints). */
+function edgeToward(r: LRect, from: Pt): Pt {
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const dx = cx - from.x, dy = cy - from.y;
+  let t = 1;
+  if (dx) t = Math.min(t, Math.max((r.x - from.x) / dx, (r.x + r.w - from.x) / dx));
+  if (dy) t = Math.min(t, Math.max((r.y - from.y) / dy, (r.y + r.h - from.y) / dy));
+  return { x: from.x + dx * Math.max(0, t), y: from.y + dy * Math.max(0, t) };
+}
+
+export function placeLabels(model: Model, symStyle: string): PlacedLabel[] {
+  // obstacles: every symbol's (inflated) box and every wire segment as a thin rect
+  const symRects = new Map<string, LRect>();
+  for (const s of model.syms) {
+    const d = symDims(s);
+    if (!d) continue;
+    const b = symBounds(s, d.w, d.h);
+    symRects.set(s.id, { x: b.minX - 2, y: b.minY - 2, w: b.maxX - b.minX + 4, h: b.maxY - b.minY + 4 });
+  }
+  const wireRects: LRect[] = [];
+  for (const w of model.wires) {
+    for (const seg of segmentsOf(expand(wireAbsPath(model.syms, w, model.wires)))) {
+      wireRects.push(seg.h
+        ? { x: Math.min(seg.x1, seg.x2) - 1, y: seg.y1 - 3, w: Math.abs(seg.x2 - seg.x1) + 2, h: 6 }
+        : { x: seg.x1 - 3, y: Math.min(seg.y1, seg.y2) - 1, w: 6, h: Math.abs(seg.y2 - seg.y1) + 2 });
+    }
+  }
+  const placed: LRect[] = [];
+  const out: PlacedLabel[] = [];
+  const collides = (r: LRect, ownId: string): boolean =>
+    placed.some((p) => lrOverlap(r, p)) ||
+    wireRects.some((wr) => lrOverlap(r, wr)) ||
+    [...symRects.entries()].some(([id, o]) => id !== ownId && lrOverlap(r, o));
+
+  /** Try candidate anchor points around `own`; commit the first free spot (or the last, with a leader). */
+  const placeAround = (s: Sym, text: string, fs: number, isPort: boolean, pinSide?: number) => {
+    const own = symRects.get(s.id)!;
+    const lines = wrapLabel(text, fs);
+    const w = blockW(lines, fs), h = blockH(lines, fs);
+    const cx = own.x + own.w / 2, cy = own.y + own.h / 2;
+    // direction order: away from a port's pin first, else above-first (the classic spot)
+    const dirs: [number, number][] = [[0, -1], [0, 1], [1, 0], [-1, 0], [1, -1], [-1, -1], [1, 1], [-1, 1]];
+    if (isPort && pinSide != null) {
+      // pin side by rotation: 0 → left, 180 → right, 90 → top, 270 → bottom — label goes opposite
+      const away: [number, number] = pinSide === 0 ? [1, 0] : pinSide === 180 ? [-1, 0] : pinSide === 90 ? [0, 1] : [0, -1];
+      dirs.sort((a, b) => (b[0] * away[0] + b[1] * away[1]) - (a[0] * away[0] + a[1] * away[1]));
+    }
+    let last: { x: number; y: number } | null = null;
+    for (const dist of [5, 12, 22, 34, 50]) {
+      for (const [dx, dy] of dirs) {
+        const ax = cx + dx * (own.w / 2 + dist + (dx ? w / 2 : 0));
+        const ay = cy + dy * (own.h / 2 + dist + (dy ? h / 2 : 0));
+        const r: LRect = { x: ax - w / 2, y: ay - h / 2, w, h };
+        last = { x: ax, y: ay };
+        if (!collides(r, s.id)) {
+          placed.push(r);
+          const far = dist >= 22;
+          out.push({ sym: s.id, lines, x: ax, y: ay, fontSize: fs, port: isPort, ...(far ? { leader: leaderFor(r, own) } : {}) });
+          return;
+        }
+      }
+    }
+    // nowhere is free — take the farthest spot anyway, with a leader so it still reads as owned
+    if (last) {
+      const r: LRect = { x: last.x - w / 2, y: last.y - h / 2, w, h };
+      placed.push(r);
+      out.push({ sym: s.id, lines, x: last.x, y: last.y, fontSize: fs, port: isPort, leader: leaderFor(r, own) });
+    }
+  };
+  const leaderFor = (label: LRect, own: LRect) => {
+    const from = edgeToward(label, { x: own.x + own.w / 2, y: own.y + own.h / 2 });
+    const to = edgeToward(own, from);
+    return { x1: from.x, y1: from.y, x2: to.x, y2: to.y };
+  };
+
+  for (const s of model.syms) {
+    const d = symDims(s);
+    if (!d) continue;
+    const isPort = s.type === "port";
+    const combined = [s.ref, s.value].filter(Boolean).join(" ");
+    if (!combined) continue;
+    const own = symRects.get(s.id)!;
+    const cx = own.x + own.w / 2, cy = own.y + own.h / 2;
+
+    // 1 · big-bodied parts: label ON the body (both standards) — nothing else lives there.
+    // Chips already draw their MPN at body centre, so their ref/value stack sits just above it.
+    if (ON_BODY.has(s.type) || s.chip) {
+      const fs = 9;
+      const lines = wrapLabel(combined, fs, Math.max(40, own.w - 10));
+      const y = s.chip?.mpn ? cy - 12 : cy;
+      placed.push({ x: cx - blockW(lines, fs) / 2, y: y - blockH(lines, fs) / 2, w: blockW(lines, fs), h: blockH(lines, fs) });
+      out.push({ sym: s.id, lines, x: cx, y, fontSize: fs, inside: true });
+      continue;
+    }
+
+    // 2 · IEC box passives drawn horizontal: the VALUE belongs inside the box; ref beside it
+    const rot = normRot(s.rot ?? 0);
+    const horizontal = rot === 0 || rot === 180;
+    if (symStyle === "iec" && IEC_BOX.has(s.type) && horizontal && s.value && labelW(s.value, 8) <= own.w - 6) {
+      const fs = 8;
+      out.push({ sym: s.id, lines: [s.value], x: cx, y: cy, fontSize: fs, inside: true });
+      if (s.ref) placeAround(s, s.ref, 9, false);
+      continue;
+    }
+
+    // 3 · everything else: collision-avoided ring placement
+    placeAround(s, combined, isPort ? 11 : 10, isPort, isPort ? rot : undefined);
+  }
+  return out;
+}
+
 /** Bounding box of a model's symbols + wire vertices (for fit-to-view). */
 export function modelBounds(model: Model): { x: number; y: number; w: number; h: number } {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

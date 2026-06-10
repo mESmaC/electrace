@@ -600,6 +600,42 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
       <circle cx={v.where.x} cy={v.where.y} r={0.3} fill={SEV[v.severity]} />
     </g>
   )), [drc]); // eslint-disable-line react-hooks/exhaustive-deps
+  // silkscreen ref placement: refs must not land on neighbouring parts or each other — try
+  // above / below / right / left at growing gaps and take the first clear spot (the nudge a
+  // board designer does by hand). Silk over traces is normal; over PADS or other silk is not.
+  const silkPos = useMemo(() => {
+    type R = { x: number; y: number; w: number; h: number };
+    const hit = (a: R, b: R) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    const boxes = project.components.map((c, i) => {
+      const pl = placeOf(c.ref, i);
+      const upright = (((pl.rot % 180) + 180) % 180) < 45;
+      const w = upright ? c.w : c.h, h = upright ? c.h : c.w;
+      return { c, pl, r: { x: pl.x - w / 2, y: pl.y - h / 2, w, h } as R };
+    });
+    const taken: R[] = [];
+    const out = new Map<string, { x: number; y: number }>();
+    boxes.forEach(({ c, pl, r }, i) => {
+      const text = c.ref.split("/").pop() ?? c.ref;
+      const w = Math.max(1.5, text.length * 1.4 * 0.62), h = 1.6;
+      let found: { x: number; y: number } | null = null;
+      for (const gap of [0.55, 1.5, 2.8]) {
+        for (const [x, y] of [
+          [pl.x, r.y - gap - h / 2], [pl.x, r.y + r.h + gap + h / 2],
+          [r.x + r.w + gap + w / 2, pl.y], [r.x - gap - w / 2, pl.y],
+        ] as [number, number][]) {
+          const lr: R = { x: x - w / 2, y: y - h / 2, w, h };
+          if (!taken.some((t) => hit(lr, t)) && !boxes.some((b, j) => j !== i && hit(lr, b.r))) { found = { x, y }; taken.push(lr); break; }
+        }
+        if (found) break;
+      }
+      const spot = found ?? { x: pl.x, y: r.y - 0.55 - h / 2 }; // worst case: classic above
+      if (!found) taken.push({ x: spot.x - w / 2, y: spot.y - h / 2, w, h });
+      out.set(c.ref, spot);
+    });
+    return out;
+  // placeOf reads places/autoPlaces; both are captured by the deps below
+  }, [project.components, places, autoPlaces]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const btn = (active: boolean) => `h-7 inline-flex items-center justify-center rounded-md px-2.5 text-[11.5px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[var(--color-link)] ring-1 ring-inset ring-[#356bb0]" : "bg-[#161f30] text-[var(--color-dim)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
   const seg = (active: boolean) => `h-6 inline-flex items-center justify-center rounded px-2 text-[11px] font-medium transition-colors ${active ? "bg-[#1b3a66] text-[var(--color-link)]" : "text-[var(--color-faint)] hover:bg-[#1d2840] hover:text-[var(--color-text)]"}`;
   const SEGBOX = "flex items-center gap-0.5 rounded-md bg-[#11192699] p-0.5 ring-1 ring-inset ring-[#212c42]";
@@ -860,7 +896,9 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
                     {(() => { const p1 = c.pads.find((pd) => pd.id === "1"); return p1 ? <circle cx={p1.x - p1.w / 2 - 0.45} cy={p1.y} r="0.22" fill={COL.silk} pointerEvents="none" /> : null; })()}
                   </g>
                 </g>
-                {vis.silk !== false && <text x={pl.x} y={pl.y - Math.max(c.w, c.h) / 2 - 0.7} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="1.4" fill={on ? COL.sel : COL.silk} pointerEvents="none">{c.ref.split("/").pop()}</text>}
+                {vis.silk !== false && (() => { const sp = silkPos.get(c.ref) ?? { x: pl.x, y: pl.y - Math.max(c.w, c.h) / 2 - 0.7 }; return (
+                  <text x={sp.x} y={sp.y} textAnchor="middle" dominantBaseline="central" fontFamily="var(--font-mono)" fontSize="1.4" fill={on ? COL.sel : COL.silk} pointerEvents="none">{c.ref.split("/").pop()}</text>
+                ); })()}
               </g>
             );
           })}
