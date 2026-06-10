@@ -1,0 +1,11 @@
+{
+  "duration": 6,
+  "tracks": [
+    { "from": 0, "to": 6, "set": { "title": "Why won't USB-C give you 5V?" } },
+    { "from": 0.3, "to": 1.2, "tween": "symbolsShown", "start": 0, "end": 12 },
+    { "from": 1.0, "to": 4.0, "tween": "wireProgress", "start": 0, "end": 14 },
+    { "from": 2.0, "to": 4.5, "set": { "caption": "These two 5.1k resistors are the introduction." } },
+    { "from": 3.2, "to": 4.5, "set": { "highlight": "R1" } },
+    { "from": 4.5, "to": 6, "set": { "cta": true } }
+  ]
+}

@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   // @electrace/core is a local package; it's installed as a real copy (see .npmrc
   // install-links=true) so it resolves within the project root without widening the
   // Turbopack workspace root (which would make dev watch the whole parent tree).
+  devIndicators: false, // the dev badge would burn into Shorts frames rendered off the dev server
   transpilePackages: ["@electrace/core"],
   allowedDevOrigins: lanOrigins,
   // Baseline security headers (the known-hardening set; full CSP deliberately deferred —
