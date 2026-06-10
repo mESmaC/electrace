@@ -5,13 +5,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { SchematicLayout } from "@electrace/core";
 import { SYMBOLS, renderChip, useSymbolStyle } from "@/app/editor/symbols";
-import { endAbs, ortho, layoutToModel, modelBounds, symDims, orientPorts, type Model } from "@/app/editor/schematic-model";
+import { endAbs, ortho, layoutToModel, modelBounds, symDims, orientPorts, placeLabels, type Model } from "@/app/editor/schematic-model";
 
 export interface FrameState {
   title?: string;
   caption?: string;
   wireProgress?: number;   // 0..nWires — wire i draws during [i, i+1]
   symbolsShown?: number;   // 0..nSyms — symbols pop in order
+  labelsShown?: boolean;   // refs/values fade in (default: follow symbolsShown completion)
   highlight?: string;      // symbol ref to glow accent
   fault?: string;          // symbol ref to glow red (spot-the-bug payoff)
   cta?: boolean;           // show the end card
@@ -26,6 +27,7 @@ export default function Stage({ layout }: { layout: SchematicLayout }) {
 
   const m: Model = useMemo(() => orientPorts(layoutToModel(layout)), [layout]);
   const b = useMemo(() => modelBounds(m), [m]);
+  const labels = useMemo(() => placeLabels(m, symStyle), [m, symStyle]);
   const wires = useMemo(() => m.wires.map((w) => {
     const a = endAbs(m.syms, w.a, m.wires), z = endAbs(m.syms, w.b, m.wires);
     const pts = a && z ? [a, ...(w.mid ?? []), z] : [];
@@ -52,13 +54,15 @@ export default function Stage({ layout }: { layout: SchematicLayout }) {
         g.style.filter = s.fault && ref === s.fault ? "drop-shadow(0 0 14px #f87171)" :
                          s.highlight && ref === s.highlight ? "drop-shadow(0 0 14px #4c8dff)" : "";
       });
+      const lbl = el.querySelector<HTMLElement>("[data-labels]");
+      if (lbl) lbl.style.opacity = (s.labelsShown ?? (s.symbolsShown ?? 0) >= (window.__stageMeta?.symbols ?? 1)) ? "1" : "0";
       el.querySelector<HTMLElement>("[data-cta]")!.style.opacity = s.cta ? "1" : "0";
     };
     window.__stageMeta = { wires: wires.length, symbols: m.syms.length };
     window.__stageReady = true;
   }, [m, wires]);
 
-  const pad = 30;
+  const pad = 60; // room for port labels at the drawing edge
   const vb = `${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}`;
   return (
     <div ref={root} style={{ width: 1080, height: 1920, background: "linear-gradient(180deg,#11151b,#161b22 55%,#11151b)", position: "fixed", top: 0, left: 0, zIndex: 2147483000, overflow: "hidden", fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -70,6 +74,21 @@ export default function Stage({ layout }: { layout: SchematicLayout }) {
             <path key={i} data-wire data-len={w.len} d={w.d} fill="none" stroke="#4c8dff" strokeWidth={2.5} strokeLinejoin="round"
               style={{ strokeDasharray: `${w.len}`, strokeDashoffset: `${w.len}` }} />
           ) : null)}
+          <g data-labels style={{ opacity: 0 }}>
+            {labels.map((L, i) => {
+              const lineH = L.fontSize + 2.5;
+              return (
+                <g key={`lbl${i}`}>
+                  {L.leader && <line x1={L.leader.x1} y1={L.leader.y1} x2={L.leader.x2} y2={L.leader.y2} stroke="#828c9c" strokeWidth={1} strokeDasharray="2 3" opacity={0.55} />}
+                  <text x={L.x} y={L.y - ((L.lines.length - 1) * lineH) / 2} textAnchor="middle" dominantBaseline="middle"
+                    fontFamily="'JetBrains Mono', monospace" fontSize={L.fontSize} fontWeight={L.port ? 700 : 400}
+                    fill={L.port ? "#4c8dff" : L.inside ? "#f3f6fb" : "#c2cad6"}>
+                    {L.lines.map((ln, k) => <tspan key={k} x={L.x} dy={k ? lineH : 0}>{ln}</tspan>)}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
           {m.syms.map((s) => {
             const dims = symDims(s);
             if (!dims) return null;
