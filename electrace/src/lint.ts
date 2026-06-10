@@ -255,9 +255,93 @@ const danglingWire: Rule = (rd) =>
 
 // ── Registry ────────────────────────────────────────────────────────────────
 
+
+/** A signal OUTPUT driving more total load than it's rated for (GPIO sums, totem-pole limits).
+ *  Needs propagation-era data: sink draws are declared; the source's i is its ceiling. */
+const signalOverCurrent: Rule = (rd) =>
+  rd.nets.flatMap((net) => {
+    if (net.type !== "signal") return [];
+    return net.sources.flatMap((src) => {
+      const cap = rmax(src.def.i);
+      if (cap == null) return [];
+      const draw = net.sinks.reduce((a, s) => (s.pin.instance === src.instance ? a : a + (rmax(s.current) ?? 0)), 0);
+      if (draw > cap + 1e-9)
+        return [{
+          rule: "current/signal-over-source", severity: "error", category: "current",
+          at: [net.id, src.node],
+          message: `${src.instance}.${src.terminal} is rated ${cap} A but its loads draw ${Math.round(draw * 1000) / 1000} A.`,
+          derivation: `Σ load ${Math.round(draw * 1000) / 1000} A  >  source ${cap} A`,
+        } satisfies Finding];
+      return [];
+    });
+  });
+
+/** A power/rail source and a ground pin on the SAME net — a wired short, the checker's
+ *  equivalent of the magic-smoke moment. (gnd type wins in netType, so look at members.) */
+const shortCircuit: Rule = (rd) =>
+  rd.nets.flatMap((net) => {
+    if (net.type !== "gnd") return [];
+    const hot = net.sources.filter((p) => (p.def.type === "power" || p.def.type === "rail") && p.def.v && (p.def.v.max != null || p.def.v.value != null));
+    if (!hot.length) return [];
+    return [{
+      rule: "connectivity/short-circuit", severity: "error", category: "connectivity",
+      at: [net.id, ...hot.map((p) => p.node)],
+      message: `${hot.map((p) => `${p.instance}.${p.terminal}`).join(", ")} ${hot.length > 1 ? "are" : "is"} wired straight to ground — that's a short, not a circuit.`,
+      derivation: `power source and gnd pins share net ${net.id}`,
+    } satisfies Finding];
+  });
+
+/** A rail's worst-case LOW end sits below a connected input's declared minimum — brown-out
+ *  territory: works on the bench at nominal, dies at the bottom of the input range. */
+const underVoltage: Rule = (rd) =>
+  rd.nets.flatMap((net) => {
+    if (net.type !== "power" && net.type !== "rail") return [];
+    const lo = net.voltage?.min;
+    if (lo == null) return [];
+    return net.sinks.flatMap((s) => {
+      const need = s.pin.def.v?.min;
+      if (need != null && lo < need - 1e-9)
+        return [{
+          rule: "voltage/under-input", severity: "warn", category: "voltage",
+          at: [net.id, s.pin.node],
+          message: `${net.id} can sag to ${lo} V but ${s.pin.instance}.${s.pin.terminal} needs at least ${need} V — fine at nominal, brown-out at the bottom of the range.`,
+          derivation: `net min ${lo} V  <  input min ${need} V`,
+        } satisfies Finding];
+      return [];
+    });
+  });
+
+
+/** ACTUAL dissipation in a linear regulator at the wired loads (not the rated max — that's
+ *  lowEfficiency's recommendation). (Vin_max − Vout) × Σ(actual out-net draw): the LDO-as-
+ *  space-heater catch, computed from what's really connected. */
+const regulatorDissipation: Rule = (rd) =>
+  rd.instances.flatMap((inst): Finding[] => {
+    const b = inst.def;
+    if (!b.transform || b.topology !== "linear") return [];
+    const outTerm = b.terminals.find((t) => t.role === "out" && (t.type === "power" || t.type === "rail"));
+    const inTerm = b.terminals.find((t) => t.role === "in" && (t.type === "power" || t.type === "rail"));
+    if (!outTerm || !inTerm) return [];
+    const outNet = rd.nets.find((n) => n.members.some((m) => m.node === `${inst.ref}.${outTerm.id}`));
+    const inNet = rd.nets.find((n) => n.members.some((m) => m.node === `${inst.ref}.${inTerm.id}`));
+    const vin = rmax(inNet?.voltage);
+    const vout = outTerm.v?.value ?? rmax(outTerm.v);
+    if (vin == null || vout == null || !outNet) return [];
+    const iOut = outNet.sinks.reduce((a, s) => (s.pin.instance === inst.ref ? a : a + (rmax(s.current) ?? 0)), 0);
+    const diss = (vin - vout) * iOut;
+    if (diss < 0.5) return [];
+    const sev = diss >= 1.5 ? "error" : "warn";
+    return [{
+      rule: "thermal/regulator-dissipation", severity: sev, category: "thermal",
+      at: [inst.ref],
+      message: `${inst.ref} dissipates ~${round(diss)} W at the connected load (dropping ${vin}→${vout} V at ${round(iOut * 1000) / 1000 * 1000} mA${diss >= 1.5 ? " — that needs a heatsink or a switcher, not hope" : " — check the package can shed it"}).`,
+      derivation: `(${vin} − ${vout}) V × ${Math.round(iOut * 1000)} mA = ${round(diss)} W in the pass element`,
+    } satisfies Finding];
+  });
+
 export const RULES: Rule[] = [
   danglingWire,
-  openNet, overCurrent, overVoltage, polarityConflict, multipleDrivers, undrivenRail, internalShort, // faults
+  openNet, overCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, // faults
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 
