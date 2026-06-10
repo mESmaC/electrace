@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { listBlocks } from "@/lib/blocks";
+import { COMPARISONS } from "@/lib/comparisons";
 
 const BASE = "https://www.electrace.net";
 const NOW = new Date();
@@ -18,5 +19,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly",
     priority: 0.7,
   }));
-  return [...staticPages, ...blockPages];
+  const vsPages: MetadataRoute.Sitemap = [
+    { url: `${BASE}/vs`, lastModified: NOW, changeFrequency: "monthly", priority: 0.7 },
+    ...COMPARISONS.map((c) => ({ url: `${BASE}/vs/${c.slug}`, lastModified: NOW, changeFrequency: "monthly" as const, priority: 0.8 })),
+  ];
+  return [...staticPages, ...blockPages, ...vsPages];
 }
