@@ -17,25 +17,25 @@ limits:
   - { field: ratiometric.note, value: 0, note: "Power this divider from the ADC's OWN reference rail. Then VCC wobble cancels out of the ratio and the reading doesn't care — that's a ratiometric measurement, and it's free if you wire it right." }
 schematic:
   parts:
-    - { ref: R1,  type: res, value: "10k 1%", footprint: R0603, why: "the fixed half of the divider — matched to the NTC's 25 °C resistance so the output sits at mid-rail at room temperature, where sensitivity is best" }
-    - { ref: TH1, type: thermistor, value: "10k B3950", footprint: R0603, why: "the sensor — resistance falls as temperature rises (Negative Temperature Coefficient), roughly halving every ~20 °C" }
+    - { ref: TH1, type: thermistor, value: "10k B3950", footprint: R0603, why: "the sensor, on top — resistance falls as temperature rises (Negative Temperature Coefficient), so the output RISES as it warms: the intuitive direction" }
+    - { ref: R1,  type: res, value: "10k 1%", footprint: R0603, why: "the fixed half of the divider, on the bottom — matched to the NTC's 25 °C resistance so the output sits at mid-rail at room temperature, where sensitivity is best" }
     - { ref: C1,  type: cap, value: 100n, footprint: C0402, why: "filter — gives the ADC's sample capacitor a low-impedance source and averages out noise picked up on the sensor wiring" }
   nets:
-    - { name: VCC, connect: [R1.1, "@vcc"] }
-    - { name: OUT, connect: [R1.2, TH1.1, C1.1, "@out"] }
-    - { name: GND, connect: [TH1.2, C1.2, "@gnd"] }
+    - { name: VCC, connect: [TH1.1, "@vcc"] }
+    - { name: OUT, connect: [TH1.2, R1.1, C1.1, "@out"] }
+    - { name: GND, connect: [R1.2, C1.2, "@gnd"] }
 layout:
   symbols:
     - { id: P_vcc, type: port, ref: vcc, x: 85, y: 10, rot: 270 }
-    - { id: R1, type: resistor, ref: R1, value: 10k, x: 55, y: 81, rot: 90 }
-    - { id: TH1, type: thermistor, ref: TH1, value: 10k, x: 55, y: 181, rot: 90 }
+    - { id: TH1, type: thermistor, ref: TH1, value: 10k, x: 55, y: 81, rot: 90 }
+    - { id: R1, type: resistor, ref: R1, value: 10k, x: 55, y: 181, rot: 90 }
     - { id: P_out, type: port, ref: out, x: 190, y: 130 }
     - { id: C1, type: capacitor, ref: C1, value: 100n, x: 130, y: 165, rot: 90 }
     - { id: P_gnd, type: port, ref: gnd, x: 85, y: 275, rot: 90 }
   wires:
-    - { from: P_vcc.1, to: R1.1 }
-    - { from: R1.2, to: TH1.1 }
-    - { from: R1.2, to: P_out.1 }
+    - { from: P_vcc.1, to: TH1.1 }
+    - { from: TH1.2, to: R1.1 }
+    - { from: TH1.2, to: P_out.1 }
     - { from: C1.1, to: P_out.1, via: [[160, 140]] }
-    - { from: TH1.2, to: P_gnd.1 }
+    - { from: R1.2, to: P_gnd.1 }
     - { from: C1.2, to: P_gnd.1, via: [[160, 270]] }

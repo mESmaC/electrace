@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { listBlocks } from "@/lib/blocks";
 import { COMPARISONS } from "@/lib/comparisons";
 
+const CALC_SLUGS = ["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain"];
+
 const BASE = "https://www.electrace.net";
 const NOW = new Date();
 
@@ -23,5 +25,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/vs`, lastModified: NOW, changeFrequency: "monthly", priority: 0.7 },
     ...COMPARISONS.map((c) => ({ url: `${BASE}/vs/${c.slug}`, lastModified: NOW, changeFrequency: "monthly" as const, priority: 0.8 })),
   ];
-  return [...staticPages, ...blockPages, ...vsPages];
+  const calcPages: MetadataRoute.Sitemap = [
+    { url: `${BASE}/calculators`, lastModified: NOW, changeFrequency: "monthly", priority: 0.7 },
+    ...CALC_SLUGS.map((c) => ({ url: `${BASE}/calculators/${c}`, lastModified: NOW, changeFrequency: "monthly" as const, priority: 0.8 })),
+  ];
+  return [...staticPages, ...blockPages, ...vsPages, ...calcPages];
 }

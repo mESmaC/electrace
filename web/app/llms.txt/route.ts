@@ -31,6 +31,13 @@ export function GET() {
     "",
     ...COMPARISONS.map((c) => `- [Electrace vs ${c.name}](${SITE}/vs/${c.slug}): ${c.tagline} Includes when ${c.name} is the better choice.`),
     "",
+    "## Calculators",
+    "",
+    "Interactive calculators that also show the real schematic and link to its full explainer.",
+    "",
+    ...["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain"].map(
+      (c) => `- [${c.replace(/-/g, " ")}](${SITE}/calculators/${c})`),
+    "",
     "## Product",
     "",
     `- [Block library](${SITE}/blocks): browse and search blocks by spec, e.g. "18V → 5V at 3A"`,

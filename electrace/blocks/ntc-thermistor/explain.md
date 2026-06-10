@@ -8,10 +8,10 @@ hotends, coffee machines.
   Temperature Coefficient) — 10 kΩ at 25 °C, roughly halving every ~20 °C. That curve is
   steep and predictable, which is why a two-cent part beats many "real" sensor ICs on
   sensitivity.
-- **R1 — the fixed half of the divider.** Out = VCC · R1/(R1 + TH1) — wait, check the
-  wiring: the NTC is on the *bottom*, so the output **rises with temperature**, which is
-  the intuitive direction. R1 is chosen equal to the NTC's 25 °C value so room temperature
-  sits at mid-rail — right where the divider's slope (and your resolution) is best.
+- **R1 — the fixed half of the divider.** Out = VCC · R1/(R1 + TH1), with the NTC on
+  *top*: as it warms, its resistance shrinks and the output **rises** — the intuitive
+  direction. R1 is chosen equal to the NTC's 25 °C value so room temperature sits at
+  mid-rail — right where the divider's slope (and your resolution) is best.
 - **C1** — gives the ADC's sampling capacitor a stiff source and quietly averages the
   noise a long sensor wire picks up.
 
