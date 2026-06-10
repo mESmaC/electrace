@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackToEditor from "./BackToEditor";
 import { marked } from "marked";
 import { FEATURES_MD, changelogMarkdown } from "@/lib/electrace-info";
 
@@ -11,7 +12,7 @@ export default async function HelpPage() {
   return (
     <main className="mx-auto max-w-5xl px-7 py-10">
       <div className="flex items-center gap-4 text-sm">
-        <Link href="/editor" className="text-faint hover:text-dim">← Back to the editor</Link>
+        <BackToEditor />
         <a href="#changelog" className="ml-auto text-faint hover:text-dim">What&apos;s new ↓</a>
       </div>
 
