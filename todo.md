@@ -105,6 +105,36 @@ Known-deferred, grouped so they aren't mistaken for oversights. This is the big 
 
 Noted for completeness — add-to-cart / BOM-aware sourcing (distributor PN), block-swap electrical diff, tradeoff sliders / parametric blocks, semantic zoom, live budget gauges ("watch the watts" — `railBudgets` data exists, no gauge UI), "explain this board" on import, pin-passport (overlaps `whats_on_net`). Pull into §2 individually if/when they earn it.
 
+## §5.5 — Live bug reports + agent-API feedback (2026-06-09, owner-reported — NEXT UP)
+
+- [ ] **Sparky chat loses its stream when you drill OUT of a block schematic mid-response.**
+  Repro: open chat, send a message, exit the schematic while it's processing → chat shows the
+  user message with no reply (the server-side run COMPLETES; only the client loses it).
+  Diagnosis to verify: AssistantBubble (or the drilled view holding the stream reader) unmounts
+  on drill-out, killing the fetch-stream consumer; the partial/final text is never committed to
+  the persisted chat state. Fix direction: own the stream at a layer that survives drill-in/out
+  (module-level reader writing into the chat store, UI only renders the store), and/or on
+  remount reconcile by fetching the run's final state. *(M)*
+
+- [ ] **Agent-API hardening (verbatim feedback from a GPT-5.5 Sparky session — excellent list):**
+    1. **Connector pins missing from net summaries** — list_nets/whats_on_net don't show J1.1
+       etc. as net members even when docked. Agents can't trust the graph. Likely cause:
+       docked-connector edges are `hidden` edges to connector nodes; the design's connections
+       include them but the net summary path may filter or the resolve path names them
+       differently. INVESTIGATE FIRST — may be a real connectivity-reporting bug. *(M)*
+    2. **list_connections tool** — raw connection list incl. INVALID endpoints (wire references
+       a deleted/renamed terminal). The net graph hides broken wires; agents need them visible.
+       *(S)*
+    3. **Dangling-wire findings in analyze_design** — "connection references missing terminal
+       DRV1.GATE — valid terminals: PWM, GND, VMOT, MOTOR-" + suggested fix. *(S–M)*
+    4. **remove_invalid_wires / repair_connections tool** — drop-invalid strategy first. *(S)*
+    5. **author_schematic result should return a terminal DIFF** (added/removed/renamed +
+       orphaned wires) so the agent can re-wire deliberately. *(M)*
+    6. **connect error messages must name the valid terminals** when an endpoint is missing.
+       *(S)*
+    7. **Stable terminal IDs vs display labels** (rename ≠ delete+add) — bigger data-model
+       question; design before building. *(L, decide)*
+
 ## §6 — Known limitations (shipped features with rough edges)
 
 - [x] **Wire-to-wire junction taps don't track their host wire.** ✅ fixed 2026-06-09: taps are now BOUND endpoints (`{ wire, t }` — arc-length param along the host's path) resolved at render time, so they follow the host through drags and Align; deleting the host detaches the tap to a fixed point (visibly floating, not silently broken). Legacy fixed-coordinate taps in saved drafts still work via the old geometric path.
