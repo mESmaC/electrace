@@ -472,7 +472,7 @@ function edgeToward(r: LRect, from: Pt): Pt {
   return { x: from.x + dx * Math.max(0, t), y: from.y + dy * Math.max(0, t) };
 }
 
-export function placeLabels(model: Model, symStyle: string): PlacedLabel[] {
+export function placeLabels(model: Model, symStyle: string, extraObstacles: { x: number; y: number; w: number; h: number }[] = []): PlacedLabel[] {
   // obstacles: every symbol's (inflated) box and every wire segment as a thin rect
   const symRects = new Map<string, LRect>();
   for (const s of model.syms) {
@@ -492,6 +492,7 @@ export function placeLabels(model: Model, symStyle: string): PlacedLabel[] {
   const placed: LRect[] = [];
   const out: PlacedLabel[] = [];
   const collides = (r: LRect, ownId: string): boolean =>
+    extraObstacles.some((o) => lrOverlap(r, o)) ||
     placed.some((p) => lrOverlap(r, p)) ||
     wireRects.some((wr) => lrOverlap(r, wr)) ||
     [...symRects.entries()].some(([id, o]) => id !== ownId && lrOverlap(r, o));
@@ -537,11 +538,12 @@ export function placeLabels(model: Model, symStyle: string): PlacedLabel[] {
     return { x1: from.x, y1: from.y, x2: to.x, y2: to.y };
   };
 
+  const clampVal = (v?: string) => (v && v.length > 24 ? `${v.slice(0, 23)}…` : v);
   for (const s of model.syms) {
     const d = symDims(s);
     if (!d) continue;
     const isPort = s.type === "port";
-    const combined = [s.ref, s.value].filter(Boolean).join(" ");
+    const combined = [s.ref, clampVal(s.value)].filter(Boolean).join(" ");
     if (!combined) continue;
     const own = symRects.get(s.id)!;
     const cx = own.x + own.w / 2, cy = own.y + own.h / 2;
@@ -560,7 +562,7 @@ export function placeLabels(model: Model, symStyle: string): PlacedLabel[] {
     // 2 · IEC box passives drawn horizontal: the VALUE belongs inside the box; ref beside it
     const rot = normRot(s.rot ?? 0);
     const horizontal = rot === 0 || rot === 180;
-    if (symStyle === "iec" && IEC_BOX.has(s.type) && horizontal && s.value && labelW(s.value, 8) <= own.w - 6) {
+    if (symStyle === "iec" && IEC_BOX.has(s.type) && horizontal && s.value && labelW(s.value, 8) <= own.w * 0.55) {
       const fs = 8;
       out.push({ sym: s.id, lines: [s.value], x: cx, y: cy, fontSize: fs, inside: true });
       if (s.ref) placeAround(s, s.ref, 9, false);

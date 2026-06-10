@@ -97,7 +97,10 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
 
 function InstanceSheet({ it, symStyle, onOpen }: { it: Item; symStyle: SymStyle; onOpen?: (ref: string) => void }) {
   const m = it.model;
-  const labels = useMemo(() => placeLabels(m, symStyle), [m, symStyle]);
+  // the sheet title + frame edge are obstacles too — labels were parking on top of them
+  const labels = useMemo(() => placeLabels(m, symStyle, [
+    { x: it.bx - 18, y: it.by - 46, w: it.w + 36, h: 24 },
+  ]), [m, symStyle, it]);
   const tx = it.x - it.bx, ty = it.y - it.by;
   return (
     <g transform={`translate(${tx},${ty})`} onDoubleClick={() => onOpen?.(it.ref)} style={onOpen ? { cursor: "pointer" } : undefined}>
