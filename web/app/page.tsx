@@ -40,13 +40,13 @@ export default function Home() {
             <div className="flex h-11 items-center gap-2 border-b border-border bg-surface-2 px-4">
               <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" /><span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" /><span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
               <span className="ml-2.5 font-mono text-[12px] text-dim">buck-supply.elec — Electrace</span>
-              <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-green">● all nets connected</span>
+              <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-[#f87171]">⬣ 1 error — over-voltage</span>
             </div>
             <div className="relative grid h-[360px] place-items-center overflow-hidden bg-bg" style={{ backgroundImage: "radial-gradient(color-mix(in srgb, var(--color-text) 5%, transparent) 1.4px, transparent 1.4px)", backgroundSize: "22px 22px" }}>
               <div className="relative h-[290px] w-[560px] scale-[0.74] sm:scale-100">
                 {/* port-to-port wires — straight, like a real schematic net */}
                 <svg viewBox="0 0 560 290" className="pointer-events-none absolute inset-0 h-full w-full">
-                  <path className="ec-wire" d="M218 150 H300" stroke="var(--color-amber)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+                  <path className="ec-wire" d="M218 150 H300" stroke="#f87171" strokeWidth={2.5} fill="none" strokeLinecap="round" />
                   <path className="ec-wire" style={{ animationDelay: "0.45s" }} d="M218 178 H300" stroke="var(--color-gray)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
                 </svg>
 
@@ -57,13 +57,13 @@ export default function Home() {
                 </div>
 
                 {/* lint bubble — BELOW the blocks, clear of everything */}
-                <div className="ec-bubble absolute left-[150px] top-[236px] z-20 flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border-strong bg-surface px-3 py-2 text-[11.5px] shadow-xl">
-                  <span className="text-accent">✦</span><span className="text-green">●</span>Plenty of headroom — 9 W of 15 W.
+                <div className="ec-bubble absolute left-[150px] top-[236px] z-20 flex items-center gap-1.5 whitespace-nowrap rounded-xl border bg-surface px-3 py-2 text-[11.5px] shadow-xl" style={{ borderColor: "#f8717166" }}>
+                  <span className="font-bold text-[#f87171]">⬣</span><b className="font-semibold">24 V into U1 — rated 18 V max.</b><span className="text-faint">VIN net, highlighted.</span>
                 </div>
 
                 <svg className="ec-cursor pointer-events-none absolute z-30 h-5 w-5 drop-shadow" viewBox="0 0 20 20"><path d="M2 2 L2 16 L6 12 L9 18 L11 17 L8 11 L14 11 Z" fill="#fff" stroke="#0e1015" strokeWidth={1.2} /></svg>
 
-                <WindowBlock x={18} y={58} glyph="⎓" tone="amber" name="Power Entry" tag="disc" spec="9–18 V DC in"
+                <WindowBlock x={18} y={58} glyph="⎓" tone="amber" name="Power Entry" tag="disc" spec="24 V DC in"
                   ports={[{ side: "in", top: 101, tone: "amber" }, { side: "out", top: 87, tone: "amber" }, { side: "out", top: 115, tone: "gray" }]}
                   preview={<>
                     <circle cx={16} cy={26} r={8} fill="none" stroke="currentColor" strokeWidth={1.5} /><line x1={13} y1={23} x2={19} y2={29} stroke="currentColor" strokeWidth={1.5} />
@@ -87,7 +87,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <p className="mx-auto mt-3 max-w-[560px] text-[13px] text-faint">A live Electrace design — hover a block to see what it does, while the linter keeps an eye on the math.</p>
+          <p className="mx-auto mt-3 max-w-[560px] text-[13px] text-faint">A live Electrace design — hover a block to see what it does. And the linter just caught a 24 V brick feeding an 18 V-max regulator, before it shipped.</p>
         </div>
       </header>
 
@@ -95,7 +95,7 @@ export default function Home() {
       <section className="ec-reveal px-7 py-[70px] text-center">
         <div className="mx-auto max-w-[1140px]">
           <h2 className="text-[34px] font-extrabold tracking-tight">Other tools stay silent — or just guess.</h2>
-          <p className="mx-auto mt-2 max-w-[560px] text-[18px] text-dim">Electrace is the one that makes you <span className="text-accent">understand</span>.</p>
+          <p className="mx-auto mt-2 max-w-[560px] text-[18px] text-dim">Electrace is the one that <span className="text-accent">shows you why</span>.</p>
         </div>
       </section>
 
@@ -140,6 +140,37 @@ export default function Home() {
               <text x={316} y={140} className="fill-faint font-mono text-[10px]">R1 39k</text><text x={250} y={112} className="fill-accent text-[9px] italic">↳ sets 5 V</text>
               <path d="M300 164 V176 M40 176 H300 M95 84 V176" stroke="var(--color-accent)" strokeWidth={2} fill="none" />
             </svg>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== SPARKY ===== */}
+      <section id="sparky" className="ec-reveal px-7 py-[92px]">
+        <div className="mx-auto grid max-w-[1140px] items-center gap-14 md:grid-cols-2">
+          <div>
+            <Eyebrow>Sparky</Eyebrow>
+            <h2 className="text-[42px] font-extrabold leading-[1.08] tracking-tight">An AI assistant<br />that doesn&apos;t get to guess.</h2>
+            <p className="mt-3 max-w-[560px] text-[18px] text-dim">
+              Didn&apos;t we just say copilots guess? They do — because nothing checks them.
+              Sparky is different by construction: everything it draws goes through the <b className="text-text">same deterministic
+              linter as your own work</b>. Every wire resolved, every budget recomputed, every claim checkable.
+            </p>
+            <ul className="mt-6 flex flex-col gap-3 text-[15px] text-dim">
+              <li className="flex gap-3"><span className="font-bold text-green">✓</span> Builds from real, spec&apos;d blocks — with a real BOM, not invented part numbers.</li>
+              <li className="flex gap-3"><span className="font-bold text-green">✓</span> When it&apos;s wrong, the checker says so. Out loud, on the canvas.</li>
+              <li className="flex gap-3"><span className="font-bold text-green">✓</span> Explains every choice in plain language — it&apos;s a tutor, not an oracle.</li>
+            </ul>
+          </div>
+          <div className="flex flex-col gap-3 rounded-2xl border border-border-strong bg-surface p-5 shadow-2xl">
+            <div className="flex items-center gap-2 text-[12.5px] font-semibold text-dim"><span className="text-accent">✦</span> Sparky</div>
+            <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[13px] text-dim">&quot;Add battery charging for a single Li-ion cell.&quot;</div>
+            <div className="rounded-xl border border-border bg-bg2 px-3.5 py-2.5 text-[13px] leading-relaxed text-dim">
+              Placed <b className="text-text">Li-ion Charger (1 cell)</b> — 4.2 V CV, 580 mA via the PROG resistor — and wired
+              VBUS → IN, BAT → your load. <span className="text-faint">Running checks…</span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-[12.5px]" style={{ borderColor: "color-mix(in srgb, var(--color-green) 40%, transparent)" }}>
+              <span className="text-green">●</span> 14 nets resolved · budgets recomputed · 0 errors
+            </div>
           </div>
         </div>
       </section>

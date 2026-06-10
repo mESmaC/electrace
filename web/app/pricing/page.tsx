@@ -11,7 +11,8 @@ export const metadata = {
 const FAQ = [
   { q: "Is the free tier actually free?", a: "Yes — forever. The entire understand-loop (blocks, hover & drill-in, expand-to-discrete, linting, themes) is free, with up to 10 designs. We never charge you to learn." },
   { q: "What do I get with Pro?", a: "Pro lifts the 10-design cap entirely and unlocks private designs, manufacturing-grade export (Gerber / BOM / pick-and-place), version history, and advanced checks — for when you're shipping real hardware." },
-  { q: "Are my designs private?", a: "On Hobby, designs are public — discoverable, like a public repo. Keeping designs private is a Pro feature, for when you need to hold work to yourself." },
+  { q: "Are my designs private?", a: "On Hobby, designs are public or link-only (unlisted) — like a public repo. Keeping designs fully private is a Pro feature, for when you need to hold work to yourself. You'll see this before you save your first design, not after." },
+  { q: "Is there yearly billing?", a: "Yes — the upgrade flow offers monthly or yearly, and yearly is the best value. Cancel anytime; Pro runs to the end of what you paid for, and your designs are never deleted." },
 ];
 
 export default function PricingPage() {
