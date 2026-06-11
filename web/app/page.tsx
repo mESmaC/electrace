@@ -222,6 +222,13 @@ export default function Home() {
       <section className="ec-reveal border-y border-border bg-bg2 px-7 py-[92px] text-center">
         <div className="mx-auto max-w-[1140px]">
           <Eyebrow>And when you&apos;re done</Eyebrow><h2 className="text-[42px] font-extrabold tracking-tight">Design it. Understand it. Build it.</h2>
+          <p className="mx-auto mt-5 max-w-[680px] text-[15.5px] leading-relaxed text-dim">
+            Electrace is a free, browser-based circuit and PCB design tool built around one idea: you should be able
+            to <b className="font-semibold text-text">see inside every circuit</b> you build. Every block carries its real schematic and the reasoning
+            behind every part; the checking engine follows voltage and current through every wire and tells you where —
+            and why — something won&apos;t work. Draw the schematic, lay out the board, export to KiCad, order the parts.
+            No simulation setup, no install, no vendor lock-in.
+          </p>
           <div className="mt-11 flex flex-wrap items-center justify-center gap-3">
             <span className="rounded-xl border border-border bg-surface px-5 py-3.5 font-semibold">Design with blocks</span>
             <span className="text-[20px] text-accent">→</span>

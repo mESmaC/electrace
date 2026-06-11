@@ -3,8 +3,8 @@ import Calc from "./Calc";
 
 const C: CalcMeta = {
   slug: "led-resistor",
-  title: "LED Resistor Calculator",
-  h1: "LED resistor calculator",
+  title: "LED Resistor Value Calculator",
+  h1: "LED resistor value calculator",
   tagline: "Series resistor for any LED: value, nearest standard part, actual current, and power — instantly.",
   blockSlug: "led-indicator",
   faq: [

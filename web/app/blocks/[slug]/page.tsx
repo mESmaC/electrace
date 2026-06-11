@@ -9,6 +9,7 @@ import { listBlocks, loadBlock, fmtSpec, type LoadedBlock } from "@/lib/blocks";
 import SchematicPreview from "@/app/editor/SchematicPreview";
 import { BLOCK_VIDEOS } from "@/lib/blockVideos";
 import { blockImage } from "@/lib/blockImages";
+import { BLOCK_SEO } from "@/lib/blockSeo";
 
 export function generateStaticParams() {
   return listBlocks().map((b) => ({ slug: b.slug }));
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   try {
     const { block, explain } = loadBlock(slug);
-    const title = `${block.name} — what it does and how it works`;
+    const title = `${BLOCK_SEO[slug] ?? block.name} — what it does and how it works`;
     const description = metaDesc(summary(explain) || `${block.name}: a self-explaining circuit block on Electrace.`);
     const img = blockImage(slug);
     return {
@@ -64,7 +65,9 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
     notFound();
   }
   const { block, explain } = data!;
-  const html = await marked.parse(explain);
+  // demote markdown h1s — the page provides THE h1; explain.md's leading "# Title" was
+  // rendering as a duplicate <h1> inside the article (bad heading structure for SEO)
+  const html = (await marked.parse(explain)).replace(/<h1>/g, "<h2>").replace(/<\/h1>/g, "</h2>");
   // the chips inside this block that have an authored discrete equivalent — the "nothing is a
   // black box" payoff, rendered right on the public page
   const discretes = (block.schematic?.parts ?? [])
@@ -93,7 +96,7 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
         { "@type": "ListItem", position: 2, name: block.name, item: `https://www.electrace.net/blocks/${slug}` },
       ],
     },
-    headline: `${block.name} — what it does and how it works`,
+    headline: `${BLOCK_SEO[slug] ?? block.name} — what it does and how it works`,
     description: summary(explain),
     author: { "@type": "Organization", name: "Electrace" },
     publisher: { "@type": "Organization", name: "Electrace", url: "https://www.electrace.net" },
@@ -110,7 +113,7 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
           {block.glyph ?? "▦"}
         </span>
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">{block.name}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">{BLOCK_SEO[slug] ?? block.name}</h1>
           <div className="mt-1 font-mono text-sm text-faint">
             {block.id}@{block.version}{block.license ? ` · ${block.license}` : ""}
           </div>
