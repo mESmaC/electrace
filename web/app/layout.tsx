@@ -10,6 +10,7 @@ import SiteBackdrop from "./SiteBackdrop";
 import { DialogHost } from "./ui/dialog";
 import { ContextMenuHost } from "./ui/contextMenu";
 import NavAccount from "./NavAccount";
+import Footer from "./Footer";
 import { Logo } from "./Logo";
 
 // Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </div>
         </nav>
         <div className="flex-1">{children}</div>
+        <Footer />
         <DialogHost />
         <ContextMenuHost />
         <Analytics />

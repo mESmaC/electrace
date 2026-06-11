@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { listBlocks } from "@/lib/blocks";
+import { blockImage } from "@/lib/blockImages";
 import { COMPARISONS } from "@/lib/comparisons";
 
 const CALC_SLUGS = ["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain", "parallel-resistor", "555-timer", "rc-filter", "ohms-law"];
@@ -15,12 +16,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/help`, changeFrequency: "weekly", priority: 0.6 },
   ];
   // the public block explainer pages — the SEO/growth surface
-  const blockPages: MetadataRoute.Sitemap = listBlocks().map((b) => ({
-    url: `${BASE}/blocks/${b.slug}`,
-    lastModified: NOW,
-    changeFrequency: "monthly",
-    priority: 0.7,
-  }));
+  const blockPages: MetadataRoute.Sitemap = listBlocks().map((b) => {
+    const img = blockImage(b.slug); // schematic PNG → image-sitemap entry (Google Images discovery)
+    return {
+      url: `${BASE}/blocks/${b.slug}`,
+      lastModified: NOW,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+      ...(img ? { images: [img] } : {}),
+    };
+  });
   const vsPages: MetadataRoute.Sitemap = [
     { url: `${BASE}/vs`, lastModified: NOW, changeFrequency: "monthly", priority: 0.7 },
     ...COMPARISONS.map((c) => ({ url: `${BASE}/vs/${c.slug}`, lastModified: NOW, changeFrequency: "monthly" as const, priority: 0.8 })),

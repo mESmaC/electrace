@@ -8,6 +8,7 @@ import { discreteEquivalentFor, type Terminal } from "@electrace/core";
 import { listBlocks, loadBlock, fmtSpec, type LoadedBlock } from "@/lib/blocks";
 import SchematicPreview from "@/app/editor/SchematicPreview";
 import { BLOCK_VIDEOS } from "@/lib/blockVideos";
+import { blockImage } from "@/lib/blockImages";
 
 export function generateStaticParams() {
   return listBlocks().map((b) => ({ slug: b.slug }));
@@ -25,11 +26,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     const { block, explain } = loadBlock(slug);
     const title = `${block.name} — what it does and how it works`;
     const description = summary(explain) || `${block.name}: a self-explaining circuit block on Electrace.`;
+    const img = blockImage(slug);
     return {
       title: `${title} — Electrace`,
       description,
       alternates: { canonical: `https://www.electrace.net/blocks/${slug}` },
-      openGraph: { title, description, type: "article" },
+      openGraph: { title, description, type: "article", ...(img ? { images: [{ url: img, alt: `${block.name} — internal schematic` }] } : {}) },
+      ...(img ? { twitter: { card: "summary_large_image", images: [img] } } : {}),
     };
   } catch {
     return {};
