@@ -10,7 +10,7 @@ export const metadata = {
 
 const FAQ = [
   { q: "Is the free tier actually free?", a: "Yes — forever. The entire understand-loop is free: blocks, hover & drill-in, expand-to-discrete, the core checking engine (voltage propagation, current budgets, shorts, polarity, connector ratings), the PCB editor with DRC, and the calculators — with up to 10 designs. We never charge you to learn." },
-  { q: "What do I get with Pro?", a: "The professional-grade layer: Sparky (the AI engineer), signal-integrity analysis, galvanic-isolation guarantees, manufacturing export (the routed board + BOM CSV), private designs, a private block library, and unlimited designs — for when you're shipping real hardware. Version history is on the way." },
+  { q: "What do I get with Pro?", a: "The professional-grade layer: Sparky (the AI engineer), signal-integrity analysis, galvanic-isolation guarantees, manufacturing export (the routed board + BOM CSV), private designs, and unlimited designs — for when you're shipping real hardware. Version history is on the way." },
   { q: "Are my designs private?", a: "On Hobby, designs are public or link-only (unlisted) — like a public repo. Keeping designs fully private is a Pro feature, for when you need to hold work to yourself. You'll see this before you save your first design, not after." },
   { q: "Is there yearly billing?", a: "Yes — the upgrade flow offers monthly or yearly, and yearly is the best value. Cancel anytime; Pro runs to the end of what you paid for, and your designs are never deleted." },
 ];

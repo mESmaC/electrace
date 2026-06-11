@@ -73,18 +73,25 @@ function Dashboard() {
   const [nav, setNav] = useState<Nav>("recent");
   const [sort, setSort] = useState<Sort>("recent");
   const [view, setView] = useState<"grid" | "list">("grid");
+  // Pro lifts the design cap — the server enforces the real quota (api/designs), this flag only
+  // keeps the client dialog/meter from wrongly capping a paying user. Unknown stays non-pro UI.
+  const [pro, setPro] = useState(false);
   const refresh = () => setProjects(listProjects());
   useEffect(() => {
     // RequireAuth gates the login; here we just send brand-new users through onboarding once.
     try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ }
-    setMounted(true); refresh(); return onHydrated(refresh);
+    setMounted(true); refresh();
+    let alive = true;
+    fetch("/api/me").then((r) => r.json()).then((d) => { if (alive) setPro(!!d.pro); }).catch(() => {});
+    const off = onHydrated(refresh);
+    return () => { alive = false; off?.(); };
   }, [router]);
   const who = profile?.name?.trim() || "You";
   const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "YOU";
 
   const open = (id: string) => router.push(`/editor?p=${id}`);
   const newProject = async (name?: string) => {
-    if (listProjects().length >= HOBBY_DESIGN_CAP) {
+    if (!pro && listProjects().length >= HOBBY_DESIGN_CAP) {
       if (await confirmDialog({ title: "You've reached the Hobby limit", message: `Hobby includes up to ${HOBBY_DESIGN_CAP} designs. Upgrade to Pro for unlimited designs and private projects.`, confirmText: "See plans", cancelText: "Not now" })) router.push("/pricing");
       return;
     }
@@ -161,11 +168,18 @@ function Dashboard() {
           <Link href="/help" className={sideLink}><span className="w-4 text-center">◎</span> Learn</Link>
         </nav>
         <div className="flex-1" />
-        <Link href="/pricing" className="mb-2.5 block rounded-xl border border-border bg-surface-2 p-3 transition hover:border-accent">
-          <div className="flex justify-between text-[12px] font-semibold"><span>Hobby plan</span><span className="font-mono text-faint">{projects.length} / {HOBBY_DESIGN_CAP}</span></div>
-          <div className="my-2 h-1.5 overflow-hidden rounded bg-bg"><div className={`h-full rounded ${projects.length >= HOBBY_DESIGN_CAP ? "bg-[#e2837e]" : "bg-accent"}`} style={{ width: `${Math.min(100, (projects.length / HOBBY_DESIGN_CAP) * 100)}%` }} /></div>
-          <div className="text-[12px] font-semibold text-accent">Upgrade for unlimited + private →</div>
-        </Link>
+        {pro ? (
+          <div className="mb-2.5 block rounded-xl border border-border bg-surface-2 p-3">
+            <div className="flex justify-between text-[12px] font-semibold"><span>Pro plan</span><span className="font-mono text-faint">{projects.length} design{projects.length === 1 ? "" : "s"}</span></div>
+            <div className="mt-1 text-[11px] text-faint">Unlimited designs · private projects</div>
+          </div>
+        ) : (
+          <Link href="/pricing" className="mb-2.5 block rounded-xl border border-border bg-surface-2 p-3 transition hover:border-accent">
+            <div className="flex justify-between text-[12px] font-semibold"><span>Hobby plan</span><span className="font-mono text-faint">{projects.length} / {HOBBY_DESIGN_CAP}</span></div>
+            <div className="my-2 h-1.5 overflow-hidden rounded bg-bg"><div className={`h-full rounded ${projects.length >= HOBBY_DESIGN_CAP ? "bg-[#e2837e]" : "bg-accent"}`} style={{ width: `${Math.min(100, (projects.length / HOBBY_DESIGN_CAP) * 100)}%` }} /></div>
+            <div className="text-[12px] font-semibold text-accent">Upgrade for unlimited + private →</div>
+          </Link>
+        )}
         <Link href="/settings" className="flex items-center gap-2.5 rounded-xl border border-border p-2.5 hover:bg-surface-2">
           <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-gradient-to-br from-accent to-[#7c6cff] text-[12px] font-bold text-white">{initials}</span>
           <span className="leading-tight"><span className="block text-[13px] font-semibold">{who}</span><span className="text-[11px] text-faint">{profile?.email || "Signed in on this device"}</span></span>

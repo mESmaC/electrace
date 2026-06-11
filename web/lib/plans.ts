@@ -52,7 +52,7 @@ export const PLANS: Plan[] = [
       "Signal-integrity analysis — declare a net RS-485 / CAN / I2C / USB and the physics is enforced: termination present, rise time achievable from your pull-ups, trace lengths & pair matching checked on the PCB",
       "Galvanic-isolation guarantees — declare that two blocks share no conductive path; re-verified on every edit, and a violation names the exact net that bridged the barrier",
       "Manufacturing export — the routed board as .kicad_pcb + BOM CSV, ready for any fab workflow",
-      "Private designs + your own private block library",
+      "Private designs — enforced down at the database layer, not just hidden in the UI",
       "Unlimited designs — no cap",
       "Version history on every design (coming soon)",
       "Priority support",
