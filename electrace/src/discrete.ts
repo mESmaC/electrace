@@ -466,7 +466,7 @@ export const DISCRETE_LIBRARY: Record<string, DiscreteEquivalent> = {
         { from: "Q3.C", to: "Q1.C" },
         { from: "Q4.C", to: "Q2.C" },
         { from: "Q4.C", to: "Q5.B" },
-        { from: "CC.1", to: "Q5.B" },
+        { from: "CC.1", to: "Q2.C" },
         { from: "CC.2", to: "Q5.C" },
         { from: "P_inp.1", to: "Q1.B" },
         { from: "P_inn.1", to: "Q2.B", via: [[236, 250]] },
