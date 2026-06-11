@@ -22,7 +22,7 @@ export { parseValue, parallelResistance, seriesSum, formatValue } from "./values
 export { NET_CLASSES, criticalLengthMm } from "./netclasses.js";
 export type { NetClassDef, NetClassAssignment } from "./netclasses.js";
 export { schematicInsights, type InsightComponent, type Insight } from "./insights.js";
-export { CONNECTOR_CATALOG, connectorPart, type ConnectorPart } from "./connectors.js";
+export { CONNECTOR_CATALOG, connectorPart, effectivePinSpec, type ConnectorPart } from "./connectors.js";
 export { authorChipLayout, authorPartLayout, buildBlockLayout, exposeChipPins, inferRoleType } from "./authoring.js";
 export type { PartSpec, NetSpec } from "./authoring.js";
 export type { DesignContext, BlockContext, BlockBrief } from "./context.js";

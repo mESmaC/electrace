@@ -50,3 +50,103 @@ test("connector pins appear as net MEMBERS (connectorPins) — the graph must no
   const net = resolve(d, lib(mcu)).nets.find((n) => n.members.some((m) => m.terminal === "tx"));
   assert.deepEqual(net?.connectorPins, ["J1.2"]);
 });
+
+// ── Declared pins (catalog defaults + per-instance specs) ──────────────────
+// A declared connector pin is a REAL pin at the board edge: it types and names nets, drives
+// voltage into the rule stack, counts in budgets, and carries contact-rating checks.
+
+const LOAD55 = B("@t/load55", [
+  { id: "vin", role: "in", type: "power", v: { max: 5.5, unit: "V" }, i: { max: 0.4, unit: "A" } },
+  { id: "gnd", role: "in", type: "gnd" },
+]);
+const BIGLOAD = B("@t/bigload", [
+  { id: "vin", role: "in", type: "power", v: { max: 30, unit: "V" }, i: { max: 4, unit: "A" } },
+  { id: "gnd", role: "in", type: "gnd" },
+]);
+
+test("USB-C catalog defaults: VBUS names + types the net and declares 5 V", () => {
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "L1", block: key(LOAD55) }],
+    connections: [{ from: "J1.VBUS", to: "L1.vin" }, { from: "J1.GND", to: "L1.gnd" }],
+    connectors: [{ ref: "J1", connector: "usb-c" }],
+  };
+  const rd = resolve(d, lib(LOAD55));
+  const vbus = rd.nets.find((n) => n.members.some((m) => m.node === "L1.vin"))!;
+  assert.equal(vbus.id, "VBUS");
+  assert.equal(vbus.type, "power");
+  assert.equal(vbus.voltage?.value, 5);
+  const gnd = rd.nets.find((n) => n.members.some((m) => m.node === "L1.gnd"))!;
+  assert.equal(gnd.type, "gnd");
+});
+
+test("user pin spec: 12 V declared on a header pin over-volts a 5.5 V-max input", () => {
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "L1", block: key(LOAD55) }],
+    connections: [{ from: "J1.1", to: "L1.vin" }, { from: "J1.2", to: "L1.gnd" }],
+    connectors: [{ ref: "J1", connector: "hdr-2", pins: {
+      "1": { name: "VIN", type: "power", role: "out", v: { max: 12, unit: "V" } },
+      "2": { name: "GND", type: "gnd" },
+    } }],
+  };
+  const { findings } = analyze(d, lib(LOAD55));
+  const hit = findings.find((f) => f.rule === "voltage/over-input" && f.at?.includes("L1.vin"));
+  assert.ok(hit, "expected over-input at L1.vin; got: " + findings.map((f) => `${f.rule}@${f.at?.join("/")}`).join(", "));
+  assert.match(hit!.message, /VIN/);
+});
+
+test("contact rating: 4 A through a 2 A-rated JST PH feed pin errors", () => {
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "L1", block: key(BIGLOAD) }],
+    connections: [{ from: "J1.1", to: "L1.vin" }, { from: "J1.2", to: "L1.gnd" }],
+    connectors: [{ ref: "J1", connector: "jst-ph-2" }], // BAT+ default: role out → carries net draw
+  };
+  const { findings } = analyze(d, lib(BIGLOAD));
+  const hit = findings.find((f) => f.rule === "current/connector-pin" && f.severity === "error");
+  assert.ok(hit, "expected connector-pin over-current; got: " + findings.map((f) => f.rule).join(", "));
+  assert.match(hit!.message, /rated 2 A/);
+});
+
+test("contact rating: an off-board load's declared draw is checked against its own pin", () => {
+  const src = B("@t/src5", [
+    { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 3, unit: "A" } },
+  ]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src) }],
+    connections: [{ from: "S1.vout", to: "J1.VBUS" }],
+    connectors: [{ ref: "J1", connector: "usb-a", pins: {
+      VBUS: { role: "in", i: { max: 2, unit: "A" } }, // board feeds 2 A out a 1.5 A-rated USB-A contact
+    } }],
+  };
+  const { findings } = analyze(d, lib(src));
+  const hit = findings.find((f) => f.rule === "current/connector-pin" && f.at?.includes("J1.VBUS"));
+  assert.ok(hit, "expected rating finding at J1.VBUS; got: " + findings.map((f) => `${f.rule}@${f.at?.join("/")}`).join(", "));
+});
+
+test("a freshly placed connector with nothing docked spawns no nets and no findings", () => {
+  const d: Design = {
+    id: "d", name: "d", blocks: [], connections: [],
+    connectors: [{ ref: "J1", connector: "usb-c" }],
+  };
+  assert.equal(resolve(d, lib()).nets.length, 0);
+  const { findings } = analyze(d, lib());
+  assert.equal(findings.filter((f) => f.at?.some((s) => s.startsWith("J1"))).length, 0);
+});
+
+test("reverse polarity at the boundary: hot output wired into a gnd-typed connector pin", () => {
+  const src = B("@t/srcrev", [
+    { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 1, unit: "A" } },
+  ]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src) }],
+    connections: [{ from: "S1.vout", to: "J1.2" }], // pin 2 of a LiPo JST is BAT− (gnd by default)
+    connectors: [{ ref: "J1", connector: "jst-ph-2" }],
+  };
+  const { findings } = analyze(d, lib(src));
+  const hit = findings.find((f) => f.rule.includes("short") || f.rule.includes("polarity"));
+  assert.ok(hit, "expected a short/polarity finding; got: " + findings.map((f) => f.rule).join(", "));
+});

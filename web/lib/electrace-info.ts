@@ -8,6 +8,15 @@ export interface ChangeEntry { date: string; title?: string; items: string[] }
  *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-06-10",
+    items: [
+      "**Connector pins now mean something:** double-click any placed connector (or right-click → **Pin specs…**) and declare what the outside world presents — or draws — at each pin: a name (`VBAT`, `SDA`), a net type, a direction, and voltage/current. A declared pin becomes a **real terminal at the board edge**, so every existing check works across it: a 12 V supply arriving on a header pin gets caught against a 5.5 V-max input, off-board loads count in the power budget, a hot wire into a ground pin flags as a short, and the net inherits the pin's name (`VBUS`) everywhere it's mentioned.",
+      "**Connectors that know their own pinout, out of the box:** USB receptacles (C/A/Mini/Micro), the LiPo JST-PH, barrel jacks, and audio jacks ship with their inherent meanings built in — drop a USB-C and the engine already knows VBUS is 5 V power in at up to 3 A and GND is ground, zero clicks. Built-ins show greyed in the pin editor and any field can be overridden per instance.",
+      "**Contact ratings, enforced:** every connector in the catalog now carries its family's per-contact current rating (JST-PH 2 A, 0.1\" headers 3 A, screw terminals 10 A, USB-A 1.5 A…), and a new check compares the current actually flowing through each declared pin against it — pushing 4 A of load through a 2 A LiPo contact is an error that names the pin, with a warning band as you approach the limit.",
+      "**Connector cards show the declarations:** pin rows on the canvas display the declared name color-coded by net type, plus the declared volts/amps — so a glance at the board edge tells you what comes in and goes out.",
+    ],
+  },
+  {
     date: "2026-06-09",
     items: [
       "**Net labels:** a block's internal schematic now has **net labels / power flags** (in the Power palette) — drop one on a pin and name it (`+5V`, `+3V3`, `GND`…), and **every label, port, or power symbol with that same name is the same net, with no wire between them**. So a row of bypass caps can fan out to a rail without a single wire crossing the whole row, and multiple ground symbols collapse to one ground — the way a real schematic tool works. Crucially, **differently-named labels stay separate even when drawn collinear**, so two rails laid out as one visual row don't short together.",

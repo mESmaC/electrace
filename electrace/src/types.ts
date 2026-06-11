@@ -147,12 +147,27 @@ export interface Connection {
   net?: string;              // optional display name ("VBUS")
 }
 
+/** What the off-board world presents (or draws) at one connector pin. A declared pin becomes a real
+ *  terminal during resolve — net typing, voltage propagation, budgets, and every lint rule then work
+ *  across the board edge instead of going blind at it. All fields optional: an undeclared pin stays a
+ *  bare graph node, exactly as before. */
+export interface ConnectorPinSpec {
+  name?: string;             // "VBAT", "SDA" — shown on the canvas and used to name the net
+  type?: NetType;
+  role?: TerminalRole;       // "out" = the outside world drives this pin (power/signal ENTERS the board);
+                             // "in" = the board feeds whatever is plugged in. Default: "out" if v is
+                             // declared (a supply coming in), else "in" (a load leaving).
+  v?: Range;                 // for role out: what arrives here; for role in: what the cable expects
+  i?: Range;                 // for role out: source capability; for role in: draw pulled off-board
+}
+
 /** A multi-pin physical connector placed on the design (board I/O). A block terminal docked to one of
  *  its pins leaves the block boundary off-board — a connector is N off-board references as one part. */
 export interface ConnectorInstance {
   ref: string;               // "J1"
   connector: string;         // connector catalog id, e.g. "hdr-2x10"
   pos?: [number, number];
+  pins?: Record<string, ConnectorPinSpec>; // per-pin declarations, keyed by catalog pin id
 }
 export interface Design {
   id: string;

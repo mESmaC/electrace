@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
@@ -171,7 +171,7 @@ function ShareMenu({ designId }: { designId: string }) {
 }
 
 interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; [k: string]: unknown }
-interface ConnectorNodeData { connectorId: string; ref: string; [k: string]: unknown }
+interface ConnectorNodeData { connectorId: string; ref: string; pins?: Record<string, ConnectorPinSpec>; [k: string]: unknown }
 
 /** Short ref prefix from a block key, e.g. "@electrace/buck-converter@1.2.0" → "BC". */
 function abbrev(key: string): string {
@@ -381,7 +381,7 @@ function BlockTip({ block }: { block: Block }) {
 }
 
 function ConnectorNode(props: NodeProps) {
-  const { connectorId, ref } = props.data as unknown as ConnectorNodeData;
+  const { connectorId, ref, pins: instPins } = props.data as unknown as ConnectorNodeData;
   const sel = props.selected;
   const edges = useEdges();
   const part = connectorPart(connectorId);
@@ -397,27 +397,35 @@ function ConnectorNode(props: NodeProps) {
   if (!part) return null;
   return (
     <div
-      style={{ width: 158, boxShadow: sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 8px 20px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)" }}
+      style={{ width: 184, boxShadow: sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 8px 20px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)" }}
       className={`rounded-xl border ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-bg)] text-[var(--color-text)]`}
     >
       <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-2.5 pt-2 pb-1.5">
         <span className="grid h-5 w-5 place-items-center rounded border border-[#4c8dff55] bg-[#4c8dff26] text-[11px] text-[#4c8dff]">⊟</span>
-        <span className="flex-1 truncate text-[11px] font-semibold">{part.name}</span>
+        <span className="flex-1 truncate text-[11px] font-semibold" title={part.pinAmps ? `${part.name} — contacts rated ${part.pinAmps} A each` : part.name}>{part.name}</span>
         <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{ref}</span>
       </div>
       <div className="py-1">
         {part.pins.map((pin) => {
           const d = dockOf.get(pin);
+          const spec = effectivePinSpec(part, instPins, pin);
+          const tcol = spec?.type ? NET_COLOR[spec.type] : undefined;
+          const v = rmax(spec?.v); const i = rmax(spec?.i);
+          const ratings = [v != null ? `${v}V` : "", i != null ? `${i}A` : ""].filter(Boolean).join("·");
           return (
             <div key={pin} className="relative flex items-center gap-1.5 px-2.5" style={{ height: 17 }}>
               {/* A connector pin has no inherent direction — render BOTH a source and a target handle (same
                   id, same spot) so it can sit on either end of a connection (block out→pin, or pin→block in). */}
               <Handle id={pin} type="target" position={Position.Left}
-                style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, background: "#3c4658", border: `2px solid ${d ? "#4c8dff" : "#677494"}` }} />
+                style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, background: "#3c4658", border: `2px solid ${tcol ?? (d ? "#4c8dff" : "#677494")}` }} />
               <Handle id={pin} type="source" position={Position.Left}
                 style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, opacity: 0 }} />
               <span className="w-5 shrink-0 font-mono text-[9px] text-[var(--color-faint)]">{pin}</span>
+              {spec?.name && spec.name !== pin && (
+                <span className="shrink-0 font-mono text-[9.5px] font-semibold" style={{ color: tcol ?? "var(--color-dim)" }}>{spec.name}</span>
+              )}
               <span className="flex-1 truncate font-mono text-[9.5px]" style={{ color: d ? "#fff" : "#566177" }}>{d ?? "—"}</span>
+              {ratings && <span className="shrink-0 font-mono text-[8.5px] text-[var(--color-faint)]">{ratings}</span>}
             </div>
           );
         })}
@@ -443,7 +451,7 @@ function buildFlow(design: Design, blockMap: Map<string, Block>): { nodes: Node[
     .map((ci) => ({
       id: ci.ref, type: "connector",
       position: { x: ci.pos?.[0] ?? 0, y: ci.pos?.[1] ?? 0 },
-      data: { connectorId: ci.connector, ref: ci.ref },
+      data: { connectorId: ci.connector, ref: ci.ref, pins: ci.pins },
     }));
   const nodes = [...blockNodes, ...connNodes];
   const connRefs = new Set(connNodes.map((n) => n.id));
@@ -537,10 +545,14 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         pos: [n.position.x, n.position.y] as [number, number],
         overrides: (n.data as BlockNodeData).overrides,
       })),
-      connectors: nodes.filter((n) => n.type === "connector").map((n) => ({
-        ref: n.id, connector: (n.data as ConnectorNodeData).connectorId,
-        pos: [n.position.x, n.position.y] as [number, number],
-      })),
+      connectors: nodes.filter((n) => n.type === "connector").map((n) => {
+        const d = n.data as ConnectorNodeData;
+        return {
+          ref: n.id, connector: d.connectorId,
+          pos: [n.position.x, n.position.y] as [number, number],
+          ...(d.pins && Object.keys(d.pins).length ? { pins: d.pins } : {}),
+        };
+      }),
       connections: edges
         .filter((e) => refs.has(e.source) && refs.has(e.target))
         .map((e) => ({ from: `${e.source}.${e.sourceHandle ?? ""}`, to: `${e.target}.${e.targetHandle ?? ""}` })),
@@ -701,11 +713,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNet, setSelectedNet] = useState<string | null>(null); // a member node "REF.term"
+  const [pinsFor, setPinsFor] = useState<string | null>(null); // connector whose pin declarations are being edited
   // a deleted block must never keep filtering the checks panel — a stale filter shows a green
   // "no issues" for a ghost while the real design has findings (walkthrough #1, P1 #4)
   useEffect(() => {
     if (selectedId && !nodes.some((n) => n.id === selectedId)) setSelectedId(null);
     if (selectedNet && !nodes.some((n) => n.id === selectedNet.split(".")[0])) setSelectedNet(null);
+    setPinsFor((p) => (p && !nodes.some((n) => n.id === p) ? null : p));
   }, [nodes, selectedId, selectedNet]);
   useEffect(() => {
     const refs = new Set(nodes.map((n) => n.id));
@@ -866,7 +880,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           { separator: true },
           { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
         ]
-      : [{ label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) }]);
+      : [
+          { label: "Pin specs…", icon: "⊟", onSelect: () => setPinsFor(n.id) },
+          { separator: true },
+          { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
+        ]);
   }, [duplicateNode, deleteNode]);
   const onEdgeContextMenu = useCallback((e: ReactMouseEvent, edge: Edge) => {
     const pin = `${edge.source}.${edge.sourceHandle ?? ""}`;
@@ -1287,6 +1305,67 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           </div>
         );
       })()}
+      {pinsFor && (() => {
+        const node = nodes.find((n) => n.id === pinsFor && n.type === "connector");
+        const data = node?.data as ConnectorNodeData | undefined;
+        const part = data ? connectorPart(data.connectorId) : undefined;
+        if (!node || !data || !part) return null;
+        const inst = data.pins ?? {};
+        const upd = (pin: string, patch: Partial<ConnectorPinSpec>) => {
+          const cur: ConnectorPinSpec = { ...(inst[pin] ?? {}), ...patch };
+          (Object.keys(cur) as (keyof ConnectorPinSpec)[]).forEach((k) => { if (cur[k] === undefined) delete cur[k]; });
+          const next = { ...inst };
+          if (Object.keys(cur).length) next[pin] = cur; else delete next[pin];
+          setNodes((nds) => nds.map((n) => n.id === pinsFor ? { ...n, data: { ...n.data, pins: Object.keys(next).length ? next : undefined } } : n));
+        };
+        const sel = "rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-1.5 py-1 text-[11.5px] text-[var(--color-text)]";
+        return (
+          <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50" onClick={() => setPinsFor(null)}>
+            <div className="max-h-[80vh] w-[600px] overflow-auto rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="text-[15px] font-bold text-[var(--color-text)]">Pin declarations — {pinsFor} ({part.name})</div>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-dim)]">
+                Declare what the outside world presents (or draws) at each pin, and every check works
+                across the board edge — voltage limits, current budgets, reverse polarity,
+                {part.pinAmps ? ` and this connector's ${part.pinAmps} A-per-contact rating` : " and contact ratings"}.
+                Blank fields keep the connector&apos;s built-in meaning, shown greyed.
+              </p>
+              <div className="mt-3 overflow-hidden rounded-lg border border-[var(--color-border)]">
+                <div className="grid grid-cols-[44px_1fr_84px_128px_64px_64px] gap-1.5 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-faint)]">
+                  <span>Pin</span><span>Name</span><span>Type</span><span>Direction</span><span>V max</span><span>A max</span>
+                </div>
+                {part.pins.map((pin) => {
+                  const def = part.defaults?.[pin];
+                  const o = inst[pin] ?? {};
+                  return (
+                    <div key={pin} className="grid grid-cols-[44px_1fr_84px_128px_64px_64px] items-center gap-1.5 border-b border-[var(--color-border)] px-3 py-1.5 last:border-0">
+                      <span className="font-mono text-[11px] text-[var(--color-faint)]">{pin}</span>
+                      <input value={o.name ?? ""} placeholder={def?.name ?? "—"} onChange={(e) => upd(pin, { name: e.target.value || undefined })} className={sel} />
+                      <select value={o.type ?? ""} onChange={(e) => upd(pin, { type: (e.target.value || undefined) as NetType | undefined })} className={sel}>
+                        <option value="">{def?.type ? `(${def.type})` : "(signal)"}</option>
+                        <option value="power">power</option><option value="rail">rail</option>
+                        <option value="gnd">gnd</option><option value="signal">signal</option>
+                      </select>
+                      <select value={o.role ?? ""} onChange={(e) => upd(pin, { role: (e.target.value || undefined) as TerminalRole | undefined })} className={sel}>
+                        <option value="">{def?.role === "out" ? "(feeds the board)" : def?.role === "in" ? "(board feeds it)" : "(auto)"}</option>
+                        <option value="out">feeds the board</option>
+                        <option value="in">board feeds it</option>
+                      </select>
+                      <input type="number" inputMode="decimal" value={rmax(o.v) ?? ""} placeholder={rmax(def?.v) != null ? String(rmax(def?.v)) : ""}
+                        onChange={(e) => upd(pin, { v: e.target.value === "" ? undefined : { max: Number(e.target.value), unit: "V" } })} className={sel} />
+                      <input type="number" inputMode="decimal" value={rmax(o.i) ?? ""} placeholder={rmax(def?.i) != null ? String(rmax(def?.i)) : ""}
+                        onChange={(e) => upd(pin, { i: e.target.value === "" ? undefined : { max: Number(e.target.value), unit: "A" } })} className={sel} />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-[var(--color-faint)]">
+                Direction &ldquo;auto&rdquo;: a pin with a declared voltage feeds the board; otherwise the board feeds it.
+              </p>
+              <button onClick={() => setPinsFor(null)} className="mt-4 w-full rounded-xl border border-[var(--color-border-strong)] py-2 text-[13px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Done</button>
+            </div>
+          </div>
+        );
+      })()}
       {isoFor && (() => {
         const others = nodes.filter((n) => n.type === "block" && n.id !== isoFor).map((n) => n.id);
         const mine = isolation.filter((c) => c.a === isoFor || c.b === isoFor);
@@ -1358,7 +1437,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           onEdgeContextMenu={onEdgeContextMenu}
           onPaneClick={() => { setSelectedId(null); setSelectedNet(null); }}
           onInit={(inst) => { rfRef.current = inst; }}
-          onNodeDoubleClick={(_, n) => { if (n.type !== "block") return; setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}
+          onNodeDoubleClick={(_, n) => { if (n.type === "connector") { setPinsFor(n.id); return; } if (n.type !== "block") return; setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}
           onNodeContextMenu={onNodeContextMenu} onPaneContextMenu={onPaneContextMenu}
           deleteKeyCode={drillRef ? null : ["Backspace", "Delete"]}
           fitView proOptions={{ hideAttribution: true }}

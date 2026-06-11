@@ -46,6 +46,36 @@ const overCurrent: Rule = (rd) =>
       return [];
     });
 
+/** Current through a declared connector pin vs the family's per-contact rating. A pin that FEEDS
+ *  the board (role out) carries the net's whole draw; a pin the board feeds carries its own draw.
+ *  Undeclared pins stay unchecked — direction (and therefore through-current) is unknowable. */
+const connectorPinCurrent: Rule = (rd) =>
+  rd.nets.flatMap((net): Finding[] => {
+    const draw = net.sinks.reduce((a, s) => a + (rmax(s.current) ?? 0), 0);
+    const out: Finding[] = [];
+    for (const p of net.members) {
+      if (!p.block.id.startsWith("connector:")) continue;
+      const part = CONNECTOR_CATALOG[p.block.id.slice("connector:".length)];
+      const rating = part?.pinAmps;
+      if (rating == null) continue;
+      const through = p.def.role === "out" ? draw : rmax(p.def.i) ?? 0;
+      if (through > rating)
+        out.push({
+          rule: "current/connector-pin", severity: "error", category: "current", at: [net.id, p.node],
+          message: `${p.instance} pin ${p.terminal} (${part.name}) carries up to ${round(through)} A but one contact is rated ${rating} A.`,
+          derivation: `through-pin ${round(through)} A  >  contact rating ${rating} A`,
+          fix: { label: "Parallel more pins, or use a higher-rated connector" },
+        } satisfies Finding);
+      else if (through > 0.85 * rating)
+        out.push({
+          rule: "current/connector-pin", severity: "warn", category: "current", at: [net.id, p.node],
+          message: `${p.instance} pin ${p.terminal} (${part.name}) runs at ${round(through)} A — close to its ${rating} A contact rating.`,
+          derivation: `${round(through)} A of ${rating} A rating used`,
+        } satisfies Finding);
+    }
+    return out;
+  });
+
 /** A net's worst-case voltage exceeds a connected input's accepted max. */
 const overVoltage: Rule = (rd) =>
   rd.nets.flatMap((net) => {
@@ -475,7 +505,7 @@ const i2cRiseTime: Rule = (rd) =>
 
 export const RULES: Rule[] = [
   danglingWire,
-  openNet, overCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
+  openNet, overCurrent, connectorPinCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 

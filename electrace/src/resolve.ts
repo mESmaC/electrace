@@ -1,9 +1,9 @@
 import { rmax } from "./types.js";
 import type { InvalidConnection,
-  Block, Design, ResolvedDesign, ResolvedInstance, ResolvedNet, ResolvedPin, NetType, InstanceOverrides,
+  Block, Design, ResolvedDesign, ResolvedInstance, ResolvedNet, ResolvedPin, NetType, InstanceOverrides, Terminal,
 } from "./types.js";
 import { UnionFind } from "./uf.js";
-import { CONNECTOR_CATALOG } from "./connectors.js";
+import { CONNECTOR_CATALOG, effectivePinSpec } from "./connectors.js";
 
 /** Apply per-instance overrides to a block, producing an effective block — used
  *  everywhere downstream (lint, budgets, power) so edits flow through uniformly. */
@@ -34,6 +34,17 @@ function netType(pins: ResolvedPin[]): NetType {
 function netName(design: Design, members: Set<string>): string | null {
   for (const c of design.connections) {
     if (c.net && (members.has(c.from) || members.has(c.to))) return c.net;
+  }
+  // a named connector pin on the net names it ("VBUS", "BAT+") — the board edge is where
+  // the most meaningful names live, and both catalog defaults and user pin specs are deliberate
+  for (const conn of design.connectors ?? []) {
+    const part = CONNECTOR_CATALOG[conn.connector];
+    if (!part) continue;
+    for (const pin of part.pins) {
+      if (!members.has(`${conn.ref}.${pin}`)) continue;
+      const nm = effectivePinSpec(part, conn.pins, pin)?.name;
+      if (nm) return nm;
+    }
   }
   const terms = [...members].map((node) => node.slice(node.lastIndexOf(".") + 1)).filter(Boolean);
   if (!terms.length) return null;
@@ -68,11 +79,33 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   }
 
   // Connector pins are graph nodes too (the off-board boundary). A net touching one is external.
+  // A pin with a declaration (catalog default — USB VBUS is 5 V power in — or a per-instance spec)
+  // additionally becomes a REAL pin: it types the net, declares voltage/current, and feeds every
+  // rule, so the engine sees what enters and leaves the board instead of going blind at its edge.
   const connectorPins = new Set<string>();
   for (const conn of design.connectors ?? []) {
     const part = CONNECTOR_CATALOG[conn.connector];
     if (!part) throw new Error(`Unknown connector "${conn.connector}" (instance ${conn.ref})`);
-    for (const pin of part.pins) { const node = `${conn.ref}.${pin}`; uf.add(node); connectorPins.add(node); }
+    const pseudo: Block = { id: `connector:${part.id}`, name: part.name, version: "0", terminals: [] };
+    for (const pin of part.pins) {
+      const node = `${conn.ref}.${pin}`;
+      uf.add(node);
+      connectorPins.add(node);
+      const spec = effectivePinSpec(part, conn.pins, pin);
+      if (!spec) continue;
+      const def: Terminal = {
+        id: pin,
+        // declared v with no explicit role = a supply arriving from off-board (drives the net);
+        // otherwise the pin is a load the board feeds.
+        role: spec.role ?? (spec.v ? "out" : "in"),
+        type: spec.type ?? "signal",
+        ...(spec.v ? { v: spec.v } : {}),
+        ...(spec.i ? { i: spec.i } : {}),
+        external: true,
+      };
+      pseudo.terminals.push(def);
+      pinOf.set(node, { node, instance: conn.ref, terminal: pin, block: pseudo, def });
+    }
   }
 
   // A connection to a pin that no longer exists (block re-authored, terminal renamed) is SKIPPED
@@ -113,7 +146,9 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   let n = 0;
   for (const members of groups.values()) {
     const pins = members.filter((m) => pinOf.has(m)).map((m) => pinOf.get(m)!);
-    if (!pins.length) continue; // a net of only connector pins (nothing docked) — skip
+    // a net of only connector pins (nothing docked on-board) — skip. Declared pins enrich nets
+    // they're wired into; a freshly placed connector's unwired pins must not spawn ghost nets.
+    if (!pins.some((p) => !connectorPins.has(p.node))) continue;
     const sources = pins.filter((p) => p.def.role === "out");
     const sinks = pins
       .filter((p) => p.def.role === "in")
