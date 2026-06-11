@@ -35,11 +35,12 @@ Tier legend: **[F]** free · **[P]** Pro · **[F→P soft]** visible to all, Pro
 
 ## Checking engine (@electrace/core — runs client-side on every change)
 
-22 lint rules: danglingWire, openNet, overCurrent, **connectorPinCurrent** (per-contact rating),
+23 lint rules: danglingWire, openNet, overCurrent, **connectorPinCurrent** (per-contact rating),
 **usbInrush** (hard-attached bulk C on a USB rail vs the ~10 µF spec allowance), overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers,
 undrivenRail, internalShort, regulatorDissipation (linear topology, (Vin−Vout)·I), isolationBridged,
 busTermination (finds the actual resistor bridging the pair), i2cRiseTime (pull-ups + bus C, fix in
-message), lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull.
+message), **dcOperatingPoint** (MNA solver → real resistor dissipation vs package rating +
+declaration-missing + honesty notes), lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull.
 
 - DC propagation: `v.follows` outputs swing with their rail (8-pass), sink-labeled override;
   generic load charging (downstream draw charges back to the supply input)
@@ -49,6 +50,11 @@ message), lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull.
   conduction-graph BFS names the bridging path
 - SI net classes (rs485, can, i2c-100k/400k, usb-fs, fast-edge): z0/termination/rise/edge/skew
 - Connector pins as real terminals: catalog defaults merged under per-instance specs
+- **DC operating-point solver (analysis ladder stage 1):** MNA over the flattened design —
+  R stamps, boundary V-sources from declared terminals, declared draws as I-sinks, L/ferrite/fuse
+  short at DC, C open, semiconductors/ICs honestly left open with a note; per-subcircuit solve
+  with 300-node cap; dangling declared loads degree-guarded out (can't go singular). solveDc()
+  exported; full pipeline incl. solver: 3 ms at 50 blocks (bench/pipeline.mjs)
 - Resilience: stale wires recorded as invalid (never crash analysis); internal shorts blame the
   block, suppress the cascade
 

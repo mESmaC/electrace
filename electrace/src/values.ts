@@ -4,8 +4,9 @@
 /** Parse a resistance/value string to a base-unit number (ohms, farads, …), or null if unparseable.
  *  Handles plain ("330", "4.7k", "1M"), RKM/"R-notation" ("4k7" = 4.7k, "1R5" = 1.5, "2M2" = 2.2M),
  *  and a trailing unit/Ω. Multiplier case matters: M = mega, m = milli. */
-export function parseValue(raw: string | undefined | null): number | null {
-  if (!raw) return null;
+export function parseValue(raw: string | number | undefined | null): number | null {
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "number") return isFinite(raw) ? raw : null; // YAML can hand us bare numbers
   const s = raw.trim().replace(/(ohms?|Ω|F|farads?|H|henr(y|ies))\s*$/i, "").trim();
   if (!s) return null;
   // <digits> <multiplier letter> <digits>  — the letter may be the decimal point (R-notation)

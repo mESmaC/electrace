@@ -2,6 +2,7 @@ import { rmax } from "./types.js";
 import { CONNECTOR_CATALOG } from "./connectors.js";
 import { NET_CLASSES } from "./netclasses.js";
 import { parseValue } from "./values.js";
+import { solveDc } from "./solve.js";
 import type { Finding, ResolvedDesign, ResolvedNet, ResolvedPin, Rule, Range } from "./types.js";
 
 // ── Faults (deterministic arithmetic / threshold) ──────────────────────────
@@ -125,6 +126,44 @@ const usbInrush: Rule = (rd) =>
         fix: { label: "Add a soft-start / load switch, or reduce hard-attached bulk" },
       } satisfies Finding];
     });
+
+/** The DC operating point (stage 1 of the analysis ladder): run MNA over the flattened design
+ *  and compare every resistor's REAL dissipation against its package rating. Also forwards the
+ *  solver's honesty stream (missing values, nonlinear parts left open, skipped subcircuits). */
+const RATING: [RegExp, number][] = [
+  [/0402/, 0.0625], [/0603/, 0.1], [/0805/, 0.125], [/1206/, 0.25], [/1210/, 0.5], [/2010/, 0.75], [/2512/, 1],
+];
+const round2 = (x: number) => Math.round(x * 100) / 100;
+const dcOperatingPoint: Rule = (rd) => {
+  const sol = solveDc(rd);
+  const out: Finding[] = [...sol.findings];
+  for (const p of sol.parts) {
+    if (p.watts < 0.005) continue; // milliwatt noise
+    const instance = p.ref.slice(0, p.ref.indexOf("/"));
+    const rating = RATING.find(([re]) => re.test(p.footprint ?? ""))?.[1];
+    const derivation = `${round2(p.volts)} V across ${p.ohms} Ω → ${round2(p.amps * 1000) / 1000} A → P = ${round2(p.watts)} W`;
+    if (rating != null && p.watts > rating) {
+      out.push({
+        rule: "thermal/resistor-dissipation", severity: "error", category: "thermal", at: [instance, p.ref],
+        message: `${p.ref} dissipates ${round2(p.watts)} W — its package is rated ${rating} W. It will burn.`,
+        derivation, fix: { label: "Bigger package, higher resistance, or rethink the path" },
+      } satisfies Finding);
+    } else if (rating != null && p.watts > 0.7 * rating) {
+      out.push({
+        rule: "thermal/resistor-dissipation", severity: "warn", category: "thermal", at: [instance, p.ref],
+        message: `${p.ref} runs at ${round2(p.watts)} W — over 70% of its ${rating} W package rating. It will run hot.`,
+        derivation,
+      } satisfies Finding);
+    } else if (rating == null && p.watts > 0.25) {
+      out.push({
+        rule: "thermal/resistor-dissipation", severity: "warn", category: "thermal", at: [instance, p.ref],
+        message: `${p.ref} dissipates ${round2(p.watts)} W — more than a typical small resistor's ¼ W. Check the part's actual rating.`,
+        derivation,
+      } satisfies Finding);
+    }
+  }
+  return out;
+};
 
 /** A net's worst-case voltage exceeds a connected input's accepted max. */
 const overVoltage: Rule = (rd) =>
@@ -555,7 +594,7 @@ const i2cRiseTime: Rule = (rd) =>
 
 export const RULES: Rule[] = [
   danglingWire,
-  openNet, overCurrent, connectorPinCurrent, usbInrush, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
+  openNet, overCurrent, connectorPinCurrent, usbInrush, dcOperatingPoint, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 

@@ -84,7 +84,7 @@ Content:
 
 - [ ] 60 blocks · 20 breakdowns
 - [ ] Native Gerber + drill export (today: .kicad_pcb → plot in KiCad)
-- [ ] DC operating-point solver — stage 1 of the analysis ladder below
+- [x] DC operating-point solver v1 shipped 2026-06-11 (deepen per ladder: more elements, UI surfacing of node voltages)
 - [ ] "Explain this board" — import a KiCad design, Electrace explains it (ideas.md's
       strongest promote: kills cold-start, feeds the corpus, demos brilliantly)
 - [ ] Parametric blocks (the calculator baked into the block)
@@ -106,7 +106,7 @@ Everything here is closed-form linear analysis — deterministic, explainable, l
 transient simulation. The no-SPICE positioning survives intact; update the public "what checks
 don't do" line as each stage ships, the way the inrush rule did it.
 
-1. **Linear DC solver (1.0 gate)** — Modified Nodal Analysis: node-voltage method (KCL) as the
+1. **Linear DC solver — SHIPPED 2026-06-11 (v1)** — Modified Nodal Analysis: node-voltage method (KCL) as the
    core, which natively handles what the textbook calls supernodes (voltage sources get their own
    current variables) and makes mesh/supermesh bookkeeping unnecessary. Buys: REAL node voltages
    and branch currents from declared values, per-part dissipation, brown-out with numbers,

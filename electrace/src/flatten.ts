@@ -73,14 +73,25 @@ export function flatten(rd: ResolvedDesign): FlatSchematic {
   }
 
   const nets: FlatNet[] = [];
+  const termNet: Record<string, string> = {};          // "REF.term" → flat-net name (solver boundary hook)
   let k = 0;
+  let t = 0;
   for (const members of groups.values()) {
     const pins = members.filter((m) => compPins.has(m)).sort();
-    if (pins.length === 0) continue;                   // skip pure-terminal groups (no physical pin)
-    nets.push({ name: pickName(members, connName, internalName) ?? `N${k++}`, pins });
+    // pure-terminal groups carry no physical pin → not in the netlist, but they ARE electrical
+    // nodes (a source block's gnd terminal tied straight to a load's): termNet keeps them under
+    // a synthetic "~" name so the DC solver doesn't lose the return path.
+    // synthetic groups NEVER take a display name — a collision with a physical net's name
+    // would silently merge two distinct solver nodes
+    const name = pins.length ? (pickName(members, connName, internalName) ?? `N${k++}`) : `~T${t++}`;
+    if (pins.length) nets.push({ name, pins });
+    for (const m of members) {
+      const sep = m.indexOf("::@");
+      if (sep >= 0) termNet[`${m.slice(0, sep)}.${m.slice(sep + 3)}`] = name;
+    }
   }
   nets.sort((a, b) => a.name.localeCompare(b.name));
-  return { parts, nets };
+  return { parts, nets, termNet };
 }
 
 /** Prefer a user-facing design-connection name; else the internal net name

@@ -284,4 +284,7 @@ export interface FlatNet {
 export interface FlatSchematic {
   parts: FlatPart[];
   nets: FlatNet[];
+  /** "REF.terminal" → flat-net name, for every block terminal that landed in a physical net.
+   *  The DC solver's boundary hook: declared source/load terminals attach to the matrix here. */
+  termNet?: Record<string, string>;
 }

@@ -10,6 +10,7 @@ export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-06-11",
     items: [
+      "**The engine solves now.** Stage 1 of the analysis ladder is live: a DC operating-point solver (Modified Nodal Analysis — the node-voltage method from your circuits course, as code) runs over the flattened design on every change. What that buys today: every resistor's REAL current and dissipation — a 0603 quietly burning 1.4 W is now an error naming the part, with the arithmetic shown. The solver is honest to the bone: semiconductors and ICs are left open and it says so (bias networks around them solve correctly), a resistor with no value gets a 'can't solve this' finding instead of silence, and anything it can't compute is reported, never guessed. Closed-form linear algebra — still no simulation.",
       "**Five more calculators — the circuits-course toolkit:** current divider (the voltage divider's mirror image), delta ↔ wye conversion (the bridge-circuit unlock), LC resonance & reactance (with series/parallel L and C math), AC power & power factor (real/reactive/apparent, single and three phase, plus correction-capacitor sizing), and the AC induction motor (synchronous speed, slip, rotor frequency, shaft torque, efficiency). Ohm's law also gained a Joule's-law section — energy over time at the computed power. Fifteen calculators total.",
       "**Motor winding & Kv calculator:** Kv to torque (they're the same constant — Kt = 9.549/Kv), rewind turns scaling, wye/delta conversion, cogging-step arithmetic, and winding-wire math (AWG, parallel strands, phase resistance with the I²R loss at your current). Honest about its limits: it does the exact arithmetic around a winding, and tells you to consult a winding table for the layout itself.",
       "**Inrush checking, the deterministic way:** hang too much hard-attached bulk capacitance off a USB port and the checker now tells you — at plug-in, every bulk cap is a momentary near-short, and the USB spec allows only ~10 µF before inrush can brown-out or trip the host. The finding sums the actual caps inside your blocks, names each contributor, and suggests the fix (a soft-start / load switch). No simulation — declared-value arithmetic, like every other check.",
@@ -198,8 +199,9 @@ undriven rail, an open/unconnected pin, a power pin tied to ground, a rail drawi
 can supply, a polarized part wired backwards, a regulator burning more heat than its package survives,
 a connector contact carrying more current than it's rated for.
 
-What they **don't** do: any analog or time-domain behaviour. No SPICE, no transient simulation
-(though USB hard-attach inrush IS checked — from declared bulk-capacitance arithmetic, not waveforms), no thermal,
+What they **don't** do: time-domain behaviour. No SPICE, no transient simulation — though the
+**DC operating point IS solved** (node voltages and real resistor dissipation, closed-form), and
+USB hard-attach inrush is checked from declared bulk-capacitance arithmetic. No waveforms, no thermal,
 no ripple-current-on-the-caps, no EMI or loop-stability. A clean result means your design is
 **structurally sane — typed-correct and connected as intended — not that it's validated.** Component
 values you (or Sparky) set are *starting points*; nothing here checks them against a real part's

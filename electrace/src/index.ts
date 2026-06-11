@@ -4,6 +4,8 @@ export { resolve } from "./resolve.js";
 export { lint, RULES, findingKey } from "./lint.js";
 export { bom, bomCsv } from "./bom.js";
 export { flatten } from "./flatten.js";
+export { solveDc } from "./solve.js";
+export type { DcSolve, DcPartResult } from "./solve.js";
 export { railBudgets } from "./budget.js";
 export type { RailBudget } from "./budget.js";
 export { toKicadNetlist } from "./export-kicad.js";
