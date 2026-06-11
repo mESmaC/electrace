@@ -21,6 +21,24 @@ connector declarations, lint rules) · headless scripts for sandbox entry, expor
 pro-path regression, connector pin UX. Gaps in automation worth adding during this pass
 are findings too — tag them **AUTO**.
 
+### In-product capture (editor-based checks)
+
+For anything tested inside the editor, record the verdict in-product: hit **Report Bug**
+and write the note as `[VERIFY] [P]` or `[VERIFY] [F]` plus a short description of what was
+tested — the capture buffer (last 300 events) and a design snapshot ride along as evidence
+backing the verdict. Example:
+
+> [VERIFY] [P]
+> Created a block and added symbols to it without issues. Validates the first part of the
+> block CRUD cycle.
+
+Harvest them back out with `cd web && node --env-file=.env.local scripts/verify-report.mjs`
+(needs the Supabase service key in .env.local once — or run the equivalent in the Supabase
+dashboard: `select created_at, description from bug_reports where description ilike '[VERIFY]%'`).
+Fold ❌ entries into the Findings table below; the doc stays the single source of truth,
+the table just gains evidence-backed rows. Non-editor surfaces (landing, auth, pricing,
+emails) still get checked off directly in this doc — no capture exists there.
+
 ---
 
 ## 1. First contact (anonymous, fresh browser)
