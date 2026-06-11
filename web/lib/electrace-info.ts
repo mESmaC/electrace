@@ -18,6 +18,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Sparky's toolbox caught up too:** it can now declare connector pins (and does so proactively at power entry), set galvanic-isolation requirements (verified the moment it declares them), assign signal-integrity classes to nets, and run the what-if stress test — so asking it \"can I run this from a 24 V brick?\" gets arithmetic, not vibes.",
       "**Signal integrity and galvanic isolation are now Pro analyses.** The core checking engine — voltage propagation, current budgets, shorts, polarity, connector ratings, the stress test — stays free forever; the professional-grade declarations (SI classes, isolation guarantees) join Sparky and manufacturing export in Pro. The menu items remain visible to everyone, with a clear explanation of what they do.",
       "**Manufacturing export now actually requires Pro** (it was always meant to): the BOM CSV download and the routed-board .kicad_pcb export check your plan. Viewing the BOM, the Digi-Key cart, PCB editing/routing/DRC, the design JSON, and the KiCad netlist all stay free — your design is never locked in.",
+      "**Try Electrace without an account.** The editor is no longer login-walled — open it cold and everything works: blocks, wiring, the full checking engine, the PCB editor. Your work saves to that browser, a banner says exactly that, and creating a free account imports it automatically. \"Free, no card\" now means what it says, from the very first click.",
     ],
   },
   {

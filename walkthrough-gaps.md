@@ -39,8 +39,8 @@ Full path: entry → place → wire → checks → PCB → exports → reload.
 
 ## P2 — funnel & workflow
 
-5. **No try-before-signup.** Production /editor is login-walled; landing promises "free, no
-   card." A sandbox mode (local-only, no account) is the single biggest funnel fix.
+5. ✅ FIXED 2026-06-10 — **No try-before-signup.** /editor is now public: anonymous users get the
+   full free tier as a localStorage sandbox with a banner + signup-imports-your-work bridge.
 6. **"New" gives the demo template, not a blank sheet** — and no visible blank option.
    User must delete three blocks to start clean.
 7. **Gerber export unverified** in this pass — BOM CSV + KiCad PCB downloaded fine;

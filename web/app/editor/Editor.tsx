@@ -7,6 +7,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { analyze, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
+import { useProfile } from "@/lib/auth";
 import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
 import { pushDesignNow } from "@/lib/designsSync";
@@ -733,6 +734,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     });
   }, [nodes]);
   const [drillRef, setDrillRef] = useState<string | null>(null);
+  // Sandbox mode: no session = the editor still works, local-first (that's the whole architecture) —
+  // the banner makes "this browser only" explicit and is the signup hook (signup imports the work).
+  const { profile: authProfile, mounted: authMounted } = useProfile();
+  const [sandboxHidden, setSandboxHidden] = useState(false);
+  const sandbox = authMounted && !authProfile;
   // Pro-gated analyses (signal integrity, isolation): the menu items stay visible for everyone —
   // clicking as a free user opens a friendly what-this-does upsell instead of the picker. Unknown
   // plan (fetch pending/failed) passes through: never block a paying user on a slow request.
@@ -1259,6 +1265,15 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <SymbolStyleToggle />
           <ReportBug getDesign={() => designForAnalysis.current} />
         </div>
+        {sandbox && !sandboxHidden && (
+          <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-1.5 pl-3.5 pr-2 shadow-lg">
+            <span className="text-[12px] text-[var(--color-dim)]">
+              <b className="font-semibold text-[var(--color-text)]">Sandbox</b> — everything works; your design saves to this browser only.
+            </span>
+            <a href="/signup" className="rounded-full bg-[var(--color-accent)] px-2.5 py-1 text-[11.5px] font-semibold text-white hover:opacity-90">Sign up free to keep it</a>
+            <button onClick={() => setSandboxHidden(true)} title="Hide" className="grid h-5 w-5 place-items-center rounded-full text-[11px] text-[var(--color-faint)] hover:text-[var(--color-text)]">✕</button>
+          </div>
+        )}
       {sigFor && (() => {
         const current = signals.find((a) => a.pin === sigFor);
         const choose = (clsId: string | null) => {

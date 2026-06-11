@@ -8,6 +8,9 @@ Tier legend: **[F]** free · **[P]** Pro · **[F→P soft]** visible to all, Pro
 
 ## Schematic editor (canvas)
 
+- [F] **Sandbox (no account):** /editor is public — anonymous users get the full free tier,
+  localStorage-only, with a banner + signup hook; signing up auto-imports the work. Cloud APIs
+  401 for anonymous (no server cost/abuse surface). Sparky stays signed-in + Pro.
 - [F] Block palette: library + my-blocks + connectors; click or drag to place
 - [F] Spec-search ("18V → 5V at 3A" filters to blocks whose declared specs satisfy it, with why-it-fits)
 - [F] Typed terminals (power / rail / signal / gnd) with roles (in/out); handle-drag wiring
@@ -120,5 +123,3 @@ web_search.
 - Self-serve account deletion (privacy page: "coming"; manual via email works)
 - Team plan (planned)
 - Native Gerber / pick-and-place export
-- Try-before-signup sandbox (landing promises "free, no card" — signup is free, but editor is
-  login-walled; biggest funnel gap, P2 #5)

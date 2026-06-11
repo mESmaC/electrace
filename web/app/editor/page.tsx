@@ -1,5 +1,4 @@
 import Editor from "./Editor";
-import RequireAuth from "../RequireAuth";
 import { loadDesign, blockLibrary } from "@/lib/blocks";
 import type { Design } from "@electrace/core";
 
@@ -15,5 +14,7 @@ export default async function EditorPage({ searchParams }: { searchParams: Promi
   const design: Design = projectId
     ? { id: projectId, name: "Untitled project", visibility: "unlisted", blocks: [], connections: [] }
     : loadDesign("buck-supply");
-  return <RequireAuth><Editor design={design} blocks={blocks} projectId={projectId} /></RequireAuth>;
+  // No auth gate: anonymous users get the sandbox (the app is local-first already — work lives in
+  // this browser, the in-editor banner explains, and signing up imports it). Cloud APIs still 401.
+  return <Editor design={design} blocks={blocks} projectId={projectId} />;
 }

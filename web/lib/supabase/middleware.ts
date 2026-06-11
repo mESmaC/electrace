@@ -4,7 +4,9 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, supabaseConfigured } from "./config";
 
 // Routes that require a signed-in user — enforced SERVER-SIDE here against Supabase (the auth source),
 // not just by the client-side RequireAuth wrapper (which only redirects after the page has shipped).
-const PROTECTED = ["/editor", "/projects", "/settings", "/welcome"];
+// /editor is deliberately ABSENT: anonymous users get the sandbox (localStorage-only, banner explains;
+// signup imports their work). Cloud APIs still 401 — the sandbox can't write to anyone's account.
+const PROTECTED = ["/projects", "/settings", "/welcome"];
 const isProtected = (path: string) => PROTECTED.some((p) => path === p || path.startsWith(`${p}/`));
 
 /** Refresh the Supabase session on each request (writes the rotated cookie) AND gate protected routes

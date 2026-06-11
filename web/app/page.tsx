@@ -31,7 +31,7 @@ export default function Home() {
           <p className="mx-auto mt-5 max-w-[560px] text-[20px] text-dim">Blocks that explain themselves — and catch what doesn&apos;t add up.</p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <Link href="/signup" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Start free</Link>
-            <a href="#how" className="rounded-xl border border-border-strong px-6 py-3 font-semibold transition hover:border-accent hover:text-accent">Watch it work ↓</a>
+            <Link href="/editor" className="rounded-xl border border-border-strong px-6 py-3 font-semibold transition hover:border-accent hover:text-accent">Try it — no account</Link>
           </div>
           <div className="mt-4 text-[13px] text-faint">No simulation · no guessing · vendor-neutral</div>
 
