@@ -58,8 +58,10 @@ export interface Part {
   type: string;              // "ic" | "res" | "cap" | "inductor" | "diode" | ...
   value?: string;
   /** Declared physical ratings — truth beats footprint inference. watts: resistor dissipation
-   *  limit; volts: capacitor working voltage. The solver-backed rules read these first. */
-  rating?: { watts?: number; volts?: number };
+   *  limit; volts: capacitor working voltage OR diode reverse voltage (PIV); leak: diode reverse
+   *  leakage as { ua, atVolts } from the datasheet (models backflow as V/I resistance when off).
+   *  The solver-backed rules read these first; nothing is guessed from absent declarations. */
+  rating?: { watts?: number; volts?: number; leak?: { ua: number; atVolts: number } };
   part?: string;             // mpn / family
   footprint?: string;
   why?: string;              // authored reason → hover/explainer content
@@ -281,7 +283,7 @@ export interface FlatPart {
   instance: string;
   type: string;
   value?: string;
-  rating?: { watts?: number; volts?: number };
+  rating?: Part["rating"];
   part?: string;
   footprint?: string;
   why?: string;

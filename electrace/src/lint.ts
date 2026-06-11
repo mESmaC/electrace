@@ -162,6 +162,32 @@ const dcOperatingPoint: Rule = (rd) => {
       } satisfies Finding);
     }
   }
+  // diode reverse voltage vs declared PIV; leakage backflow worth knowing about
+  for (const d of sol.diodes) {
+    if (d.on || !d.reverseV) continue;
+    const instance = d.ref.slice(0, d.ref.indexOf("/"));
+    if (d.pivVolts != null && d.reverseV > d.pivVolts) {
+      out.push({
+        rule: "voltage/diode-piv", severity: "error", category: "voltage", at: [instance, d.ref],
+        message: `${d.ref} blocks ${round2(d.reverseV)} V in reverse — its rated reverse voltage is ${d.pivVolts} V. It will avalanche.`,
+        derivation: `solved reverse ${round2(d.reverseV)} V  >  PIV ${d.pivVolts} V`,
+        fix: { label: "Use a higher-PIV diode" },
+      } satisfies Finding);
+    } else if (d.pivVolts != null && d.reverseV > 0.8 * d.pivVolts) {
+      out.push({
+        rule: "voltage/diode-piv", severity: "warn", category: "voltage", at: [instance, d.ref],
+        message: `${d.ref} blocks ${round2(d.reverseV)} V — over 80% of its ${d.pivVolts} V reverse rating.`,
+        derivation: `solved reverse ${round2(d.reverseV)} V  >  80% of ${d.pivVolts} V`,
+      } satisfies Finding);
+    }
+    if (d.amps > 1e-8) { // declared leakage = the user wants the number; floor is numerical noise only
+      out.push({
+        rule: "current/diode-leakage", severity: "info", category: "current", at: [instance, d.ref],
+        message: `${d.ref} is blocking, but its declared leakage lets ~${d.amps >= 1e-3 ? `${round2(d.amps * 1000)} mA` : `${round2(d.amps * 1e6)} µA`} flow backwards anyway — on a battery, that's a slow drain that never sleeps.`,
+        derivation: `reverse ${round2(d.reverseV)} V × declared leakage`,
+      } satisfies Finding);
+    }
+  }
   // capacitor working-voltage vs the solved DC across it (declared rating only — no guessing)
   for (const c of sol.caps) {
     if (c.ratingVolts == null || c.volts < 0.01) continue;

@@ -37,8 +37,10 @@ export interface DcSolve {
   termNet: Record<string, string>;
   /** Voltage across each capacitor whose two nets solved — feeds the cap voltage-rating rule. */
   caps: { ref: string; volts: number; ratingVolts?: number }[];
-  /** Diodes/LEDs solved with the fixed-drop model: conducting state + forward current. */
-  diodes: { ref: string; on: boolean; amps: number; vf: number }[];
+  /** Diodes/LEDs solved with the fixed-drop model. ON: amps = forward current. OFF: reverseV =
+   *  the blocked voltage (checked against a declared PIV rating), and amps = leakage backflow
+   *  when the part declares rating.leak — the µA that sneak through a "blocking" diode. */
+  diodes: { ref: string; on: boolean; amps: number; vf: number; reverseV?: number; pivVolts?: number }[];
   /** Per-resistor operating point for every resistor in a solved subcircuit. */
   parts: DcPartResult[];
   /** Honesty stream: missing values, ignored nonlinear parts, skipped subcircuits. */
@@ -109,7 +111,7 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
   // fixed-drop diode model: ON = ideal Vf source anode→cathode (current must flow forward),
   // OFF = open (anode-cathode voltage must stay below Vf). Solved by assumption-flipping
   // iteration — the textbook method, convergence capped honestly.
-  const diodes: { ref: string; anode: string; cathode: string; vf: number; on: boolean }[] = [];
+  const diodes: { ref: string; anode: string; cathode: string; vf: number; on: boolean; gRev?: number; pivVolts?: number }[] = [];
   const nonlinearByNet = new Map<string, Set<string>>(); // merged-net → part refs left open there
   // one pass: every part's pinned nets (the per-part pinNet scan was O(parts²) at scale)
   const netsOfRef = new Map<string, string[]>();
@@ -138,7 +140,10 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
       const parsed = p.value != null ? parseValue(p.value) : null;
       const vf = parsed != null && parsed > 0.1 && parsed < 5 ? parsed
         : p.type === "led" ? 2.0 : p.type === "schottky" ? 0.3 : 0.7;
-      diodes.push({ ref: p.ref, anode: a, cathode: b, vf, on: true });
+      // declared reverse leakage (datasheet I_R at V_R) → backflow resistance when OFF
+      const lk = p.rating?.leak;
+      const gRev = lk && lk.ua > 0 && lk.atVolts > 0 ? (lk.ua * 1e-6) / lk.atVolts : undefined;
+      diodes.push({ ref: p.ref, anode: a, cathode: b, vf, on: true, gRev, pivVolts: p.rating?.volts });
     } else if (p.type === "cap" || p.type === "cap-pol" || p.type === "capacitor") {
       const a = N(netOfPart(p.ref, "1")), b = N(netOfPart(p.ref, "2"));
       if (a && b && a !== b) capPins.push({ ref: p.ref, a, b, ratingVolts: p.rating?.volts });
@@ -274,6 +279,13 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
       };
       vs.forEach((v, k) => stampV(v.plus, v.minus, v.volts, n + k));
       onList.forEach((d, j) => stampV(d.anode, d.cathode, d.vf, n + vs.length + j));
+      for (const d of compDiodes) {
+        if (d.on || !d.gRev) continue; // OFF + declared leakage = a real (huge) resistance, not a perfect open
+        const ia = at(d.anode), ib = at(d.cathode);
+        if (ia >= 0) A[ia][ia] += d.gRev;
+        if (ib >= 0) A[ib][ib] += d.gRev;
+        if (ia >= 0 && ib >= 0) { A[ia][ib] -= d.gRev; A[ib][ia] -= d.gRev; }
+      }
       for (const s of liveSinks) {
         if (!inComp.has(s.from)) continue;
         const ifr = at(s.from), ito = at(s.to);
@@ -307,9 +319,17 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
       });
       continue;
     }
-    for (const d of compDiodes) {
-      const j = onList.indexOf(d);
-      diodeResults.push({ ref: d.ref, on: d.on, amps: d.on && j >= 0 ? Math.max(0, x[n + vs.length + j]) : 0, vf: d.vf });
+    {
+      const volt = (name: string) => (name === ref ? 0 : x![idx.get(name)!]);
+      for (const d of compDiodes) {
+        const j = onList.indexOf(d);
+        const reverseV = d.on ? 0 : Math.max(0, volt(d.cathode) - volt(d.anode));
+        diodeResults.push({
+          ref: d.ref, on: d.on, vf: d.vf,
+          amps: d.on && j >= 0 ? Math.max(0, x[n + vs.length + j]) : d.gRev ? reverseV * d.gRev : 0,
+          reverseV, pivVolts: d.pivVolts,
+        });
+      }
     }
     solved++;
     const volt = (name: string) => (name === ref ? 0 : x[idx.get(name)!]);

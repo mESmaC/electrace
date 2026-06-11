@@ -420,3 +420,37 @@ test("Thévenin from the divider midpoint: Voc = 6 V, Rth = 10k∥10k = 5k", () 
   assert.ok(Math.abs(th!.rth - 5000) < 1e-6, `Rth ${th!.rth}`);
   assert.ok(Math.abs(th!.isc - 6 / 5000) < 1e-12);
 });
+
+test("diode backflow: PIV violation errors; declared leakage quantifies the drain", () => {
+  const src12 = SRC12;
+  const blk = B("@s/backflow", [
+    { id: "vin", role: "in", type: "power" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "1k", footprint: "R0603" },
+      // cathode toward the rail: permanently reverse-biased, blocking 12 V
+      { ref: "D1", type: "diode", rating: { volts: 10, leak: { ua: 1, atVolts: 20 } } },
+    ],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "K", connect: ["R1.2", "D1.2"] },
+      { name: "GND", connect: ["D1.1", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src12) }, { ref: "X1", block: key(blk) }],
+    connections: [{ from: "S1.vout", to: "X1.vin" }, { from: "S1.gnd", to: "X1.gnd" }],
+  };
+  const rd = resolve(d, lib(src12, blk));
+  const sol = solveDc(rd);
+  const diode = sol.diodes.find((x) => x.ref === "X1/D1")!;
+  assert.ok(!diode.on);
+  // leakage model: R_rev = 20 V / 1 µA = 20 MΩ; reverse ≈ 12 V (1k drop negligible) → ~0.6 µA
+  assert.ok(Math.abs(diode.amps - 12 / 20e6) < 1e-8, `leak ${diode.amps}`);
+  const findings = lint(rd);
+  const piv = findings.find((f) => f.rule === "voltage/diode-piv" && f.severity === "error");
+  assert.ok(piv, "12 V reverse on a 10 V-PIV diode must error: " + findings.map((f) => f.rule).join(","));
+  assert.ok(findings.some((f) => f.rule === "current/diode-leakage"), "leakage backflow surfaced");
+});
