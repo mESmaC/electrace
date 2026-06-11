@@ -181,7 +181,7 @@ function mst(pts: Pos[]): [number, number][] {
   return edges;
 }
 
-export default function PcbEditor({ design, blocks, onClose }: { design: Design; blocks: Map<string, Block>; onClose: () => void }) {
+export default function PcbEditor({ design, blocks, pro, onClose }: { design: Design; blocks: Map<string, Block>; pro?: boolean | null; onClose: () => void }) {
   // resolved nets for SI class mapping (pin -> design net id); design is stable while the PCB is open
   const rdNetsMemo = useMemo(() => { try { return resolve(design, blocks).nets; } catch { return []; } }, [design, blocks]);
   const baseProject: PcbProject = useMemo(() => pcbProject(design, blocks), [design, blocks]);
@@ -617,7 +617,11 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
   };
   const fitBoard = () => { setBoard(autoBoard); persist(placesRef.current, tracesRef.current, viasRef.current, autoBoard); };
 
+  const [upgrade, setUpgrade] = useState(false);
   const exportKicad = () => {
+    // The .kicad_pcb is the manufacturing handoff → Pro. Editing, routing, and DRC stay free;
+    // the KiCad NETLIST export (schematic side) stays free too — no lock-in. Unknown plan passes.
+    if (pro === false) { setUpgrade(true); return; }
     const comps: KicadComp[] = project.components.map((c, i) => {
       const pl = placeOf(c.ref, i);
       return {
@@ -905,6 +909,28 @@ export default function PcbEditor({ design, blocks, onClose }: { design: Design;
         </div>
       </div>
 
+      {upgrade && (
+        <div className="fixed inset-0 z-[140] grid place-items-center bg-black/50" onClick={() => setUpgrade(false)}>
+          <div className="w-[440px] rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl border border-[#4c8dff55] bg-[#4c8dff26] text-[18px] text-[#4c8dff]">↧</span>
+              <div>
+                <div className="text-[16px] font-bold text-[var(--color-text)]">Manufacturing export</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#4c8dff]">Pro</div>
+              </div>
+            </div>
+            <p className="mt-3 text-[13px] leading-relaxed text-[var(--color-dim)]">
+              The .kicad_pcb file is the board, ready to hand to a fab workflow — placed parts, routed traces,
+              vias, and outline. Exporting it is part of Pro. Editing, routing, and DRC stay free, and the
+              KiCad <i>netlist</i> export on the schematic side is always free — your design is never locked in.
+            </p>
+            <div className="mt-5 flex gap-2.5">
+              <a href="/pricing" className="flex-1 rounded-xl bg-[var(--color-accent)] py-2.5 text-center text-[13.5px] font-semibold text-white hover:opacity-90">See Pro</a>
+              <button onClick={() => setUpgrade(false)} className="flex-1 rounded-xl border border-[var(--color-border-strong)] py-2.5 text-[13.5px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Maybe later</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
       <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-hidden" style={{ background: COL.bg }}>
         <svg ref={svgRef} width="100%" height="100%" viewBox={`${pan.x} ${pan.y} ${vw} ${vh}`}

@@ -51,7 +51,7 @@ export const PLANS: Plan[] = [
       "Sparky — the AI engineer: builds and wires blocks, authors real chips from a part number, declares the board edge, runs the stress test — and every claim it makes passes through the checking engine, so it can't bluff you",
       "Signal-integrity analysis — declare a net RS-485 / CAN / I2C / USB and the physics is enforced: termination present, rise time achievable from your pull-ups, trace lengths & pair matching checked on the PCB",
       "Galvanic-isolation guarantees — declare that two blocks share no conductive path; re-verified on every edit, and a violation names the exact net that bridged the barrier",
-      "Manufacturing-grade export — Gerber, BOM, pick-and-place",
+      "Manufacturing export — the routed board as .kicad_pcb + BOM CSV, ready for any fab workflow",
       "Private designs + your own private block library",
       "Unlimited designs — no cap",
       "Version history on every design",

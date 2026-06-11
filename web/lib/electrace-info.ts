@@ -17,6 +17,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**The feature lists caught up with the engine:** the pricing page now spells out what the checking engine actually catches — voltage propagation, budgets, isolation, signal integrity, connector ratings, wiring sanity — and that all of it is free. The in-app help and Sparky's reference got the same update.",
       "**Sparky's toolbox caught up too:** it can now declare connector pins (and does so proactively at power entry), set galvanic-isolation requirements (verified the moment it declares them), assign signal-integrity classes to nets, and run the what-if stress test — so asking it \"can I run this from a 24 V brick?\" gets arithmetic, not vibes.",
       "**Signal integrity and galvanic isolation are now Pro analyses.** The core checking engine — voltage propagation, current budgets, shorts, polarity, connector ratings, the stress test — stays free forever; the professional-grade declarations (SI classes, isolation guarantees) join Sparky and manufacturing export in Pro. The menu items remain visible to everyone, with a clear explanation of what they do.",
+      "**Manufacturing export now actually requires Pro** (it was always meant to): the BOM CSV download and the routed-board .kicad_pcb export check your plan. Viewing the BOM, the Digi-Key cart, PCB editing/routing/DRC, the design JSON, and the KiCad netlist all stay free — your design is never locked in.",
     ],
   },
   {

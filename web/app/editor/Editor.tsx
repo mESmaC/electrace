@@ -1646,7 +1646,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         </Panel>
 
         <Panel title={`BOM · ${analysis.bom.length}`}>
-          <BomPanel rows={analysis.bom} designName={designName} />
+          <BomPanel rows={analysis.bom} designName={designName} pro={proPlan} />
         </Panel>
 
         {consolidation.length > 0 && (
@@ -1704,7 +1704,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       {/* PCB layout — full-screen over the whole design editor */}
       {pcbOpen && (
         <div className="absolute inset-0 z-30 flex flex-col bg-[#222a38]">
-          <PcbEditor design={designLive} blocks={blockMap} onClose={() => setPcbOpen(false)} />
+          <PcbEditor design={designLive} blocks={blockMap} pro={proPlan} onClose={() => setPcbOpen(false)} />
         </div>
       )}
 

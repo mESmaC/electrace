@@ -9,12 +9,16 @@ import { bomCsv, type BomRow } from "@electrace/core";
 import { digikeyUrl, orderable, partQuery } from "@/lib/partLinks";
 import { track } from "@/lib/telemetry";
 
-export default function BomPanel({ rows, designName }: { rows: BomRow[]; designName: string }) {
+export default function BomPanel({ rows, designName, pro }: { rows: BomRow[]; designName: string; pro?: boolean | null }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [upgrade, setUpgrade] = useState(false);
   const cartRows = rows.filter(orderable);
 
   const downloadCsv = () => {
+    // CSV is the manufacturing handoff → Pro. Viewing the BOM and the Digi-Key cart stay free
+    // (the cart earns its keep). Unknown plan (null) passes — never block on a slow fetch.
+    if (pro === false) { setUpgrade(true); return; }
     const blob = new Blob([bomCsv(rows)], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -55,6 +59,13 @@ export default function BomPanel({ rows, designName }: { rows: BomRow[]; designN
         </button>
       </div>
       {note && <p className="mb-2 text-[10.5px] text-[#fbbf24]">{note}</p>}
+      {upgrade && (
+        <p className="mb-2 text-[10.5px] text-[var(--color-dim)]">
+          <span className="mr-1 rounded-full bg-[var(--color-accent)] px-1.5 py-px text-[8.5px] font-bold uppercase tracking-wide text-white">Pro</span>
+          CSV export is part of Pro — the manufacturing handoff.{" "}
+          <a href="/pricing" className="text-[var(--color-link)] hover:underline">See Pro ↗</a>
+        </p>
+      )}
       <div className="space-y-1 font-mono text-[11px] text-[var(--color-text)]">
         {rows.map((r, i) => (
           <div key={i} className="flex items-baseline gap-1.5">
