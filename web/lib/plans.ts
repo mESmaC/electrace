@@ -54,7 +54,7 @@ export const PLANS: Plan[] = [
       "Manufacturing export — the routed board as .kicad_pcb + BOM CSV, ready for any fab workflow",
       "Private designs + your own private block library",
       "Unlimited designs — no cap",
-      "Version history on every design",
+      "Version history on every design (coming soon)",
       "Priority support",
     ],
   },
