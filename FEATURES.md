@@ -63,7 +63,7 @@ declaration-missing + honesty notes), lowEfficiency, underUtilized, testPoints, 
   short at DC, C open, **diodes/LEDs as fixed-drop elements** (ON/OFF assumption iteration; Vf
   from value or type defaults 0.7/0.3/2.0; zener/TVS stay honestly open), transistors/ICs left
   open with a note; per-subcircuit solve with 300-node cap; dangling declared loads
-  degree-guarded out. **diode PIV check + declared-leakage backflow** (off diodes: reverse V vs rating.volts; rating.leak {ua, atVolts} models the real reverse resistance — battery-drain µA become solved numbers); **theveninAt(): Vth/Rth/Isc from any node** (two solver runs) — in the net
+  degree-guarded out. **diode PIV check + declared-leakage backflow** (off diodes: reverse V vs rating.volts; rating.leak {ua, atVolts} models the real reverse resistance — battery-drain µA become solved numbers); **standbyDraw(): the off-state floor** (standby solve replaces declared draws with iStandby; dividers/pull-ups/leakage never sleep; battery-life from declared capacity; undeclared sleepers flagged assumed-0); **theveninAt(): Vth/Rth/Isc from any node** (two solver runs) — in the net
   passport ('Thévenin: 6.00 V · 5.0 kΩ', ideal sources say so) and Sparky's thevenin tool with
   the Norton dual + max-power-transfer figure. solveDc() exported; full pipeline incl. solver:
   4 ms at 50 blocks (bench/pipeline.mjs)

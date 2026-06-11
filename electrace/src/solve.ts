@@ -41,6 +41,10 @@ export interface DcSolve {
    *  the blocked voltage (checked against a declared PIV rating), and amps = leakage backflow
    *  when the part declares rating.leak — the µA that sneak through a "blocking" diode. */
   diodes: { ref: string; on: boolean; amps: number; vf: number; reverseV?: number; pivVolts?: number }[];
+  /** Per boundary source: the current it actually delivers at this operating point. */
+  sources: { node: string; instance: string; amps: number }[];
+  /** standby mode only: supply inputs that declare an active draw but no iStandby (assumed 0). */
+  undeclaredStandby: string[];
   /** Per-resistor operating point for every resistor in a solved subcircuit. */
   parts: DcPartResult[];
   /** Honesty stream: missing values, ignored nonlinear parts, skipped subcircuits. */
@@ -81,8 +85,10 @@ function gauss(A: number[][], z: number[]): number[] | null {
   return x;
 }
 
-/** Options for solveDc. `inject` adds a test current INTO a node (Thévenin probing). */
-export interface DcSolveOpts { inject?: { node: string; amps: number } }
+/** Options for solveDc. `inject` adds a test current INTO a node (Thévenin probing).
+ *  `standby` solves the OFF state: declared load draws are replaced by declared iStandby
+ *  (absent = 0) — resistive paths and diode leakage stay, because they never sleep. */
+export interface DcSolveOpts { inject?: { node: string; amps: number }; standby?: boolean }
 
 export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
   const flat = flatten(rd);
@@ -181,8 +187,9 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
     return undefined;
   };
 
-  const vsources: { plus: string; minus: string; volts: number }[] = [];
-  const isinks: { from: string; to: string; amps: number }[] = [];
+  const vsources: { plus: string; minus: string; volts: number; node: string; instance: string }[] = [];
+  const isinks: { from: string; to: string; amps: number; node: string }[] = [];
+  const undeclaredStandby: string[] = [];
   const seenSrc = new Set<string>();
   for (const net of rd.nets) {
     for (const s of net.sources) {
@@ -192,14 +199,17 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
       const plus = N(nodeNet(s.node)), minus = gndNetOf(s.instance);
       if (!plus || !minus || plus === minus) continue;
       seenSrc.add(s.node);
-      vsources.push({ plus, minus, volts });
+      vsources.push({ plus, minus, volts, node: s.node, instance: s.instance });
     }
     for (const sk of net.sinks) {
-      const amps = rmax(sk.current);
+      const amps = opts?.standby ? rmax(sk.pin.def.iStandby) ?? 0 : rmax(sk.current);
+      if (opts?.standby && rmax(sk.pin.def.iStandby) == null && rmax(sk.current) != null) {
+        undeclaredStandby.push(sk.pin.node);
+      }
       if (amps == null || amps <= 0) continue;
       const from = N(nodeNet(sk.pin.node)), to = gndNetOf(sk.pin.instance);
       if (!from || !to || from === to) continue;
-      isinks.push({ from, to, amps });
+      isinks.push({ from, to, amps, node: sk.pin.node });
     }
   }
 
@@ -235,6 +245,7 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
     : null;
 
   const diodeResults: DcSolve["diodes"] = [];
+  const sourceResults: DcSolve["sources"] = [];
   for (const nodes of byComp.values()) {
     const inComp = new Set(nodes);
     const vs = vsources.filter((v) => inComp.has(v.plus));
@@ -319,6 +330,10 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
       });
       continue;
     }
+    vs.forEach((v, k) => {
+      // x[n+k] is the current leaving the + node INTO the source; delivering = negative → flip
+      sourceResults.push({ node: v.node, instance: v.instance, amps: Math.max(0, -x![n + k]) });
+    });
     {
       const volt = (name: string) => (name === ref ? 0 : x![idx.get(name)!]);
       for (const d of compDiodes) {
@@ -364,7 +379,7 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
     caps.push({ ref: c.ref, volts: Math.abs(va - vb), ratingVolts: c.ratingVolts });
   }
 
-  return { netVolts, pinNet: Object.fromEntries(pinNet), termNet, caps, diodes: diodeResults, parts, findings, solvedComponents: solved };
+  return { netVolts, pinNet: Object.fromEntries(pinNet), termNet, caps, diodes: diodeResults, sources: sourceResults, undeclaredStandby, parts, findings, solvedComponents: solved };
 }
 
 
@@ -383,4 +398,57 @@ export function theveninAt(rd: ResolvedDesign, node: string): { voc: number; rth
   if (v2 == null) return null;
   const rth = Math.max(0, v2 - voc); // ΔV per 1 A; tiny negative = numerical noise
   return { voc, rth, isc: rth > 1e-9 ? voc / rth : Infinity };
+}
+
+
+export interface StandbyReport {
+  /** Per boundary source: the always-on floor it supplies when everything sleeps. */
+  perSource: {
+    node: string;            // "BAT1.vout"
+    instance: string;
+    amps: number;
+    /** What's still drawing: resistive paths (they never sleep), diode leakage, declared sleep draws. */
+    contributors: { label: string; amps: number; kind: "resistive" | "leakage" | "standby" }[];
+    /** Days the declared capacity survives this floor — only when the source block declares
+     *  a capacity spec (any spec key matching /mah|capacity/i). */
+    lifeDays?: number;
+  }[];
+  /** Supply inputs that declare an active draw but no iStandby — assumed 0, honestly flagged. */
+  undeclared: string[];
+  findings: Finding[];
+}
+
+/** The standby/off-state draw floor — Cameron's "off doesn't mean no draw". Pure solved
+ *  arithmetic: dividers, pull-ups, and leakage have no sleep mode; declared iStandby covers
+ *  what does. NOT modeled (and said so): logic-state-dependent draws and charging circuits —
+ *  this number is the MINIMUM your design can never beat. */
+export function standbyDraw(rd: ResolvedDesign): StandbyReport {
+  const sol = solveDc(rd, { standby: true });
+  const contributors: StandbyReport["perSource"][number]["contributors"] = [];
+  for (const p of sol.parts) if (p.amps > 1e-9) contributors.push({ label: `${p.ref} (${p.ohms} Ω path)`, amps: p.amps, kind: "resistive" });
+  for (const d of sol.diodes) {
+    if (d.on && d.amps > 1e-9) contributors.push({ label: `${d.ref} (conducting)`, amps: d.amps, kind: "resistive" });
+    else if (!d.on && d.amps > 1e-9) contributors.push({ label: `${d.ref} (reverse leakage)`, amps: d.amps, kind: "leakage" });
+  }
+  for (const net of rd.nets) {
+    for (const sk of net.sinks) {
+      const a = sk.pin.def.iStandby;
+      const amps = a?.max ?? a?.value;
+      if (amps != null && amps > 0) contributors.push({ label: `${sk.pin.node} (declared sleep draw)`, amps, kind: "standby" });
+    }
+  }
+  contributors.sort((a, b) => b.amps - a.amps);
+  const perSource = sol.sources.filter((s) => s.amps > 1e-9).map((s) => {
+    const inst = rd.instances.find((i) => i.ref === s.instance);
+    let lifeDays: number | undefined;
+    for (const [k, v] of Object.entries(inst?.def.spec ?? {})) {
+      if (!/mah|capacity/i.test(k)) continue;
+      const mah = typeof v === "number" ? v : typeof v === "object" && v !== null ? (v as { value?: number }).value : undefined;
+      if (mah && mah > 0) { lifeDays = (mah / 1000) / s.amps / 24; break; }
+    }
+    // single-source designs (the battery norm): every contributor is theirs. Multi-source
+    // attribution is graph work — v1 reports the shared list rather than guessing splits.
+    return { node: s.node, instance: s.instance, amps: s.amps, contributors, lifeDays };
+  });
+  return { perSource, undeclared: sol.undeclaredStandby, findings: sol.findings };
 }

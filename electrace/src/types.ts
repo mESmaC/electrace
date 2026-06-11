@@ -38,6 +38,10 @@ export interface Terminal {
   type: NetType;
   v?: Range;                 // declared voltage (sources declare it; inputs declare accepted range)
   i?: Range;                 // declared current (source capability; sink draw)
+  /** Sleep/standby draw on a supply input — what this block pulls when everything that CAN sleep
+   *  is asleep (MCU in deep sleep, radio off). Feeds the standby-draw floor. Absent ≠ zero:
+   *  the report says "assumed 0, declare iStandby to count it". */
+  iStandby?: Range;
   polarity?: "+" | "-";
   groundClass?: GroundClass;
   sensitive?: boolean;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolve, solveDc, theveninAt, lint } from "../src/index.js";
+import { resolve, solveDc, theveninAt, standbyDraw, lint } from "../src/index.js";
 import type { Block, Design, Terminal } from "../src/index.js";
 
 // Stage 1 of the analysis ladder: MNA over the flattened design. These tests pin the
@@ -453,4 +453,65 @@ test("diode backflow: PIV violation errors; declared leakage quantifies the drai
   const piv = findings.find((f) => f.rule === "voltage/diode-piv" && f.severity === "error");
   assert.ok(piv, "12 V reverse on a 10 V-PIV diode must error: " + findings.map((f) => f.rule).join(","));
   assert.ok(findings.some((f) => f.rule === "current/diode-leakage"), "leakage backflow surfaced");
+});
+
+test("standby draw: the always-on floor — divider never sleeps, MCU sleeps at its declared 10 µA", () => {
+  const bat = B("@s/bat", [
+    { id: "vout", role: "out", type: "power", v: { value: 3.7, unit: "V" }, i: { max: 2, unit: "A" } },
+    { id: "gnd", role: "out", type: "gnd" },
+  ]);
+  (bat as Block & { spec: Record<string, number> }).spec = { capacity_mah: 2000 };
+  const sense = B("@s/sense", [
+    { id: "vin", role: "in", type: "power" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "100k", footprint: "R0603" },
+      { ref: "R2", type: "res", value: "100k", footprint: "R0603" },
+    ],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "MID", connect: ["R1.2", "R2.1"] },
+      { name: "GND", connect: ["R2.2", "@gnd"] },
+    ],
+  });
+  const mcu = B("@s/sleepy-mcu", [
+    { id: "vdd", role: "in", type: "power", i: { max: 0.08, unit: "A" }, iStandby: { value: 0.00001, unit: "A" } },
+    { id: "gnd", role: "in", type: "gnd" },
+  ]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "B1", block: key(bat) }, { ref: "S1", block: key(sense) }, { ref: "M1", block: key(mcu) }],
+    connections: [
+      { from: "B1.vout", to: "S1.vin" }, { from: "B1.gnd", to: "S1.gnd" },
+      { from: "B1.vout", to: "M1.vdd" }, { from: "B1.gnd", to: "M1.gnd" },
+    ],
+  };
+  const rep = standbyDraw(resolve(d, lib(bat, sense, mcu)));
+  assert.equal(rep.perSource.length, 1);
+  const src = rep.perSource[0];
+  // divider: 3.7 V / 200 kΩ = 18.5 µA · MCU sleep: 10 µA → floor = 28.5 µA
+  assert.ok(Math.abs(src.amps - 28.5e-6) < 1e-9, `floor ${src.amps * 1e6} µA`);
+  assert.ok(src.contributors.some((c) => c.kind === "resistive" && c.label.includes("S1/R1")));
+  assert.ok(src.contributors.some((c) => c.kind === "standby" && c.label.includes("M1.vdd")));
+  // 2000 mAh / 28.5 µA ≈ 70175 h ≈ 2924 days
+  assert.ok(src.lifeDays && Math.abs(src.lifeDays - 2000 / 1000 / 28.5e-6 / 24) < 0.5, `life ${src.lifeDays}`);
+});
+
+test("standby draw: a supply input with active draw but no iStandby is flagged, not guessed", () => {
+  const bat = B("@s/bat2", [
+    { id: "vout", role: "out", type: "power", v: { value: 3.7, unit: "V" }, i: { max: 2, unit: "A" } },
+    { id: "gnd", role: "out", type: "gnd" },
+  ]);
+  const hungry = B("@s/no-sleep-decl", [
+    { id: "vdd", role: "in", type: "power", i: { max: 0.1, unit: "A" } }, // no iStandby
+    { id: "gnd", role: "in", type: "gnd" },
+  ]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "B1", block: key(bat) }, { ref: "H1", block: key(hungry) }],
+    connections: [{ from: "B1.vout", to: "H1.vdd" }, { from: "B1.gnd", to: "H1.gnd" }],
+  };
+  const rep = standbyDraw(resolve(d, lib(bat, hungry)));
+  assert.ok(rep.undeclared.includes("H1.vdd"), JSON.stringify(rep.undeclared));
 });

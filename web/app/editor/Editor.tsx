@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, solveDc, theveninAt, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, solveDc, theveninAt, standbyDraw, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { useProfile } from "@/lib/auth";
 import { touchProject } from "@/lib/projects";
@@ -799,6 +799,15 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     }
     return null;
   }, [dcSolved, passportNet]);
+  // standby floor for the selected net's sources — "off" never means zero draw
+  const passportStandby = useMemo(() => {
+    if (!passportNet || !passportNet.sources.length) return null;
+    try {
+      const rep = standbyDraw(analysis.resolved);
+      const mine = rep.perSource.find((s) => passportNet.sources.some((src) => src.node === s.node));
+      return mine ?? null;
+    } catch { return null; }
+  }, [passportNet, analysis]);
   // Thévenin seen from the selected net — stage 2 of the analysis ladder, two solver runs on demand
   const passportThevenin = useMemo(() => {
     if (passportSolvedV == null || !passportNet) return null;
@@ -1597,6 +1606,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             {passportSolvedV != null && (
               <div className="mt-0.5 font-mono text-[11px] text-[#46dca6]" title="DC operating point — solved from the actual resistor network (MNA), not a declared bound">
                 = {Math.abs(passportSolvedV) < 0.001 ? "0" : passportSolvedV.toFixed(passportSolvedV < 10 ? 3 : 2)} V solved
+              </div>
+            )}
+            {passportStandby && passportStandby.amps > 1e-8 && (
+              <div className="mt-0.5 font-mono text-[10.5px] text-[#fbbf24]" title={`Always-on floor when everything sleeps — dividers, pull-ups, leakage, declared sleep draws${passportStandby.lifeDays ? `. Declared capacity survives ~${passportStandby.lifeDays >= 365 ? (passportStandby.lifeDays / 365).toFixed(1) + " years" : Math.round(passportStandby.lifeDays) + " days"}` : ""}`}>
+                standby floor: {passportStandby.amps >= 1e-3 ? `${(passportStandby.amps * 1e3).toFixed(2)} mA` : `${(passportStandby.amps * 1e6).toFixed(1)} µA`}{passportStandby.lifeDays ? ` · ~${passportStandby.lifeDays >= 365 ? `${(passportStandby.lifeDays / 365).toFixed(1)} yr` : `${Math.round(passportStandby.lifeDays)} d`}` : ""}
               </div>
             )}
             {passportThevenin && (

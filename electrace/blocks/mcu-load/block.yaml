@@ -10,7 +10,7 @@ spec:
   vdd: { value: 5.0, unit: V }
   i_typ: { value: 1.8, unit: A }
 terminals:
-  - { id: vdd,    role: in,  type: rail, v: { value: 5.0, unit: V }, i: { max: 1.8, unit: A } }
+  - { id: vdd,    role: in,  type: rail, v: { value: 5.0, unit: V }, i: { max: 1.8, unit: A }, iStandby: { value: 1.0e-5, unit: A } }
   - { id: gnd,    role: in,  type: gnd }
   - { id: status, role: out, type: signal }
 schematic:
