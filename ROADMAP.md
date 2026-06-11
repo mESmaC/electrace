@@ -118,15 +118,16 @@ view · one-click JLC ordering (vendor-neutrality is the wedge) · semantic zoom
 
 ## Doc map (after the 2026-06-11 tidy-up)
 
+Root = the current generation; archive/ = everything that came before (value extracted,
+staged to move off-repo — see archive/README.md for the per-doc extraction table).
+
 | Doc | Role |
 |---|---|
 | FEATURES.md | what IS (current state, tier-tagged) |
 | ROADMAP.md | this — what's next, gates, goals |
-| DECISIONS.md | open calls awaiting Cameron |
+| DECISIONS.md | open calls awaiting Cameron + the decided log |
 | VERIFICATION.md | the alpha→beta quality gate |
 | walkthrough-gaps.md | live findings from real-use walkthroughs |
-| todo.md, ideas.md, revenue-checklist.md | working backlogs (roadmap-level items extracted here) |
-| concept/design/lint/pcb/data-model/storage/stack/views/ai/registry.md | reference specs (canonical, still true) |
-| business-strategy/competition/pitch/business-setup.md | strategy reference |
-| gsc-queue.md, bing-submit.txt, domain-reputation.md | SEO/ops |
-| archive/ | completed-purpose docs, staged to move off-repo |
+| design.md | the design source of truth — check before any UI work |
+| gsc-queue.md, bing-submit.txt, domain-reputation.md | SEO/ops, kept current |
+| archive/ | the pre-consolidation docs (concept→alpha era) |
