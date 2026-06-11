@@ -66,6 +66,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </nav>
         <div className="flex-1">{children}</div>
         <Footer />
+        {/* TEMPORARY: impact.com media-property ownership verification (partner signup).
+            Remove as soon as Impact shows electrace.net as verified — this is tracking JS
+            and conflicts with the privacy page's no-cross-site-tracking promise long-term. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(i,m,p,a,c,t){c.ire_o=p;c[p]=c[p]||function(){(c[p].a=c[p].a||[]).push(arguments)};t=a.createElement(m);var z=a.getElementsByTagName(m)[0];t.async=1;t.src=i;z.parentNode.insertBefore(t,z)})('https://utt.impactcdn.com/P-A7402343-2ded-4704-81e3-c146a1ad71801.js','script','impactStat',document,window);impactStat('transformLinks');impactStat('trackImpression');`,
+          }}
+        />
         <DialogHost />
         <ContextMenuHost />
         <Analytics />
