@@ -49,7 +49,7 @@ const emit = () => { try { window.dispatchEvent(new CustomEvent(EVT)); } catch {
 
 /** Live progress while Sparky works — surfaced so the user sees activity (narration, current tool,
  *  token usage) instead of a chat indicator that looks hung. Null when idle. */
-export interface Progress { status: string; tool?: string; tools: string[]; narration?: string; tokensIn?: number; tokensOut?: number }
+export interface Progress { status: string; convId: string; tool?: string; tools: string[]; narration?: string; tokensIn?: number; tokensOut?: number }
 interface DoneMsg { reply?: string; design?: unknown; blocks?: unknown[]; deletedBlocks?: string[]; blockSchematics?: { id: string; layout: unknown }[] }
 let liveProgress: Progress | null = null;
 export const getProgress = (): Progress | null => liveProgress;
@@ -93,7 +93,13 @@ export function appendChat(role: ChatMessage["role"], text: string, convId?: str
   // after the user switched threads (drill-in/out swaps the active chat) lands in the wrong
   // conversation — the "my reply vanished" bug. Default stays active for plain calls.
   const cs = ensureChats(); const id = convId ?? activeId();
-  const conv = cs.find((c) => c.id === id); if (!conv) return;
+  let conv = cs.find((c) => c.id === id);
+  if (!conv) {
+    // the thread was deleted while its run was in flight — resurrect it instead of dropping
+    // the reply (a run costs real tokens; silent loss reads as "Sparky ate my answer")
+    conv = { id, title: "(recovered chat)", messages: [], updatedAt: Date.now() };
+    cs.unshift(conv);
+  }
   conv.messages.push({ id: uid("m"), role, text, t: Date.now() });
   if (!conv.title && role === "user") conv.title = titleOf(text); // name the chat from its first message
   conv.updatedAt = Date.now();
@@ -203,7 +209,7 @@ export async function sendMessage(text: string): Promise<void> {
   appendChat("user", t, conv);
   const body: Record<string, unknown> = { context, history, message: t, ...(summary ? { summary } : {}) };
   if (agentSession) { body.design = agentSession.getDesign(); body.blocks = agentSession.getBlocks(); }
-  const prog: Progress = { status: "Thinking…", tools: [] };
+  const prog: Progress = { status: "Thinking…", convId: conv, tools: [] };
   setProgress(prog);
   try {
     const res = await fetch("/api/assistant", {

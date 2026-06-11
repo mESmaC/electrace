@@ -37,6 +37,9 @@ export default function AssistantBubble() {
     return () => { alive = false; };
   }, []);
   const { messages, conversations, activeId, progress } = useAssistant();
+  // a run in flight anywhere (module-level — survives bubble remounts, unlike local state)
+  const running = !!progress;
+  const runningHere = progress?.convId === activeId;
   const scroller = useRef<HTMLDivElement>(null);
 
   // Type assistant replies out instead of popping the whole message at once. Only genuinely-new
@@ -71,7 +74,7 @@ export default function AssistantBubble() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || busy || pro === false) return;
+    if (!text || busy || running || pro === false) return;
     setInput("");
     setBusy(true);
     sendMessage(text).finally(() => setBusy(false));
@@ -133,7 +136,16 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
               );
             })
           )}
-          {busy && !typing && (
+          {running && !runningHere && (
+            <div className="flex justify-start">
+              <button onClick={() => progress && switchConversation(progress.convId)}
+                className="max-w-[94%] rounded-lg rounded-tl-sm bg-[var(--color-surface-2)] px-3 py-2 text-left text-[11px] text-[var(--color-dim)] hover:text-[var(--color-text)]"
+                title="Sparky is answering in the chat where you asked — click to jump there">
+                ✨ Working in another chat… <span className="text-[var(--color-link)]">go to it →</span>
+              </button>
+            </div>
+          )}
+          {(busy || running) && runningHere && !typing && (
             <div className="flex justify-start">
               <div className="max-w-[94%] rounded-lg rounded-tl-sm bg-[var(--color-surface-2)] px-3 py-2 text-[11px]">
                 <div className="flex items-center gap-2">
@@ -162,9 +174,9 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
         ) : (
           <form onSubmit={submit} className="flex items-center gap-1.5 border-t border-[var(--color-border)] p-2">
             {messages.length > 0 && <button type="button" onClick={clearChat} className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--color-faint)] hover:text-[var(--color-text)]" title="Clear this chat">clear</button>}
-            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your design…" disabled={busy}
+            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={running && !runningHere ? "Sparky is working in another chat…" : "Ask about your design…"} disabled={busy || running}
               className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-2 text-[12px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-border-strong)] focus:border-[#4c8dff] disabled:opacity-60" />
-            <button type="submit" disabled={!input.trim() || busy} title="Send"
+            <button type="submit" disabled={!input.trim() || busy || running} title="Send"
               className="grid w-9 place-items-center rounded-md bg-[#4c8dff] py-2 text-white disabled:opacity-40">→</button>
           </form>
         )}
