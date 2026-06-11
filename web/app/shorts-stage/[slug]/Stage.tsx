@@ -112,6 +112,17 @@ export default function Stage({ scenes }: { scenes: { layout: SchematicLayout }[
                   <path key={i} data-wire data-len={w.len} d={w.d} fill="none" stroke="#4c8dff" strokeWidth={2.5} strokeLinejoin="round"
                     style={{ strokeDasharray: `${w.len}`, strokeDashoffset: `${w.len}` }} />
                 ) : null)}
+                {sc.m.syms.map((s) => {
+                  const dims = symDims(s);
+                  if (!dims) return null;
+                  const def = SYMBOLS[s.type];
+                  return (
+                    <g key={s.id} data-sym={s.ref || s.id} data-cx={s.x + dims.w / 2} data-cy={s.y + dims.h / 2}
+                      transform={`translate(${s.x},${s.y}) rotate(${s.rot ?? 0} ${dims.w / 2} ${dims.h / 2})`} style={{ opacity: 0 }}>
+                      {s.chip ? renderChip(dims, s.chip) : def?.draw(symStyle)}
+                    </g>
+                  );
+                })}
                 <g data-labels style={{ opacity: 0 }}>
                   {sc.labels.map((L, i) => {
                     const lineH = L.fontSize * 1.4 + 2.5;
@@ -127,17 +138,6 @@ export default function Stage({ scenes }: { scenes: { layout: SchematicLayout }[
                     );
                   })}
                 </g>
-                {sc.m.syms.map((s) => {
-                  const dims = symDims(s);
-                  if (!dims) return null;
-                  const def = SYMBOLS[s.type];
-                  return (
-                    <g key={s.id} data-sym={s.ref || s.id} data-cx={s.x + dims.w / 2} data-cy={s.y + dims.h / 2}
-                      transform={`translate(${s.x},${s.y}) rotate(${s.rot ?? 0} ${dims.w / 2} ${dims.h / 2})`} style={{ opacity: 0 }}>
-                      {s.chip ? renderChip(dims, s.chip) : def?.draw(symStyle)}
-                    </g>
-                  );
-                })}
                 {sc.m.syms.map((s) => {
                   const dims = symDims(s);
                   if (!dims) return null;

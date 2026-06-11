@@ -45,7 +45,7 @@ layout:
     - { from: P_vin.1, to: C1.1 }
     - { from: C1.1,    to: U1.4 }
     - { from: P_vin.1, to: U1.8 }
-    - { from: P_vin.1, to: R1.1 }
+    - { from: P_vin.1, to: R1.1, via: [[40, 36], [424, 36]] }   # over the top — not through the chip
     - { from: U1.5,    to: C2.1 }
     - { from: C2.1,    to: P_batt.1 }
     - { from: U1.7,    to: R1.2 }
