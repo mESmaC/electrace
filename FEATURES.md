@@ -35,8 +35,8 @@ Tier legend: **[F]** free · **[P]** Pro · **[F→P soft]** visible to all, Pro
 
 ## Checking engine (@electrace/core — runs client-side on every change)
 
-21 lint rules: danglingWire, openNet, overCurrent, **connectorPinCurrent** (per-contact rating),
-overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers,
+22 lint rules: danglingWire, openNet, overCurrent, **connectorPinCurrent** (per-contact rating),
+**usbInrush** (hard-attached bulk C on a USB rail vs the ~10 µF spec allowance), overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers,
 undrivenRail, internalShort, regulatorDissipation (linear topology, (Vin−Vout)·I), isolationBridged,
 busTermination (finds the actual resistor bridging the pair), i2cRiseTime (pull-ups + bus C, fix in
 message), lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull.

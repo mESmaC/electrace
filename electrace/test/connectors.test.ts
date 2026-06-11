@@ -150,3 +150,59 @@ test("reverse polarity at the boundary: hot output wired into a gnd-typed connec
   const hit = findings.find((f) => f.rule.includes("short") || f.rule.includes("polarity"));
   assert.ok(hit, "expected a short/polarity finding; got: " + findings.map((f) => f.rule).join(", "));
 });
+
+// ── USB inrush (declared-value, not simulation) ─────────────────────────────
+const bulkBlock = (id: string, capVal: string): Block => ({
+  id, name: id, version: "1.0.0",
+  terminals: [
+    { id: "vin", role: "in", type: "power", i: { max: 0.1, unit: "A" } },
+    { id: "gnd", role: "in", type: "gnd" },
+  ],
+  schematic: {
+    parts: [{ ref: "C1", type: "cap", value: capVal }],
+    nets: [
+      { name: "VIN", connect: ["C1.1", "@vin"] },
+      { name: "GND", connect: ["C1.2", "@gnd"] },
+    ],
+  },
+});
+
+test("USB inrush: 22µF + 10µF of bulk on VBUS fires; names the caps", () => {
+  const a = bulkBlock("@t/bulk-a", "22uF"), b2 = bulkBlock("@t/bulk-b", "10uF");
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "A1", block: key(a) }, { ref: "B1", block: key(b2) }],
+    connections: [
+      { from: "J1.VBUS", to: "A1.vin" }, { from: "J1.VBUS", to: "B1.vin" },
+      { from: "J1.GND", to: "A1.gnd" }, { from: "J1.GND", to: "B1.gnd" },
+    ],
+    connectors: [{ ref: "J1", connector: "usb-c" }],
+  };
+  const { findings } = analyze(d, lib(a, b2));
+  const hit = findings.find((f) => f.rule === "current/usb-inrush");
+  assert.ok(hit, "expected usb-inrush; got: " + findings.map((f) => f.rule).join(", "));
+  assert.match(hit!.message, /32 µF/);
+  assert.match(hit!.message, /C1 22uF in A1/);
+});
+
+test("USB inrush: the canonical single 10µF input cap stays quiet", () => {
+  const a = bulkBlock("@t/bulk-c", "10uF");
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "A1", block: key(a) }],
+    connections: [{ from: "J1.VBUS", to: "A1.vin" }, { from: "J1.GND", to: "A1.gnd" }],
+    connectors: [{ ref: "J1", connector: "usb-c" }],
+  };
+  assert.ok(!has(analyze(d, lib(a)).findings, "current/usb-inrush"));
+});
+
+test("USB inrush: 470µF on a BARREL jack is not a USB problem", () => {
+  const a = bulkBlock("@t/bulk-d", "470uF");
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "A1", block: key(a) }],
+    connections: [{ from: "J1.+", to: "A1.vin" }, { from: "J1.-", to: "A1.gnd" }],
+    connectors: [{ ref: "J1", connector: "barrel" }],
+  };
+  assert.ok(!has(analyze(d, lib(a)).findings, "current/usb-inrush"));
+});

@@ -19,6 +19,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Signal integrity and galvanic isolation are now Pro analyses.** The core checking engine — voltage propagation, current budgets, shorts, polarity, connector ratings, the stress test — stays free forever; the professional-grade declarations (SI classes, isolation guarantees) join Sparky and manufacturing export in Pro. The menu items remain visible to everyone, with a clear explanation of what they do.",
       "**Manufacturing export now actually requires Pro** (it was always meant to): the BOM CSV download and the routed-board .kicad_pcb export check your plan. Viewing the BOM, the Digi-Key cart, PCB editing/routing/DRC, the design JSON, and the KiCad netlist all stay free — your design is never locked in.",
       "**Try Electrace without an account.** The editor is no longer login-walled — open it cold and everything works: blocks, wiring, the full checking engine, the PCB editor. Your work saves to that browser, a banner says exactly that, and creating a free account imports it automatically. \"Free, no card\" now means what it says, from the very first click.",
+      "**Inrush checking, the deterministic way:** hang too much hard-attached bulk capacitance off a USB port and the checker now tells you — at plug-in, every bulk cap is a momentary near-short, and the USB spec allows only ~10 µF before inrush can brown-out or trip the host. The finding sums the actual caps inside your blocks, names each contributor, and suggests the fix (a soft-start / load switch). No simulation — declared-value arithmetic, like every other check.",
       "**Every reducible IC in the library now breaks into discrete:** two new teardowns complete the set — the **op-amp** (the comparator's long-tailed pair grown up: a current-mirror load, a compensated gain stage, and a class-AB output — the 30 pF Miller cap is the entire difference between an op-amp and a comparator) and the **Li-ion charger** (a pass transistor with two referees: a 0.6 V sense resistor capping the current, and a zener + transistor tapering it at exactly 4.2 V). Ten ICs now open up; the other sixteen library blocks were already fully discrete.",
     ],
   },
@@ -190,7 +191,8 @@ undriven rail, an open/unconnected pin, a power pin tied to ground, a rail drawi
 can supply, a polarized part wired backwards, a regulator burning more heat than its package survives,
 a connector contact carrying more current than it's rated for.
 
-What they **don't** do: any analog or time-domain behaviour. No SPICE, no transient/inrush, no thermal,
+What they **don't** do: any analog or time-domain behaviour. No SPICE, no transient simulation
+(though USB hard-attach inrush IS checked — from declared bulk-capacitance arithmetic, not waveforms), no thermal,
 no ripple-current-on-the-caps, no EMI or loop-stability. A clean result means your design is
 **structurally sane — typed-correct and connected as intended — not that it's validated.** Component
 values you (or Sparky) set are *starting points*; nothing here checks them against a real part's

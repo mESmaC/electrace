@@ -113,6 +113,11 @@ on lint findings, all users. (Born from the in-product-verification idea, 2026-0
 activation triggers don't work — verification units are journeys — but finding-level feedback
 turns every user into an engine verifier and feeds the correctness corpus.)
 
+**Inrush suite v2 (Pro candidate, per the gating rule):** v1 (USB hard-attach bulk-C, free,
+shipped 2026-06-11) covers the spec-backed case. The broader analysis — hot-plug energy into any
+power-entry connector, soft-start/NTC presence detection, per-rail dV/dt budgets — is
+professional-grade territory alongside SI + isolation.
+
 **Perf (optimization.md, verify-then-fix):** PCB SVG re-render on mouse move · analyze()
 during drag (partially fixed — verify) · assistant payload size (full design+blocks per turn).
 

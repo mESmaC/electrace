@@ -76,6 +76,56 @@ const connectorPinCurrent: Rule = (rd) =>
     return out;
   });
 
+/** USB inrush: hard-attached bulk capacitance on a USB-fed rail vs the ~10 µF the spec allows.
+ *  Not a transient simulation — pure declared-value arithmetic: at plug-in, every bulk cap on
+ *  VBUS is a momentary near-short, and the USB spec caps the hard-attached charge (~10 µF
+ *  equivalent) precisely so hosts don't brown-out or trip their port protection. Bulk = a cap
+ *  inside any block whose one pin reaches the VBUS net and whose other pin reaches a gnd net. */
+const usbInrush: Rule = (rd) =>
+  rd.nets
+    .filter((net) => (net.connectorPins ?? []).some((cp) => {
+      const dot = cp.indexOf(".");
+      const conn = (rd.design.connectors ?? []).find((c) => c.ref === cp.slice(0, dot));
+      return !!conn && conn.connector.startsWith("usb") && cp.slice(dot + 1) === "VBUS";
+    }))
+    .flatMap((net): Finding[] => {
+      const reaches = (inst: (typeof rd.instances)[number], partPin: string): Set<string> => {
+        const out = new Set<string>();
+        for (const inet of inst.def.schematic?.nets ?? []) {
+          if (!inet.connect.includes(partPin)) continue;
+          for (const c of inet.connect) {
+            if (!c.startsWith("@")) continue;
+            const dn = rd.nets.find((n) => n.members.some((m) => m.node === `${inst.ref}.${c.slice(1)}`));
+            if (dn) out.add(dn.id);
+          }
+        }
+        return out;
+      };
+      const isGnd = (ids: Set<string>) => rd.nets.some((n) => n.type === "gnd" && ids.has(n.id));
+      const contributors: { label: string; f: number }[] = [];
+      for (const inst of rd.instances) {
+        for (const part of inst.def.schematic?.parts ?? []) {
+          if (part.type !== "cap" && part.type !== "cap-pol") continue;
+          const f = part.value ? parseValue(part.value) : undefined;
+          if (f == null || f <= 0) continue;
+          const r1 = reaches(inst, `${part.ref}.1`), r2 = reaches(inst, `${part.ref}.2`);
+          const other = r1.has(net.id) ? r2 : r2.has(net.id) ? r1 : null;
+          if (!other || !isGnd(other)) continue;
+          contributors.push({ label: `${part.ref} ${part.value} in ${inst.ref}`, f });
+        }
+      }
+      const total = contributors.reduce((a, c) => a + c.f, 0);
+      const LIMIT = 10e-6;
+      if (total <= LIMIT * 1.1) return []; // 10% grace — the canonical single 10 µF input cap stays quiet
+      const uF = (x: number) => Math.round(x * 1e7) / 10;
+      return [{
+        rule: "current/usb-inrush", severity: "warn", category: "current", at: [net.id],
+        message: `${net.id} hangs ~${uF(total)} µF of hard-attached bulk capacitance off a USB port (${contributors.map((c) => c.label).join(", ")}) — the spec allows about 10 µF before plug-in inrush can brown-out or trip the host. Add inrush limiting (a load switch / soft-start), or move the bulk behind it.`,
+        derivation: `Σ bulk C on ${net.id} = ${uF(total)} µF  >  ~10 µF USB hard-attach allowance`,
+        fix: { label: "Add a soft-start / load switch, or reduce hard-attached bulk" },
+      } satisfies Finding];
+    });
+
 /** A net's worst-case voltage exceeds a connected input's accepted max. */
 const overVoltage: Rule = (rd) =>
   rd.nets.flatMap((net) => {
@@ -505,7 +555,7 @@ const i2cRiseTime: Rule = (rd) =>
 
 export const RULES: Rule[] = [
   danglingWire,
-  openNet, overCurrent, connectorPinCurrent, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
+  openNet, overCurrent, connectorPinCurrent, usbInrush, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
   lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 
