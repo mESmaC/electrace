@@ -55,6 +55,7 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 - [ ] https://www.electrace.net/calculators/555-timer
 - [ ] https://www.electrace.net/calculators/ohms-law
 - [ ] https://www.electrace.net/calculators/rc-filter
+- [ ] https://www.electrace.net/calculators/motor-winding
 
 ## Leave to the sitemap (low intent — submit only if bored)
 

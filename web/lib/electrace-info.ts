@@ -8,6 +8,13 @@ export interface ChangeEntry { date: string; title?: string; items: string[] }
  *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-06-11",
+    items: [
+      "**Motor winding & Kv calculator:** Kv to torque (they're the same constant — Kt = 9.549/Kv), rewind turns scaling, wye/delta conversion, cogging-step arithmetic, and winding-wire math (AWG, parallel strands, phase resistance with the I²R loss at your current). Honest about its limits: it does the exact arithmetic around a winding, and tells you to consult a winding table for the layout itself.",
+      "**Inrush checking, the deterministic way:** hang too much hard-attached bulk capacitance off a USB port and the checker now tells you — at plug-in, every bulk cap is a momentary near-short, and the USB spec allows only ~10 µF before inrush can brown-out or trip the host. The finding sums the actual caps inside your blocks, names each contributor, and suggests the fix (a soft-start / load switch). No simulation — declared-value arithmetic, like every other check.",
+    ],
+  },
+  {
     date: "2026-06-10",
     items: [
       "**Connector pins now mean something:** double-click any placed connector (or right-click → **Pin specs…**) and declare what the outside world presents — or draws — at each pin: a name (`VBAT`, `SDA`), a net type, a direction, and voltage/current. A declared pin becomes a **real terminal at the board edge**, so every existing check works across it: a 12 V supply arriving on a header pin gets caught against a 5.5 V-max input, off-board loads count in the power budget, a hot wire into a ground pin flags as a short, and the net inherits the pin's name (`VBUS`) everywhere it's mentioned.",
@@ -19,7 +26,6 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Signal integrity and galvanic isolation are now Pro analyses.** The core checking engine — voltage propagation, current budgets, shorts, polarity, connector ratings, the stress test — stays free forever; the professional-grade declarations (SI classes, isolation guarantees) join Sparky and manufacturing export in Pro. The menu items remain visible to everyone, with a clear explanation of what they do.",
       "**Manufacturing export now actually requires Pro** (it was always meant to): the BOM CSV download and the routed-board .kicad_pcb export check your plan. Viewing the BOM, the Digi-Key cart, PCB editing/routing/DRC, the design JSON, and the KiCad netlist all stay free — your design is never locked in.",
       "**Try Electrace without an account.** The editor is no longer login-walled — open it cold and everything works: blocks, wiring, the full checking engine, the PCB editor. Your work saves to that browser, a banner says exactly that, and creating a free account imports it automatically. \"Free, no card\" now means what it says, from the very first click.",
-      "**Inrush checking, the deterministic way:** hang too much hard-attached bulk capacitance off a USB port and the checker now tells you — at plug-in, every bulk cap is a momentary near-short, and the USB spec allows only ~10 µF before inrush can brown-out or trip the host. The finding sums the actual caps inside your blocks, names each contributor, and suggests the fix (a soft-start / load switch). No simulation — declared-value arithmetic, like every other check.",
       "**Every reducible IC in the library now breaks into discrete:** two new teardowns complete the set — the **op-amp** (the comparator's long-tailed pair grown up: a current-mirror load, a compensated gain stage, and a class-AB output — the 30 pF Miller cap is the entire difference between an op-amp and a comparator) and the **Li-ion charger** (a pass transistor with two referees: a 0.6 V sense resistor capping the current, and a zener + transistor tapering it at exactly 4.2 V). Ten ICs now open up; the other sixteen library blocks were already fully discrete.",
     ],
   },
@@ -215,7 +221,7 @@ never locks you in.
 
 ## Calculators
 Free engineering calculators at **/calculators** — LED resistor, voltage divider, crystal load caps,
-NTC thermistor, op-amp gain, parallel resistors, 555 timer, RC filter, Ohm's law — each with E-series
+NTC thermistor, op-amp gain, parallel resistors, 555 timer, RC filter, Ohm's law, motor winding & Kv — each with E-series
 value snapping and a link into the related block where one exists.
 
 ## The symbol library

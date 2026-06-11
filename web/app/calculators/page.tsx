@@ -7,6 +7,7 @@ const CALCS = [
   { slug: "crystal-load-capacitor", name: "Crystal load capacitors", desc: "The two caps from rated CL and board strays." },
   { slug: "ntc-thermistor", name: "NTC thermistor table", desc: "Resistance, divider ratio, and ADC counts across temperature." },
   { slug: "op-amp-gain", name: "Op-amp gain", desc: "Non-inverting and inverting gain; reverse mode picks standard resistors." },
+  { slug: "motor-winding", name: "Motor winding & Kv", desc: "Kv to torque, rewind turns scaling, wye/delta, cogging steps, winding wire math." },
   { slug: "parallel-resistor", name: "Parallel resistors", desc: "Any number in parallel + series, and what to parallel with what you have." },
   { slug: "555-timer", name: "555 timer (astable)", desc: "Frequency, duty cycle, HIGH/LOW times from Ra, Rb, and C." },
   { slug: "rc-filter", name: "RC filter cutoff", desc: "Cutoff from R and C; reverse picks the resistor for your target." },

@@ -43,3 +43,4 @@ https://www.electrace.net/blocks/led-current-sink
 https://www.electrace.net/blocks/mcu-load
 https://www.electrace.net/blocks/power-entry
 https://www.electrace.net/help
+https://www.electrace.net/calculators/motor-winding

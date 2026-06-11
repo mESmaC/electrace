@@ -3,7 +3,7 @@ import { listBlocks } from "@/lib/blocks";
 import { blockImage } from "@/lib/blockImages";
 import { COMPARISONS } from "@/lib/comparisons";
 
-const CALC_SLUGS = ["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain", "parallel-resistor", "555-timer", "rc-filter", "ohms-law"];
+const CALC_SLUGS = ["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain", "motor-winding", "parallel-resistor", "555-timer", "rc-filter", "ohms-law"];
 
 const BASE = "https://www.electrace.net";
 const NOW = new Date();
