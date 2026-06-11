@@ -4,4 +4,5 @@
 export const BLOCK_VIDEOS: Record<string, { id: string; title: string; uploadDate: string }> = {
   "timer-555": { id: "DSAZE8EtnfY", title: "There's no magic inside a 555 timer", uploadDate: "2026-06-10" },
   "usb-c-power": { id: "7ydwaV_iLus", title: "Why your USB-C project won't power on (it's two resistors)", uploadDate: "2026-06-11" },
+  "opamp-noninverting": { id: "sDrgscWDw7w", title: "The only difference between an op-amp and a comparator is one tiny capacitor", uploadDate: "2026-06-11" },
 };
