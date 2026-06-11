@@ -10,6 +10,7 @@ export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-06-11",
     items: [
+      "**Five more calculators — the circuits-course toolkit:** current divider (the voltage divider's mirror image), delta ↔ wye conversion (the bridge-circuit unlock), LC resonance & reactance (with series/parallel L and C math), AC power & power factor (real/reactive/apparent, single and three phase, plus correction-capacitor sizing), and the AC induction motor (synchronous speed, slip, rotor frequency, shaft torque, efficiency). Ohm's law also gained a Joule's-law section — energy over time at the computed power. Fifteen calculators total.",
       "**Motor winding & Kv calculator:** Kv to torque (they're the same constant — Kt = 9.549/Kv), rewind turns scaling, wye/delta conversion, cogging-step arithmetic, and winding-wire math (AWG, parallel strands, phase resistance with the I²R loss at your current). Honest about its limits: it does the exact arithmetic around a winding, and tells you to consult a winding table for the layout itself.",
       "**Inrush checking, the deterministic way:** hang too much hard-attached bulk capacitance off a USB port and the checker now tells you — at plug-in, every bulk cap is a momentary near-short, and the USB spec allows only ~10 µF before inrush can brown-out or trip the host. The finding sums the actual caps inside your blocks, names each contributor, and suggests the fix (a soft-start / load switch). No simulation — declared-value arithmetic, like every other check.",
     ],
@@ -221,7 +222,7 @@ never locks you in.
 
 ## Calculators
 Free engineering calculators at **/calculators** — LED resistor, voltage divider, crystal load caps,
-NTC thermistor, op-amp gain, parallel resistors, 555 timer, RC filter, Ohm's law, motor winding & Kv — each with E-series
+NTC thermistor, op-amp gain, parallel resistors, 555 timer, RC filter, Ohm's law, motor winding & Kv, current divider, delta↔wye, LC resonance, AC power & PF, AC motor — each with E-series
 value snapping and a link into the related block where one exists.
 
 ## The symbol library

@@ -84,7 +84,7 @@ Content:
 
 - [ ] 60 blocks · 20 breakdowns
 - [ ] Native Gerber + drill export (today: .kicad_pcb → plot in KiCad)
-- [ ] DC operating-point solver (per-part dissipation; fixes the propagation class at the root)
+- [ ] DC operating-point solver — stage 1 of the analysis ladder below
 - [ ] "Explain this board" — import a KiCad design, Electrace explains it (ideas.md's
       strongest promote: kills cold-start, feeds the corpus, demos brilliantly)
 - [ ] Parametric blocks (the calculator baked into the block)
@@ -99,6 +99,33 @@ electrical diff · protoboard store + branded kits (DECISIONS.md) · Team plan �
 teaching/replay mode · **silicon CAD north star** (owner's call, exempt from triage).
 
 ---
+
+## The analysis ladder (engine evolution — Cameron's circuits-course list, 2026-06-11)
+
+Everything here is closed-form linear analysis — deterministic, explainable, locatable — NOT
+transient simulation. The no-SPICE positioning survives intact; update the public "what checks
+don't do" line as each stage ships, the way the inrush rule did it.
+
+1. **Linear DC solver (1.0 gate)** — Modified Nodal Analysis: node-voltage method (KCL) as the
+   core, which natively handles what the textbook calls supernodes (voltage sources get their own
+   current variables) and makes mesh/supermesh bookkeeping unnecessary. Buys: REAL node voltages
+   and branch currents from declared values, per-part dissipation, brown-out with numbers,
+   max-power-transfer warnings, and the end of worst-case propagation heuristics.
+2. **Equivalent-circuit insights** — Thévenin/Norton seen from any net (right-click → "what does
+   the circuit look like from here": Voc, Rth = Voc/Isc, two solver runs); source transformation
+   and superposition as TEACHING modes — "which source is responsible for this voltage" is the
+   self-explaining thesis applied to analysis itself.
+3. **Phasor steady-state (AC)** — the same MNA with complex impedances at a chosen frequency:
+   real filter response from the actual schematic, impedance at a port vs frequency, design-level
+   power factor, resonance detection. Still closed-form.
+4. **First/second-order responses** — RC/RL time constants, RLC ζ/ωₙ/Q symbolically from the
+   actual circuit ("is this snubber underdamped?"). The calculator↔engine bridge: today's
+   calculators teach the math; the engine applies it to YOUR schematic.
+
+Calculator wave shipped alongside (2026-06-11): current-divider, delta-wye, lc-resonance,
+ac-power (+PF correction), ac-motor, Joule's law inside ohms-law — 15 total. Still unpicked
+from the list: RLC second-order calculator (ζ/ωₙ/Q standalone), three-phase wye/delta load
+currents. KCL/KVL themselves are stage-1 engine work, not calculators.
 
 ## Feature backlog (consolidated from todo.md §2–4 + optimization.md)
 

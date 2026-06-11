@@ -90,9 +90,10 @@ web_search.
 - 10 expand-to-discrete equivalents: ldo-3v3, h-bridge-1ch, ne555, comparator, buck-controller,
   boost-controller, tl431, optocoupler, opamp, tp4056 — every reducible IC in the library is
   covered (16 blocks are already fully discrete; mcu-load is flagged irreducible)
-- 10 calculators (E-series snapping, block links): led-resistor, voltage-divider,
+- 15 calculators (E-series snapping, block links): led-resistor, voltage-divider,
   crystal-load-capacitor, ntc-thermistor, op-amp-gain, parallel-resistor, 555-timer, rc-filter,
-  ohms-law, motor-winding (Kv↔Kt, rewind scaling, wye/delta, cogging, AWG math)
+  ohms-law (+ Joule's-law energy), motor-winding (Kv↔Kt, rewind, wye/delta, cogging, AWG),
+  current-divider, delta-wye, lc-resonance, ac-power (PF + correction sizing), ac-motor (slip/torque)
 - Block pages with explainers + internal schematics; /vs/ comparison pages; llms.txt; sitemap +
   IndexNow
 

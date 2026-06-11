@@ -56,6 +56,11 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 - [ ] https://www.electrace.net/calculators/ohms-law
 - [ ] https://www.electrace.net/calculators/rc-filter
 - [ ] https://www.electrace.net/calculators/motor-winding
+- [ ] https://www.electrace.net/calculators/ac-power
+- [ ] https://www.electrace.net/calculators/lc-resonance
+- [ ] https://www.electrace.net/calculators/ac-motor
+- [ ] https://www.electrace.net/calculators/delta-wye
+- [ ] https://www.electrace.net/calculators/current-divider
 
 ## Leave to the sitemap (low intent — submit only if bored)
 
