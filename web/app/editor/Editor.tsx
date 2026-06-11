@@ -733,6 +733,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     });
   }, [nodes]);
   const [drillRef, setDrillRef] = useState<string | null>(null);
+  // Pro-gated analyses (signal integrity, isolation): the menu items stay visible for everyone —
+  // clicking as a free user opens a friendly what-this-does upsell instead of the picker. Unknown
+  // plan (fetch pending/failed) passes through: never block a paying user on a slow request.
+  const [proPlan, setProPlan] = useState<boolean | null>(null);
+  const [upsell, setUpsell] = useState<"isolation" | "si" | null>(null);
+  useEffect(() => {
+    if (!mounted) return;
+    let alive = true;
+    fetch("/api/me").then((r) => r.json()).then((d) => { if (alive) setProPlan(!!d.pro); }).catch(() => { if (alive) setProPlan(null); });
+    return () => { alive = false; };
+  }, [mounted]);
   const [isoFor, setIsoFor] = useState<string | null>(null); // block whose isolation constraints are being edited
   const [sigFor, setSigFor] = useState<string | null>(null); // a pin "REF.term" whose net's signal class is being edited
   const [bottomOpen, setBottomOpen] = useState(true);
@@ -876,7 +887,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       ? [
           { label: "Open block", icon: "⌖", onSelect: () => setDrillRef(n.id) },
           { label: "Duplicate", icon: "⧉", onSelect: () => duplicateNode(n.id) },
-          { label: "Isolation…", icon: "⊘", onSelect: () => setIsoFor(n.id) },
+          { label: "Isolation…", icon: "⊘", onSelect: () => (proPlan === false ? setUpsell("isolation") : setIsoFor(n.id)) },
           { separator: true },
           { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
         ]
@@ -885,15 +896,15 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           { separator: true },
           { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
         ]);
-  }, [duplicateNode, deleteNode]);
+  }, [duplicateNode, deleteNode, proPlan]);
   const onEdgeContextMenu = useCallback((e: ReactMouseEvent, edge: Edge) => {
     const pin = `${edge.source}.${edge.sourceHandle ?? ""}`;
     setSelectedNet(pin); setSelectedId(null);
     openContextMenu(e, [
-      { label: "Signal class…", icon: "∿", onSelect: () => setSigFor(pin) },
+      { label: "Signal class…", icon: "∿", onSelect: () => (proPlan === false ? setUpsell("si") : setSigFor(pin)) },
       { label: "Delete wire", icon: "✕", danger: true, hint: "Del", onSelect: () => rfRef.current?.deleteElements({ edges: [{ id: edge.id }] }) },
     ]);
-  }, []);
+  }, [proPlan]);
   const onPaneContextMenu = useCallback((e: MouseEvent | ReactMouseEvent) => {
     openContextMenu(e as ReactMouseEvent, [
       { label: "Fit to view", icon: "⤢", onSelect: () => rfRef.current?.fitView({ duration: 200 }) },
@@ -1301,6 +1312,38 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                 </label>
               )}
               <button onClick={() => setSigFor(null)} className="mt-4 w-full rounded-xl border border-[var(--color-border-strong)] py-2 text-[13px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Done</button>
+            </div>
+          </div>
+        );
+      })()}
+      {upsell && (() => {
+        const info = upsell === "isolation"
+          ? {
+              icon: "⊘", title: "Galvanic isolation guarantees",
+              what: "Declare that two blocks must share no conductive path — a patient-side sensor vs the mains side, an isolated CAN node vs its bus. Electrace re-verifies the barrier on every single change, honouring true isolation (an optocoupler's two sides only exchange light), and the moment anything bridges it — usually a carelessly shared ground — the finding names the exact net that did it.",
+              why: "Getting isolation right normally takes lab testing and review; keeping it right through every later edit is the part everyone gets wrong.",
+            }
+          : {
+              icon: "∿", title: "Signal-integrity analysis",
+              what: "Declare what a net is — RS-485, CAN, I2C, a USB pair — and the checker enforces what that physically requires: termination present (it finds the actual resistor), rise time achievable from your pull-ups, and on the PCB, trace lengths and pair matching against the class's edge rate.",
+              why: "SI problems are invisible on a schematic and brutal to debug on hardware — this is the analysis that normally takes a scope and a respin to learn.",
+            };
+        return (
+          <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50" onClick={() => setUpsell(null)}>
+            <div className="w-[460px] rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-xl border border-[#4c8dff55] bg-[#4c8dff26] text-[20px] text-[#4c8dff]">{info.icon}</span>
+                <div>
+                  <div className="text-[16px] font-bold text-[var(--color-text)]">{info.title}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#4c8dff]">Pro</div>
+                </div>
+              </div>
+              <p className="mt-3 text-[13px] leading-relaxed text-[var(--color-dim)]">{info.what}</p>
+              <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--color-faint)]">{info.why}</p>
+              <div className="mt-5 flex gap-2.5">
+                <a href="/pricing" className="flex-1 rounded-xl bg-[var(--color-accent)] py-2.5 text-center text-[13.5px] font-semibold text-white hover:opacity-90">See Pro</a>
+                <button onClick={() => setUpsell(null)} className="flex-1 rounded-xl border border-[var(--color-border-strong)] py-2.5 text-[13.5px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Maybe later</button>
+              </div>
             </div>
           </div>
         );

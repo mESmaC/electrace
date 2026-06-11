@@ -16,6 +16,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Connector cards show the declarations:** pin rows on the canvas display the declared name color-coded by net type, plus the declared volts/amps — so a glance at the board edge tells you what comes in and goes out.",
       "**The feature lists caught up with the engine:** the pricing page now spells out what the checking engine actually catches — voltage propagation, budgets, isolation, signal integrity, connector ratings, wiring sanity — and that all of it is free. The in-app help and Sparky's reference got the same update.",
       "**Sparky's toolbox caught up too:** it can now declare connector pins (and does so proactively at power entry), set galvanic-isolation requirements (verified the moment it declares them), assign signal-integrity classes to nets, and run the what-if stress test — so asking it \"can I run this from a 24 V brick?\" gets arithmetic, not vibes.",
+      "**Signal integrity and galvanic isolation are now Pro analyses.** The core checking engine — voltage propagation, current budgets, shorts, polarity, connector ratings, the stress test — stays free forever; the professional-grade declarations (SI classes, isolation guarantees) join Sparky and manufacturing export in Pro. The menu items remain visible to everyone, with a clear explanation of what they do.",
     ],
   },
   {
@@ -171,9 +172,9 @@ live checks, no SPICE required. Here's the lay of the land.
   Every load charges back to its rail.
 - **Power budgets** (bottom bar) show each rail's load vs the source's capacity, and the **what-if
   stress test** asks "would this survive 24 V at the input?" against every declared limit on the rail.
-- **Galvanic isolation**: right-click a block → *Isolation…* and declare it must share no conductive
+- **Galvanic isolation** (Pro): right-click a block → *Isolation…* and declare it must share no conductive
   path with another block (or all others). Re-verified on every change; a violation names the bridging net.
-- **Signal integrity**: right-click a wire → *Signal class…* and declare it RS-485 / CAN / I2C / a USB
+- **Signal integrity** (Pro): right-click a wire → *Signal class…* and declare it RS-485 / CAN / I2C / a USB
   pair. The checker enforces termination, rise time (with the fix in the message), and — on the PCB —
   trace length and pair matching against the class's edge rate.
 - **Acknowledge** a finding that's correct-but-noisy (e.g. USB + regulator legitimately sharing a rail)
