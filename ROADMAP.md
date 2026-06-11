@@ -111,7 +111,7 @@ don't do" line as each stage ships, the way the inrush rule did it.
    current variables) and makes mesh/supermesh bookkeeping unnecessary. Buys: REAL node voltages
    and branch currents from declared values, per-part dissipation, brown-out with numbers,
    max-power-transfer warnings, and the end of worst-case propagation heuristics.
-2. **Equivalent-circuit insights** — Thévenin/Norton seen from any net (right-click → "what does
+2. **Equivalent-circuit insights — Thévenin SHIPPED 2026-06-12** — Thévenin/Norton seen from any net (right-click → "what does
    the circuit look like from here": Voc, Rth = Voc/Isc, two solver runs); source transformation
    and superposition as TEACHING modes — "which source is responsible for this voltage" is the
    self-explaining thesis applied to analysis itself.

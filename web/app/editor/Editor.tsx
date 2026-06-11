@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, solveDc, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, solveDc, theveninAt, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { useProfile } from "@/lib/auth";
 import { touchProject } from "@/lib/projects";
@@ -799,6 +799,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     }
     return null;
   }, [dcSolved, passportNet]);
+  // Thévenin seen from the selected net — stage 2 of the analysis ladder, two solver runs on demand
+  const passportThevenin = useMemo(() => {
+    if (passportSolvedV == null || !passportNet) return null;
+    try {
+      for (const mb of passportNet.members) {
+        const th = theveninAt(analysis.resolved, mb.node);
+        if (th && isFinite(th.rth)) return th;
+      }
+    } catch { /* solver hiccup — just omit the line */ }
+    return null;
+  }, [passportSolvedV, passportNet, analysis]);
   const passportBudget = passportNet ? budgets.find((b) => b.net === passportNet.id) : undefined;
   const drilledBlock = drillRef
     ? (nodes.find((n) => n.id === drillRef)?.data as BlockNodeData | undefined)?.block
@@ -1586,6 +1597,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             {passportSolvedV != null && (
               <div className="mt-0.5 font-mono text-[11px] text-[#46dca6]" title="DC operating point — solved from the actual resistor network (MNA), not a declared bound">
                 = {Math.abs(passportSolvedV) < 0.001 ? "0" : passportSolvedV.toFixed(passportSolvedV < 10 ? 3 : 2)} V solved
+              </div>
+            )}
+            {passportThevenin && (
+              <div className="mt-0.5 font-mono text-[10.5px] text-[var(--color-faint)]" title="Thévenin equivalent seen from this net — what any load connected here experiences">
+                Thévenin: {passportThevenin.voc.toFixed(2)} V · {passportThevenin.rth < 0.001 ? "≈0 Ω (ideal source)" : passportThevenin.rth >= 1000 ? `${(passportThevenin.rth / 1000).toFixed(1)} kΩ` : `${passportThevenin.rth.toFixed(1)} Ω`}
               </div>
             )}
             {passportBudget?.capacityA != null && (

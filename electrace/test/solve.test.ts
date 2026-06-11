@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolve, solveDc, lint } from "../src/index.js";
+import { resolve, solveDc, theveninAt, lint } from "../src/index.js";
 import type { Block, Design, Terminal } from "../src/index.js";
 
 // Stage 1 of the analysis ladder: MNA over the flattened design. These tests pin the
@@ -325,4 +325,98 @@ test("two distinct nets sharing a derived name must NOT merge (flat names dedupe
   // both rails solved at their own voltage
   const volts = Object.entries(sol.netVolts).filter(([k]) => k.includes("VOUT")).map(([, v]) => Math.round(v));
   assert.deepEqual(volts.sort((x, y) => x - y), [5, 12], JSON.stringify(sol.netVolts));
+});
+
+test("LED fixed-drop: 5 V → 330 Ω → LED(2 V) solves to exactly (5−2)/330 ≈ 9.09 mA", () => {
+  const src5 = B("@s/led-src", [
+    { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 1, unit: "A" } },
+    { id: "gnd", role: "out", type: "gnd" },
+  ]);
+  const led = B("@s/led-blk", [
+    { id: "vin", role: "in", type: "power" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "330", footprint: "R0603" },
+      { ref: "D1", type: "led", value: "2V" },
+    ],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "A", connect: ["R1.2", "D1.1"] },
+      { name: "GND", connect: ["D1.2", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src5) }, { ref: "L1", block: key(led) }],
+    connections: [{ from: "S1.vout", to: "L1.vin" }, { from: "S1.gnd", to: "L1.gnd" }],
+  };
+  const sol = solveDc(resolve(d, lib(src5, led)));
+  const diode = sol.diodes.find((x) => x.ref === "L1/D1");
+  assert.ok(diode?.on, "LED must conduct: " + JSON.stringify(sol.diodes) + JSON.stringify(sol.findings.map(f=>f.rule)));
+  assert.ok(Math.abs(diode!.amps - 3 / 330) < 1e-9, `expected ${(3000 / 330).toFixed(2)} mA, got ${(diode!.amps * 1000).toFixed(2)} mA`);
+  // and the series resistor's dissipation is the real number: I²R = (9.09mA)² × 330 ≈ 27.3 mW
+  const r = sol.parts.find((p) => p.ref === "L1/R1");
+  assert.ok(r && Math.abs(r.watts - (3 / 330) ** 2 * 330) < 1e-9);
+});
+
+test("a reverse-biased diode settles OFF and blocks", () => {
+  const src5 = B("@s/rev-src", [
+    { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 1, unit: "A" } },
+    { id: "gnd", role: "out", type: "gnd" },
+  ]);
+  const blk = B("@s/rev-blk", [
+    { id: "vin", role: "in", type: "power" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "1k", footprint: "R0603" },
+      { ref: "D1", type: "diode" }, // cathode toward the supply: reverse-biased
+    ],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "K", connect: ["R1.2", "D1.2"] },   // pin2 = cathode faces the rail
+      { name: "GND", connect: ["D1.1", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src5) }, { ref: "X1", block: key(blk) }],
+    connections: [{ from: "S1.vout", to: "X1.vin" }, { from: "S1.gnd", to: "X1.gnd" }],
+  };
+  const sol = solveDc(resolve(d, lib(src5, blk)));
+  const diode = sol.diodes.find((x) => x.ref === "X1/D1");
+  assert.ok(diode && !diode.on, "reverse diode must settle OFF: " + JSON.stringify(sol.diodes));
+  assert.ok(Math.abs(diode!.amps) < 1e-12);
+  // no current → no drop across R1
+  const r = sol.parts.find((p) => p.ref === "X1/R1");
+  assert.ok(r && Math.abs(r.volts) < 1e-9, "R1 must carry nothing");
+});
+
+test("Thévenin from the divider midpoint: Voc = 6 V, Rth = 10k∥10k = 5k", () => {
+  const div = B("@s/thev-div", [
+    { id: "vin", role: "in", type: "power" },
+    { id: "mid", role: "out", type: "signal" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "10k", footprint: "R0603" },
+      { ref: "R2", type: "res", value: "10k", footprint: "R0603" },
+    ],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "MID", connect: ["R1.2", "R2.1", "@mid"] },
+      { name: "GND", connect: ["R2.2", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(SRC12) }, { ref: "D1", block: key(div) }],
+    connections: [{ from: "S1.vout", to: "D1.vin" }, { from: "S1.gnd", to: "D1.gnd" }],
+  };
+  const th = theveninAt(resolve(d, lib(SRC12, div)), "D1.mid");
+  assert.ok(th, "thevenin must solve");
+  assert.ok(Math.abs(th!.voc - 6) < 1e-9, `Voc ${th!.voc}`);
+  assert.ok(Math.abs(th!.rth - 5000) < 1e-6, `Rth ${th!.rth}`);
+  assert.ok(Math.abs(th!.isc - 6 / 5000) < 1e-12);
 });

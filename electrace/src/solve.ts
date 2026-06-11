@@ -37,6 +37,8 @@ export interface DcSolve {
   termNet: Record<string, string>;
   /** Voltage across each capacitor whose two nets solved — feeds the cap voltage-rating rule. */
   caps: { ref: string; volts: number; ratingVolts?: number }[];
+  /** Diodes/LEDs solved with the fixed-drop model: conducting state + forward current. */
+  diodes: { ref: string; on: boolean; amps: number; vf: number }[];
   /** Per-resistor operating point for every resistor in a solved subcircuit. */
   parts: DcPartResult[];
   /** Honesty stream: missing values, ignored nonlinear parts, skipped subcircuits. */
@@ -77,7 +79,10 @@ function gauss(A: number[][], z: number[]): number[] | null {
   return x;
 }
 
-export function solveDc(rd: ResolvedDesign): DcSolve {
+/** Options for solveDc. `inject` adds a test current INTO a node (Thévenin probing). */
+export interface DcSolveOpts { inject?: { node: string; amps: number } }
+
+export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
   const flat = flatten(rd);
   const termNet = flat.termNet ?? {};
   const findings: Finding[] = [];
@@ -101,6 +106,10 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
   // elements
   const conducts: { a: string; b: string; g: number; ohms: number; ref: string; footprint?: string; ratingWatts?: number }[] = [];
   const capPins: { ref: string; a: string; b: string; ratingVolts?: number }[] = [];
+  // fixed-drop diode model: ON = ideal Vf source anode→cathode (current must flow forward),
+  // OFF = open (anode-cathode voltage must stay below Vf). Solved by assumption-flipping
+  // iteration — the textbook method, convergence capped honestly.
+  const diodes: { ref: string; anode: string; cathode: string; vf: number; on: boolean }[] = [];
   const nonlinearByNet = new Map<string, Set<string>>(); // merged-net → part refs left open there
   // one pass: every part's pinned nets (the per-part pinNet scan was O(parts²) at scale)
   const netsOfRef = new Map<string, string[]>();
@@ -123,6 +132,13 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
       }
       if (ohms === 0) { uf.union(a, b); continue; }
       conducts.push({ a, b, g: 1 / ohms, ohms, ref: p.ref, footprint: p.footprint, ratingWatts: p.rating?.watts });
+    } else if (p.type === "diode" || p.type === "schottky" || p.type === "led") {
+      const a = N(netOfPart(p.ref, "1")), b = N(netOfPart(p.ref, "2"));
+      if (!a || !b || a === b) continue;
+      const parsed = p.value != null ? parseValue(p.value) : null;
+      const vf = parsed != null && parsed > 0.1 && parsed < 5 ? parsed
+        : p.type === "led" ? 2.0 : p.type === "schottky" ? 0.3 : 0.7;
+      diodes.push({ ref: p.ref, anode: a, cathode: b, vf, on: true });
     } else if (p.type === "cap" || p.type === "cap-pol" || p.type === "capacitor") {
       const a = N(netOfPart(p.ref, "1")), b = N(netOfPart(p.ref, "2"));
       if (a && b && a !== b) capPins.push({ ref: p.ref, a, b, ratingVolts: p.rating?.volts });
@@ -139,6 +155,7 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
   // re-key shorts-merged conductances (a union after push could stale a name)
   for (const c of conducts) { c.a = uf.find(c.a); c.b = uf.find(c.b); }
   for (const c of capPins) { c.a = uf.find(c.a); c.b = uf.find(c.b); }
+  for (const d of diodes) { d.anode = uf.find(d.anode); d.cathode = uf.find(d.cathode); }
 
   // boundary sources: declared source terminals → ideal V-sources to their own block's gnd
   const gndNetOf = (instance: string): string | undefined => {
@@ -195,6 +212,7 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
   const touch = (n: string) => comp.add(n);
   for (const c of conducts) { touch(c.a); touch(c.b); comp.union(c.a, c.b); }
   for (const v of vsources) { touch(v.plus); touch(v.minus); comp.union(v.plus, v.minus); }
+  for (const d of diodes) { touch(d.anode); touch(d.cathode); comp.union(d.anode, d.cathode); }
   for (const i of liveSinks) { touch(i.from); touch(i.to); comp.union(i.from, i.to); }
 
   const byComp = new Map<string, string[]>();
@@ -207,6 +225,11 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
   const parts: DcPartResult[] = [];
   let solved = 0;
 
+  const injectNet = opts?.inject
+    ? (() => { const f = nodeNet(opts.inject!.node) ?? opts.inject!.node; return uf.find(f); })()
+    : null;
+
+  const diodeResults: DcSolve["diodes"] = [];
   for (const nodes of byComp.values()) {
     const inComp = new Set(nodes);
     const vs = vsources.filter((v) => inComp.has(v.plus));
@@ -222,36 +245,71 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
     const ref = vs[0].minus;
     const idx = new Map<string, number>();
     for (const n of nodes) if (n !== ref) idx.set(n, idx.size);
-    const n = idx.size, m = vs.length;
-    const A = Array.from({ length: n + m }, () => new Array(n + m).fill(0));
-    const z = new Array(n + m).fill(0);
+    const n = idx.size;
     const at = (name: string) => (name === ref ? -1 : idx.get(name)!);
-    for (const c of conducts) {
-      if (!inComp.has(c.a)) continue;
-      const ia = at(c.a), ib = at(c.b);
-      if (ia >= 0) A[ia][ia] += c.g;
-      if (ib >= 0) A[ib][ib] += c.g;
-      if (ia >= 0 && ib >= 0) { A[ia][ib] -= c.g; A[ib][ia] -= c.g; }
+    const compDiodes = diodes.filter((d) => inComp.has(d.anode));
+    compDiodes.forEach((d) => { d.on = true; }); // optimistic start
+
+    // fixed-drop iteration: solve under assumed diode states, flip violators, repeat.
+    let x: number[] | null = null;
+    let onList: typeof compDiodes = [];
+    let converged = false;
+    for (let iter = 0; iter < 10; iter++) {
+      onList = compDiodes.filter((d) => d.on);
+      const m = vs.length + onList.length;
+      const A = Array.from({ length: n + m }, () => new Array(n + m).fill(0));
+      const z = new Array(n + m).fill(0);
+      for (const c of conducts) {
+        if (!inComp.has(c.a)) continue;
+        const ia = at(c.a), ib = at(c.b);
+        if (ia >= 0) A[ia][ia] += c.g;
+        if (ib >= 0) A[ib][ib] += c.g;
+        if (ia >= 0 && ib >= 0) { A[ia][ib] -= c.g; A[ib][ia] -= c.g; }
+      }
+      const stampV = (plus: string, minus: string, volts: number, row: number) => {
+        const ip = at(plus), im = at(minus);
+        if (ip >= 0) { A[row][ip] += 1; A[ip][row] += 1; }
+        if (im >= 0) { A[row][im] -= 1; A[im][row] -= 1; }
+        z[row] = volts;
+      };
+      vs.forEach((v, k) => stampV(v.plus, v.minus, v.volts, n + k));
+      onList.forEach((d, j) => stampV(d.anode, d.cathode, d.vf, n + vs.length + j));
+      for (const s of liveSinks) {
+        if (!inComp.has(s.from)) continue;
+        const ifr = at(s.from), ito = at(s.to);
+        if (ifr >= 0) z[ifr] -= s.amps;
+        if (ito >= 0) z[ito] += s.amps;
+      }
+      if (injectNet && inComp.has(injectNet)) {
+        const ii = at(injectNet);
+        if (ii >= 0) z[ii] += opts!.inject!.amps; // current INTO the node
+      }
+      x = gauss(A, z);
+      if (!x) break; // singular under these assumptions — report below
+      const volt = (name: string) => (name === ref ? 0 : x![idx.get(name)!]);
+      // check assumptions: ON diodes must conduct forward; OFF diodes must stay below Vf
+      let flips = 0;
+      onList.forEach((d, j) => {
+        if (x![n + vs.length + j] < -1e-9) { d.on = false; flips++; }
+      });
+      for (const d of compDiodes) {
+        if (d.on) continue; // ON diodes were checked via their current above
+        if (volt(d.anode) - volt(d.cathode) > d.vf + 1e-6) { d.on = true; flips++; }
+      }
+      if (!flips) { converged = true; break; }
     }
-    vs.forEach((v, k) => {
-      const ip = at(v.plus), im = at(v.minus), row = n + k;
-      if (ip >= 0) { A[row][ip] += 1; A[ip][row] += 1; }
-      if (im >= 0) { A[row][im] -= 1; A[im][row] -= 1; }
-      z[row] = v.volts;
-    });
-    for (const s of liveSinks) {
-      if (!inComp.has(s.from)) continue;
-      const ifr = at(s.from), ito = at(s.to);
-      if (ifr >= 0) z[ifr] -= s.amps;
-      if (ito >= 0) z[ito] += s.amps;
-    }
-    const x = gauss(A, z);
-    if (!x) {
+    if (!x || !converged) {
       findings.push({
         rule: "solve/unsolvable", severity: "info", category: "completeness", at: [nodes[0]],
-        message: "A subcircuit's operating point couldn't be computed (singular system — usually a section with no path to its source). Skipped honestly.",
+        message: !x
+          ? "A subcircuit's operating point couldn't be computed (singular system — usually a section with no path to its source). Skipped honestly."
+          : "A subcircuit's diode states wouldn't settle (oscillating assumptions) — its operating point was not computed.",
       });
       continue;
+    }
+    for (const d of compDiodes) {
+      const j = onList.indexOf(d);
+      diodeResults.push({ ref: d.ref, on: d.on, amps: d.on && j >= 0 ? Math.max(0, x[n + vs.length + j]) : 0, vf: d.vf });
     }
     solved++;
     const volt = (name: string) => (name === ref ? 0 : x[idx.get(name)!]);
@@ -286,5 +344,23 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
     caps.push({ ref: c.ref, volts: Math.abs(va - vb), ratingVolts: c.ratingVolts });
   }
 
-  return { netVolts, pinNet: Object.fromEntries(pinNet), termNet, caps, parts, findings, solvedComponents: solved };
+  return { netVolts, pinNet: Object.fromEntries(pinNet), termNet, caps, diodes: diodeResults, parts, findings, solvedComponents: solved };
+}
+
+
+/** Thévenin equivalent seen from a node — stage 2 of the analysis ladder, and exactly two
+ *  solver runs: Voc from the normal operating point, then inject a 1 A test current and read
+ *  the voltage rise (Rth = ΔV / 1 A). node = "REF.terminal" or a flat-net name. Returns null
+ *  when the node isn't in a solvable subcircuit. NOTE: linear elements only — conducting
+ *  diodes are treated at their fixed drop, which is the standard small-signal simplification. */
+export function theveninAt(rd: ResolvedDesign, node: string): { voc: number; rth: number; isc: number } | null {
+  const base = solveDc(rd);
+  const flat = base.termNet[node] ?? base.pinNet[node] ?? node;
+  const voc = base.netVolts[flat];
+  if (voc == null) return null;
+  const probed = solveDc(rd, { inject: { node, amps: 1 } });
+  const v2 = probed.netVolts[flat];
+  if (v2 == null) return null;
+  const rth = Math.max(0, v2 - voc); // ΔV per 1 A; tiny negative = numerical noise
+  return { voc, rth, isc: rth > 1e-9 ? voc / rth : Infinity };
 }

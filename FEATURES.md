@@ -58,11 +58,15 @@ declaration-missing + honesty notes), lowEfficiency, underUtilized, testPoints, 
   footprint inference; cap working-voltage checked against the SOLVED dc across it
 - Flat net names DEDUPED ("VOUT"/"VOUT#2") — two distinct nets sharing a derived name used to
   short on KiCad netlist import AND fuse in the solver matrix (found by the solver, fixed in flatten)
-- **DC operating-point solver (analysis ladder stage 1):** MNA over the flattened design —
+- **DC operating-point solver (analysis ladder stage 1 + 2):** MNA over the flattened design —
   R stamps, boundary V-sources from declared terminals, declared draws as I-sinks, L/ferrite/fuse
-  short at DC, C open, semiconductors/ICs honestly left open with a note; per-subcircuit solve
-  with 300-node cap; dangling declared loads degree-guarded out (can't go singular). solveDc()
-  exported; full pipeline incl. solver: 3 ms at 50 blocks (bench/pipeline.mjs)
+  short at DC, C open, **diodes/LEDs as fixed-drop elements** (ON/OFF assumption iteration; Vf
+  from value or type defaults 0.7/0.3/2.0; zener/TVS stay honestly open), transistors/ICs left
+  open with a note; per-subcircuit solve with 300-node cap; dangling declared loads
+  degree-guarded out. **theveninAt(): Vth/Rth/Isc from any node** (two solver runs) — in the net
+  passport ('Thévenin: 6.00 V · 5.0 kΩ', ideal sources say so) and Sparky's thevenin tool with
+  the Norton dual + max-power-transfer figure. solveDc() exported; full pipeline incl. solver:
+  4 ms at 50 blocks (bench/pipeline.mjs)
 - Resilience: stale wires recorded as invalid (never crash analysis); internal shorts blame the
   block, suppress the cascade
 

@@ -8,6 +8,13 @@ export interface ChangeEntry { date: string; title?: string; items: string[] }
  *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-06-12",
+    items: [
+      "**LEDs and diodes now solve.** The DC solver models diodes, Schottkys, and LEDs with the textbook fixed-drop method — assume conducting, solve, flip any diode whose assumption broke, repeat until settled. Your LED indicator's series resistor now shows its REAL current ((5 V − 2 V)/330 Ω = 9.1 mA), reverse-biased diodes correctly block, and the forward voltage comes from the part's value when it parses (or honest defaults: 0.7 V silicon, 0.3 V Schottky, 2.0 V LED). Zeners and TVS stay out of the model on purpose — reverse breakdown deserves real treatment, not a guess.",
+      "**Thévenin from any net.** Click a net and the passport shows what any load connected there would experience: 'Thévenin: 6.00 V · 5.0 kΩ' — the open-circuit voltage and output impedance, computed by probing the solved circuit with a test current. Ideal declared sources honestly read '≈0 Ω (ideal source)'. Sparky's new thevenin tool adds the Norton dual and the maximum-power-transfer figure. The circuits-course party trick, live on every design.",
+    ],
+  },
+  {
     date: "2026-06-11",
     items: [
       "**Blocks that prove themselves:** a block can now declare its own expected operating points (\"the feedback node sits at 1.02 V\") and the solver verifies the claim on every single change — change a divider resistor and the block itself reports its spec broken, with the arithmetic. The buck converter ships with its first assert. Also new: terminal aliases (wiring REG1.gnd just works even when the block's terminal is gnd_in), declared part ratings (a 10 V cap on a 12 V node is now an error computed from the REAL solved voltage, not a guess), the net panel shows the solved voltage on every net, and Sparky gained a solve_dc tool — ask it what voltage is actually at a node and it answers from the matrix, not the vibes.",
