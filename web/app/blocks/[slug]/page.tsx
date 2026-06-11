@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   try {
     const { block, explain } = loadBlock(slug);
-    const title = `${BLOCK_SEO[slug] ?? block.name} — what it does and how it works`;
+    const title = `${BLOCK_SEO[slug] ?? block.name} — how it works`;
     const description = metaDesc(summary(explain) || `${block.name}: a self-explaining circuit block on Electrace.`);
     const img = blockImage(slug);
     return {
@@ -75,9 +75,15 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
   const related = listBlocks().filter((b) => b.slug !== slug && b.block.category === block.category).slice(0, 4);
 
   const video = BLOCK_VIDEOS[slug];
+  const img = blockImage(slug);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "TechArticle",
+    // Article-type rich results require image + dates to validate (SEMrush flagged all 26
+    // block pages without them). datePublished = the content wave; dateModified tracks deploys.
+    ...(img ? { image: [img] } : {}),
+    datePublished: "2026-06-01",
+    dateModified: new Date().toISOString().slice(0, 10),
     ...(video ? {
       video: {
         "@type": "VideoObject",
@@ -96,7 +102,7 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
         { "@type": "ListItem", position: 2, name: block.name, item: `https://www.electrace.net/blocks/${slug}` },
       ],
     },
-    headline: `${BLOCK_SEO[slug] ?? block.name} — what it does and how it works`,
+    headline: `${BLOCK_SEO[slug] ?? block.name} — how it works`,
     description: summary(explain),
     author: { "@type": "Organization", name: "Electrace" },
     publisher: { "@type": "Organization", name: "Electrace", url: "https://www.electrace.net" },

@@ -3,7 +3,7 @@ import BackToEditor from "./BackToEditor";
 import { marked } from "marked";
 import { FEATURES_MD, changelogMarkdown } from "@/lib/electrace-info";
 
-export const metadata = { title: "Help & Changelog — Electrace" };
+export const metadata = { title: "Help & Changelog — Electrace", description: "How Electrace works — the editor, blocks, checks, PCB flow — plus the running changelog of what shipped." };
 
 export default async function HelpPage() {
   const features = await marked.parse(FEATURES_MD, { gfm: true });

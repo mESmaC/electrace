@@ -2,7 +2,7 @@ import Editor from "./Editor";
 import { loadDesign, blockLibrary } from "@/lib/blocks";
 import type { Design } from "@electrace/core";
 
-export const metadata = { title: "Editor — Electrace" };
+export const metadata = { title: "Editor — Electrace", description: "Design circuits from self-explaining blocks with live electrical checks — free, in your browser, no account needed." };
 
 // Server component: load the block library (from disk) and hand it to the client editor.
 // A project's design content lives in the browser (localStorage), so for `?p=<id>` we SSR an
