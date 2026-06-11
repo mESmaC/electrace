@@ -20,12 +20,21 @@ function summary(explain: string): string {
   return para.replace(/[*_`>#[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 300);
 }
 
+/** Meta-description clamp: search engines want ~25–160 chars (Bing flags outside that); cut at
+ *  a word boundary. Target 150 — HTML-entity encoding (&amp; etc.) inflates the rendered
+ *  attribute, so leave headroom. The longer summary() stays for JSON-LD/og where length is fine. */
+function metaDesc(s: string): string {
+  if (s.length <= 150) return s;
+  const cut = s.slice(0, 147);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 115))}…`;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
     const { block, explain } = loadBlock(slug);
     const title = `${block.name} — what it does and how it works`;
-    const description = summary(explain) || `${block.name}: a self-explaining circuit block on Electrace.`;
+    const description = metaDesc(summary(explain) || `${block.name}: a self-explaining circuit block on Electrace.`);
     const img = blockImage(slug);
     return {
       title: `${title} — Electrace`,

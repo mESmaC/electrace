@@ -3,7 +3,7 @@ import BlocksBrowser from "./BlocksBrowser";
 
 export const metadata = {
   title: "Block library — self-explaining circuit blocks — Electrace",
-  description: "Browse circuit building blocks that explain themselves: regulators, drivers, protection, timers — each with its real schematic, per-part reasoning, and failure modes.",
+  description: "Circuit blocks that explain themselves: regulators, drivers, protection, timers — each with its real schematic, per-part reasoning, and failure modes.",
   alternates: { canonical: "https://www.electrace.net/blocks" },
 };
 

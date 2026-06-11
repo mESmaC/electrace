@@ -15,7 +15,7 @@ export interface CalcMeta {
 export function calcMetadata(c: CalcMeta) {
   return {
     title: `${c.title} — Electrace`,
-    description: `${c.tagline} Free, instant, with the real schematic — not just the formula.`,
+    description: `${c.tagline} Free, instant, with the real schematic.`,
     alternates: { canonical: `${SITE}/calculators/${c.slug}` },
   };
 }

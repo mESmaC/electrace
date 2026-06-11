@@ -19,7 +19,7 @@ const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem(
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: "Electrace — see inside every circuit",
-  description: "Free online circuit & PCB design tool where every block explains itself — schematics with live electrical checks, automatic BOM, and KiCad export. No SPICE, no install.",
+  description: "Free online circuit & PCB design tool where every block explains itself — live electrical checks, automatic BOM, KiCad export. No SPICE, no install.",
   applicationName: "Electrace",
   keywords: ["schematic editor", "circuit design online", "PCB design tool", "EDA", "electrical engineering", "block-based design", "BOM generator", "KiCad export", "learn electronics", "circuit checker"],
   openGraph: {
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     siteName: "Electrace",
     url: "/",
     title: "Electrace — see inside every circuit",
-    description: "Free online circuit & PCB design tool where every block explains itself — schematics with live electrical checks, automatic BOM, and KiCad export. No SPICE, no install.",
+    description: "Free online circuit & PCB design tool where every block explains itself — live electrical checks, automatic BOM, KiCad export. No SPICE, no install.",
   },
   twitter: {
     card: "summary_large_image",
