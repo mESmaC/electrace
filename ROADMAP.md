@@ -108,6 +108,11 @@ in editor, not just hover · blank-sheet "New" · project rename prompt on first
 net-name display polish ("vout#2" leaking into messages) · Sparky conversation-ID binding
 bug (chat loses stream when drilling out).
 
+**Post-beta candidate:** per-finding feedback affordance — "was this check right? ✓/✗ + why"
+on lint findings, all users. (Born from the in-product-verification idea, 2026-06-11: feature-
+activation triggers don't work — verification units are journeys — but finding-level feedback
+turns every user into an engine verifier and feeds the correctness corpus.)
+
 **Perf (optimization.md, verify-then-fix):** PCB SVG re-render on mouse move · analyze()
 during drag (partially fixed — verify) · assistant payload size (full design+blocks per turn).
 
