@@ -294,6 +294,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const rawNets = Array.isArray(input.nets) ? input.nets : [];
       if (!rawParts.length) return { text: "author_schematic needs parts[] — the components in this block's subcircuit. A block should be a functional group (e.g. an oscillator = crystal + 2 caps), not empty.", changed: false };
       const parts: PartSpec[] = [];
+      const mpnWarnings: string[] = [];
       for (const r of rawParts as Record<string, unknown>[]) {
         const ref = String(r.ref ?? "").trim();
         if (!ref) return { text: "every part needs a ref (e.g. C1, R3, U1, Y1).", changed: false };
@@ -304,7 +305,10 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         } else {
           const type = String(r.type ?? "").trim();
           if (!type) return { text: `part ${ref} needs either a type (e.g. "capacitor", "resistor", "regulator") or a chip { names }.`, changed: false };
-          parts.push({ ref, type, ...(r.value ? { value: String(r.value) } : {}), ...(r.mpn ? { mpn: String(r.mpn) } : {}) });
+          const mpnRaw = r.mpn ? String(r.mpn) : "";
+          const mpnOk = !!mpnRaw && mpnRaw.length <= 32 && !/[\s,;≥≤()]/.test(mpnRaw);
+          if (mpnRaw && !mpnOk) mpnWarnings.push(`${ref}: dropped mpn "${mpnRaw.slice(0, 48)}" — an mpn is a bare part number (BC547, SS8050); selection criteria belong in why`);
+          parts.push({ ref, type, ...(r.value ? { value: String(r.value) } : {}), ...(mpnOk ? { mpn: mpnRaw } : {}) });
         }
       }
       const nets: NetSpec[] = (rawNets as Record<string, unknown>[]).map((r) => ({
@@ -321,7 +325,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const rec = reconcileAuthoredTerminals(b!, terminals, key, design);
       const nb: Block = { ...b!, terminals: rec.terminals, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.${rec.message}`, changed: true };
+      return { text: `Authored ${b!.name}: ${schematic.parts.length} part(s) [${schematic.parts.map((p) => `${p.ref} ${p.type}${p.value ? ` ${p.value}` : ""}`).join(", ")}] wired into one subcircuit; exposed ${terminals.length} terminal(s): ${terminals.map((t) => t.id).join(", ") || "(none)"}.${rec.message}${mpnWarnings.length ? ` ⚠ ${mpnWarnings.join("; ")}.` : ""}`, changed: true };
     }
     case "expose_pins": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
