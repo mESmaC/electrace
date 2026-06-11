@@ -4,7 +4,7 @@
 export default {
   slug: "opamp-teardown",
   title: "What's inside an op-amp?",
-  script: "This triangle is an op-amp. It's in almost every analog circuit ever built. And inside? Three tricks, stacked. Let's open it up. Twelve parts. Trick one: two matched transistors share one current. Whichever input is higher steals more — the pair literally weighs your inputs against each other. Trick two: a current mirror. It copies one side onto the other, so the tiniest imbalance gets doubled and pushed forward. Trick three: one transistor blows that whisper up to the full supply swing. And this tiny capacitor is the whole secret. Without it, this circuit is a comparator. With it, the amplifier stays stable — feedback you can trust. A push-pull pair muscles the result out. No magic. Just transistors. See inside every chip — free, in your browser. Link in comments.",
+  script: "This little chip is an op-amp. It's in almost every analog circuit ever built. And inside? Three tricks, stacked. Let's open it up. Twelve parts. Trick one: two matched transistors share one current. Whichever input is higher steals more — the pair literally weighs your inputs against each other. Trick two: a current mirror. It copies one side onto the other, so the tiniest imbalance gets doubled and pushed forward. Trick three: one transistor blows that whisper up to the full supply swing. And this tiny capacitor is the whole secret. Without it, this circuit is a comparator. With it, the amplifier stays stable — feedback you can trust. A push-pull pair muscles the result out. No magic. Just transistors. See inside every chip — free, in your browser. Link in comments.",
   ctaAnchor: "See inside every chip",
   tailSeconds: 1.6,
   tracks: ({ at, ctaT, zoomIn, zoomOut, sfx }) => {
