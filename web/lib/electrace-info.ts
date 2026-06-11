@@ -14,6 +14,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Connectors that know their own pinout, out of the box:** USB receptacles (C/A/Mini/Micro), the LiPo JST-PH, barrel jacks, and audio jacks ship with their inherent meanings built in — drop a USB-C and the engine already knows VBUS is 5 V power in at up to 3 A and GND is ground, zero clicks. Built-ins show greyed in the pin editor and any field can be overridden per instance.",
       "**Contact ratings, enforced:** every connector in the catalog now carries its family's per-contact current rating (JST-PH 2 A, 0.1\" headers 3 A, screw terminals 10 A, USB-A 1.5 A…), and a new check compares the current actually flowing through each declared pin against it — pushing 4 A of load through a 2 A LiPo contact is an error that names the pin, with a warning band as you approach the limit.",
       "**Connector cards show the declarations:** pin rows on the canvas display the declared name color-coded by net type, plus the declared volts/amps — so a glance at the board edge tells you what comes in and goes out.",
+      "**The feature lists caught up with the engine:** the pricing page now spells out what the checking engine actually catches — voltage propagation, budgets, isolation, signal integrity, connector ratings, wiring sanity — and that all of it is free. The in-app help and Sparky's reference got the same update.",
     ],
   },
   {
@@ -155,20 +156,34 @@ live checks, no SPICE required. Here's the lay of the land.
 - **Make your own blocks.** Create a block with the terminals you need, then draw its internal schematic
   (or have Sparky author it from a part number). Expose just the pins the rest of the design connects to.
 - **Connectors** are the board-edge home for off-board nets — USB, barrel jacks, headers, screw
-  terminals, RJ45. Dock a block terminal onto a connector pin.
+  terminals, RJ45. Dock a block terminal onto a connector pin. **Double-click a connector** (or
+  right-click → *Pin specs…*) to declare what each pin means — name, type, direction, voltage,
+  current — and the checks work across the board edge. USB receptacles, the LiPo JST, and barrel
+  jacks come pre-declared (VBUS is already 5 V power in), and each connector family's
+  **per-contact current rating** is enforced against what actually flows through the pin.
 
 ## Checking your work
 - **Live linting** runs on every change — errors, warnings, and notes appear in the bottom panel and on
   the selected block. Click a finding to jump to the block.
+- **Voltage & current propagate.** A supply's range follows the wires through chips whose outputs swing
+  at their rail, so an over-voltage three blocks downstream is caught at the pin that will actually die.
+  Every load charges back to its rail.
+- **Power budgets** (bottom bar) show each rail's load vs the source's capacity, and the **what-if
+  stress test** asks "would this survive 24 V at the input?" against every declared limit on the rail.
+- **Galvanic isolation**: right-click a block → *Isolation…* and declare it must share no conductive
+  path with another block (or all others). Re-verified on every change; a violation names the bridging net.
+- **Signal integrity**: right-click a wire → *Signal class…* and declare it RS-485 / CAN / I2C / a USB
+  pair. The checker enforces termination, rise time (with the fix in the message), and — on the PCB —
+  trace length and pair matching against the class's edge rate.
 - **Acknowledge** a finding that's correct-but-noisy (e.g. USB + regulator legitimately sharing a rail)
   with the *mark intended* button — it mutes with your reason and stops counting.
-- **Power budgets** (bottom bar) show each rail's load vs the source's capacity.
 
 ## What the checks mean (and what they don't)
 Electrace's checks are **structural — not a simulation.** They look at how your design is connected and
 the values you declared, and catch the dumb-but-deadly mistakes: two drivers fighting on a net, an
 undriven rail, an open/unconnected pin, a power pin tied to ground, a rail drawing more than its source
-can supply, a polarized part wired backwards.
+can supply, a polarized part wired backwards, a regulator burning more heat than its package survives,
+a connector contact carrying more current than it's rated for.
 
 What they **don't** do: any analog or time-domain behaviour. No SPICE, no transient/inrush, no thermal,
 no ripple-current-on-the-caps, no EMI or loop-stability. A clean result means your design is
@@ -190,6 +205,11 @@ never locks you in.
 - **BOM** — built from the real parts inside your blocks; exportable.
 - **PCB** — open the PCB view to get footprints + a ratsnest from your schematic, route traces, run DRC,
   and export to KiCad.
+
+## Calculators
+Free engineering calculators at **/calculators** — LED resistor, voltage divider, crystal load caps,
+NTC thermistor, op-amp gain, parallel resistors, 555 timer, RC filter, Ohm's law — each with E-series
+value snapping and a link into the related block where one exists.
 
 ## The symbol library
 Passives (R, C, L, crystal, ferrite, fuse…), diodes (incl. Zener, Schottky, TVS, LED), transistors

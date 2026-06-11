@@ -9,8 +9,8 @@ export const metadata = {
 };
 
 const FAQ = [
-  { q: "Is the free tier actually free?", a: "Yes — forever. The entire understand-loop (blocks, hover & drill-in, expand-to-discrete, linting, themes) is free, with up to 10 designs. We never charge you to learn." },
-  { q: "What do I get with Pro?", a: "Pro lifts the 10-design cap entirely and unlocks private designs, manufacturing-grade export (Gerber / BOM / pick-and-place), version history, and advanced checks — for when you're shipping real hardware." },
+  { q: "Is the free tier actually free?", a: "Yes — forever. The entire understand-loop is free: blocks, hover & drill-in, expand-to-discrete, the full checking engine (voltage propagation, budgets, isolation, signal integrity, connector ratings), the PCB editor with DRC, the calculators — with up to 10 designs. We never charge you to learn, and we never paywall a safety check." },
+  { q: "What do I get with Pro?", a: "Pro lifts the 10-design cap entirely and unlocks Sparky (the AI assistant), private designs, manufacturing-grade export (Gerber / BOM / pick-and-place), version history, and a private block library — for when you're shipping real hardware." },
   { q: "Are my designs private?", a: "On Hobby, designs are public or link-only (unlisted) — like a public repo. Keeping designs fully private is a Pro feature, for when you need to hold work to yourself. You'll see this before you save your first design, not after." },
   { q: "Is there yearly billing?", a: "Yes — the upgrade flow offers monthly or yearly, and yearly is the best value. Cancel anytime; Pro runs to the end of what you paid for, and your designs are never deleted." },
 ];
@@ -77,6 +77,33 @@ export default function PricingPage() {
             </ul>
           </div>
         ))}
+      </div>
+
+      {/* what the engine catches — the concrete value, and all of it is free */}
+      <div className="mx-auto mt-16 max-w-[1140px]">
+        <h2 className="text-center text-[24px] font-extrabold tracking-tight">What the checking engine catches — on every change, for free</h2>
+        <p className="mx-auto mt-2 max-w-[640px] text-center text-[14.5px] text-dim">
+          Not a simulator you have to set up — instant, deterministic checks on the numbers your design declares.
+          Every finding says <i>where</i> and <i>why</i>.
+        </p>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { ic: "⚡", h: "Voltage, end to end", p: "Supply ranges propagate through every wire — a 24 V brick feeding a 15 V-max chip gets caught, even three blocks downstream of where the wire started." },
+            { ic: "∑", h: "Current & power budgets", p: "Every load charges back to its rail. See each rail's headroom live, and get flagged when a source can't carry what's hanging off it." },
+            { ic: "⊘", h: "Galvanic isolation", p: "Declare that two blocks must share no conductive path. The moment anything bridges the barrier — usually a shared ground — the finding names the net that did it." },
+            { ic: "∿", h: "Signal integrity", p: "Declare a net RS-485, CAN, I2C, or a USB pair, and the rules follow: missing termination, pull-ups too weak for the rise time, traces too long for the edge rate, mismatched pairs." },
+            { ic: "⊟", h: "The board edge", p: "Connector pins carry declarations — what arrives, what leaves, and each contact's current rating. 4 A through a 2 A battery contact is an error before it's a melted housing." },
+            { ic: "✚", h: "Wiring sanity", p: "Shorts, reverse polarity, two outputs fighting on one net, undriven rails, open pins, regulators dissipating more heat than their package survives." },
+          ].map((c) => (
+            <div key={c.h} className="rounded-2xl border border-border bg-surface p-5">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-8 w-8 place-items-center rounded-lg text-[15px] text-accent" style={{ background: "color-mix(in srgb, var(--color-accent) 14%, transparent)", border: "1px solid color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>{c.ic}</span>
+                <h3 className="text-[15px] font-bold">{c.h}</h3>
+              </div>
+              <p className="mt-2.5 text-[13.5px] leading-relaxed text-dim">{c.p}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* the principle */}

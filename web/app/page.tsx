@@ -108,7 +108,7 @@ export default function Home() {
           {[
             { ic: "▦", h: "Self-explaining blocks", p: "Authored intent, not guesses. Every block says what it does and why." },
             { ic: "⌖", h: "Drill into anything", p: "Double-click into a block's real schematic — discrete or IC, every part labeled." },
-            { ic: "✓", h: "Linting, not SPICE", p: "Instant checks on the numbers you declared. It flags what doesn't add up." },
+            { ic: "✓", h: "Linting, not SPICE", p: "Voltage and current follow every wire — over-voltage, blown budgets, broken isolation, and overloaded connector pins get caught with the where and the why." },
           ].map((f) => (
             <div key={f.h} className="rounded-2xl border border-border bg-surface p-6">
               <div className="mb-4 grid h-[46px] w-[46px] place-items-center rounded-xl text-[22px] text-accent" style={{ background: "color-mix(in srgb, var(--color-accent) 14%, transparent)", border: "1px solid color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>{f.ic}</div>
@@ -190,6 +190,11 @@ export default function Home() {
           <div>
             <Eyebrow>Typed nets</Eyebrow><h2 className="text-[42px] font-extrabold leading-[1.08] tracking-tight">Nothing<br />forgotten.</h2>
             <p className="mt-3 max-w-[560px] text-[18px] text-dim">Connect net-to-net — 5 V to 5 V, ground to ground. Leave one dangling and Electrace tells you, right there.</p>
+            <div className="mt-5 flex max-w-[560px] flex-wrap gap-2">
+              {["Voltage propagation", "Current budgets", "Shorts & polarity", "Galvanic isolation", "Signal integrity", "Connector ratings", "Regulator thermal", "PCB DRC"].map((c) => (
+                <span key={c} className="rounded-full border border-border bg-surface px-3 py-1 text-[12.5px] font-medium text-dim">✓ {c}</span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
