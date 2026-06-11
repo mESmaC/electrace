@@ -87,8 +87,9 @@ web_search.
 ## Blocks & content
 
 - 26 library blocks (functional subcircuits, CC-BY-4.0 pending license decision)
-- 8 expand-to-discrete equivalents: ldo-3v3, h-bridge-1ch, ne555, comparator, buck-controller,
-  boost-controller, tl431, optocoupler (irreducible flag for MCU/CPU/FPGA)
+- 10 expand-to-discrete equivalents: ldo-3v3, h-bridge-1ch, ne555, comparator, buck-controller,
+  boost-controller, tl431, optocoupler, opamp, tp4056 — every reducible IC in the library is
+  covered (16 blocks are already fully discrete; mcu-load is flagged irreducible)
 - 9 calculators (E-series snapping, block links): led-resistor, voltage-divider,
   crystal-load-capacitor, ntc-thermistor, op-amp-gain, parallel-resistor, 555-timer, rc-filter,
   ohms-law
