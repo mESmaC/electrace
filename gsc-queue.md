@@ -24,16 +24,16 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 
 ## Batch 1 (next day with quota)
 
-- [ ] https://www.electrace.net/calculators/crystal-load-capacitor
-- [ ] https://www.electrace.net/calculators/ntc-thermistor
-- [ ] https://www.electrace.net/calculators/op-amp-gain
-- [ ] https://www.electrace.net/calculators
-- [ ] https://www.electrace.net/blocks/opamp-noninverting
-- [ ] https://www.electrace.net/blocks/crystal-oscillator
-- [ ] https://www.electrace.net/blocks/tl431-reference
-- [ ] https://www.electrace.net/blocks/ntc-thermistor
-- [ ] https://www.electrace.net/vs/fritzing
-- [ ] https://www.electrace.net/vs/tinkercad
+- [x] https://www.electrace.net/calculators/crystal-load-capacitor
+- [x] https://www.electrace.net/calculators/ntc-thermistor
+- [x] https://www.electrace.net/calculators/op-amp-gain
+- [x] https://www.electrace.net/calculators
+- [x] https://www.electrace.net/blocks/opamp-noninverting
+- [x] https://www.electrace.net/blocks/crystal-oscillator
+- [x] https://www.electrace.net/blocks/tl431-reference
+- [x] https://www.electrace.net/blocks/ntc-thermistor
+- [x] https://www.electrace.net/vs/fritzing
+- [x] https://www.electrace.net/vs/tinkercad
 
 ## Batch 2
 
