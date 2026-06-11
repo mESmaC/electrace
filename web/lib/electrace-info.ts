@@ -15,6 +15,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Contact ratings, enforced:** every connector in the catalog now carries its family's per-contact current rating (JST-PH 2 A, 0.1\" headers 3 A, screw terminals 10 A, USB-A 1.5 A…), and a new check compares the current actually flowing through each declared pin against it — pushing 4 A of load through a 2 A LiPo contact is an error that names the pin, with a warning band as you approach the limit.",
       "**Connector cards show the declarations:** pin rows on the canvas display the declared name color-coded by net type, plus the declared volts/amps — so a glance at the board edge tells you what comes in and goes out.",
       "**The feature lists caught up with the engine:** the pricing page now spells out what the checking engine actually catches — voltage propagation, budgets, isolation, signal integrity, connector ratings, wiring sanity — and that all of it is free. The in-app help and Sparky's reference got the same update.",
+      "**Sparky's toolbox caught up too:** it can now declare connector pins (and does so proactively at power entry), set galvanic-isolation requirements (verified the moment it declares them), assign signal-integrity classes to nets, and run the what-if stress test — so asking it \"can I run this from a 24 V brick?\" gets arithmetic, not vibes.",
     ],
   },
   {

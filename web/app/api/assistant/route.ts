@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec } from "@electrace/core";
+import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
 import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -106,6 +106,14 @@ Board I/O (USB, power input, headers) belongs on a physical CONNECTOR, not dangl
 terminals. Place one with add_connector (e.g. usb-mini-b for a Nano's USB, barrel for DC) and wire the
 relevant block terminals to its pins (connect FT232.USBDP ↔ J1.D+). list_connectors shows what's
 available. A connector pin is the home for an off-board net.
+
+DECLARE WHAT THE ENGINE CAN'T SEE — these declarations are what make the checks work, so use them
+proactively, not only when asked. Power entering on a connector: declare_connector_pins with what
+actually arrives (the wall wart's real voltage, the battery's range) — checks then run across the board
+edge and contact ratings are enforced. Placed an isolating part (optocoupler, transformer)? set_isolation
+to make the barrier a standing, re-verified guarantee. Wired a comms net (RS-485 / CAN / I2C / USB)?
+set_signal_class so termination and rise time are enforced. "Would this survive 24 V?" → stress_test,
+which answers from declared limits, not vibes.
 
 Build blocks with author_schematic: pass all the parts and the nets that join them in one call, exposing
 only the pins the rest of the design connects to. Use author_block as a shortcut only when a block
@@ -399,7 +407,12 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       return { text: [...bl, ...cn].join("\n") || "(empty design)", changed: false };
     }
     case "list_connectors":
-      return { text: Object.values(CONNECTOR_CATALOG).map((c) => `${c.id} — ${c.name}: [${c.pins.join(", ")}]`).join("\n"), changed: false };
+      return { text: Object.values(CONNECTOR_CATALOG).map((c) => {
+        const defs = c.defaults
+          ? ` — built-in: ${Object.entries(c.defaults).map(([p, s]) => `${p}=${s.name ?? p}${rmax(s.v) != null ? ` ${rmax(s.v)}V` : ""}`).join(", ")}`
+          : "";
+        return `${c.id} — ${c.name}: [${c.pins.join(", ")}]${c.pinAmps ? ` · ${c.pinAmps}A/contact` : ""}${defs}`;
+      }).join("\n"), changed: false };
     case "electrace_help":
       return { text: electraceHelpText(), changed: false };
     case "add_connector": {
@@ -580,6 +593,137 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         return { text, changed: false };
       } catch (e) { return { text: `Could not compute budgets: ${String(e).slice(0, 160)}`, changed: false }; }
     }
+    case "set_isolation": {
+      const a = String(input.a ?? "").trim(), b = String(input.b ?? "").trim();
+      if (!a || !b) return { text: 'set_isolation needs a and b (block refs; b may be "*" for all others).', changed: false };
+      const refs = new Set(design.blocks.map((x) => x.ref));
+      if (!refs.has(a) || (b !== "*" && !refs.has(b))) return { text: `Unknown block ref "${!refs.has(a) ? a : b}". Use refs from list_instances.`, changed: false };
+      const iso = design.isolation ?? (design.isolation = []);
+      const same = (c: { a: string; b: string }) => (c.a === a && c.b === b) || (c.a === b && c.b === a);
+      if (input.remove) {
+        const before = iso.length;
+        design.isolation = iso.filter((c) => !same(c));
+        return { text: design.isolation.length < before ? `Removed the isolation requirement between ${a} and ${b}.` : "No matching isolation requirement.", changed: design.isolation.length < before };
+      }
+      if (iso.some(same)) return { text: `Already declared: ${a} isolated from ${b}.`, changed: false };
+      const note = typeof input.note === "string" ? input.note.trim() : "";
+      iso.push({ a, b, ...(note ? { note } : {}) });
+      // verify immediately — the whole point of declaring is learning whether the barrier already holds
+      try {
+        const hits = analyze(design, blockMap).findings.filter((f) => f.rule === "isolation/bridged");
+        return {
+          text: hits.length
+            ? `Declared ${a} ⊘ ${b} — and it's ALREADY VIOLATED:\n${hits.map((f) => `  [${f.severity}] ${f.message}`).join("\n")}\nFix the bridge (usually a shared ground) or remove the requirement if it's wrong.`
+            : `Declared ${a} ⊘ ${b}. The barrier currently holds — it will be re-verified on every change.`,
+          changed: true,
+        };
+      } catch { return { text: `Declared ${a} ⊘ ${b}.`, changed: true }; }
+    }
+    case "set_signal_class": {
+      const pin = String(input.pin ?? "").trim();
+      const cls = String(input.cls ?? "").trim();
+      if (!pin || !cls) return { text: 'set_signal_class needs pin ("REF.terminal") and cls (a class id, or "none" to clear).', changed: false };
+      if (cls === "none") {
+        const before = (design.signals ?? []).length;
+        design.signals = (design.signals ?? []).filter((s) => s.pin !== pin);
+        return { text: design.signals.length < before ? `Cleared the signal class on ${pin}.` : `No class was set on ${pin}.`, changed: design.signals.length < before };
+      }
+      const def = NET_CLASSES[cls];
+      if (!def) return { text: `Unknown class "${cls}". Valid: ${Object.keys(NET_CLASSES).join(", ")} (or "none").`, changed: false };
+      const pinOk = (e: string) => {
+        const [r, t] = e.split(".");
+        const bi = design.blocks.find((x) => x.ref === r);
+        if (bi) return !!blocks[bi.block]?.terminals.some((x) => x.id === t);
+        const ci = (design.connectors ?? []).find((x) => x.ref === r);
+        return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
+      };
+      if (!pinOk(pin)) return { text: `No such pin "${pin}". Use REF.terminal from list_instances, or a connector pin like J1.D+.`, changed: false };
+      const pairPin = typeof input.pairPin === "string" && input.pairPin.trim() ? input.pairPin.trim() : undefined;
+      if (pairPin && !pinOk(pairPin)) return { text: `No such pairPin "${pairPin}".`, changed: false };
+      if (def.kind !== "single" && !pairPin) return { text: `${def.name} is a pair class — pass pairPin (the other side: B / CANL / D−) so termination and pair-matching know both nets.`, changed: false };
+      const entry = {
+        pin, cls,
+        ...(pairPin ? { pairPin } : {}),
+        ...(typeof input.pullupOhms === "number" ? { pullupOhms: input.pullupOhms } : {}),
+        ...(typeof input.busCapPf === "number" ? { busCapPf: input.busCapPf } : {}),
+        ...(input.terminated_externally ? { terminated: "external" as const } : {}),
+      };
+      design.signals = [...(design.signals ?? []).filter((s) => s.pin !== pin), entry];
+      try {
+        const si = analyze(design, blockMap).findings.filter((f) => f.rule.startsWith("si/"));
+        return {
+          text: [`Declared the net at ${pin} as ${def.name}.`,
+            si.length ? `The checks now flag:\n${si.map((f) => `  [${f.severity}] ${f.message}`).join("\n")}` : "No SI findings on the schematic right now (trace-length and pair-skew checks run in the PCB DRC).",
+          ].join("\n"), changed: true,
+        };
+      } catch { return { text: `Declared the net at ${pin} as ${def.name}.`, changed: true }; }
+    }
+    case "declare_connector_pins": {
+      const ref = String(input.ref ?? "").trim();
+      const ci = (design.connectors ?? []).find((c) => c.ref === ref);
+      if (!ci) return { text: `No placed connector "${ref}". Placed: ${(design.connectors ?? []).map((c) => c.ref).join(", ") || "none — add one with add_connector first"}.`, changed: false };
+      const part = connectorPart(ci.connector)!;
+      const decls = (input.pins && typeof input.pins === "object" && !Array.isArray(input.pins)) ? input.pins as Record<string, Record<string, unknown>> : null;
+      if (!decls || !Object.keys(decls).length) return { text: `declare_connector_pins needs pins (pin id → declaration). ${ref}'s pins: ${part.pins.join(", ")}.`, changed: false };
+      const bad = Object.keys(decls).filter((p) => !part.pins.includes(p));
+      if (bad.length) return { text: `${ref} (${part.name}) has no pin ${bad.join(", ")}. Its pins: ${part.pins.join(", ")}.`, changed: false };
+      const cur: Record<string, ConnectorPinSpec> = { ...(ci.pins ?? {}) };
+      for (const [p, d] of Object.entries(decls)) {
+        if (d.clear) { delete cur[p]; continue; }
+        const spec: ConnectorPinSpec = { ...(cur[p] ?? {}) };
+        if (typeof d.name === "string" && d.name.trim()) spec.name = d.name.trim();
+        if (typeof d.type === "string" && ["power", "rail", "gnd", "signal"].includes(d.type)) spec.type = d.type as NetType;
+        if (d.direction === "feeds_board") spec.role = "out"; else if (d.direction === "board_feeds") spec.role = "in";
+        if (typeof d.v_max === "number") spec.v = { max: d.v_max, unit: "V" };
+        if (typeof d.i_max === "number") spec.i = { max: d.i_max, unit: "A" };
+        cur[p] = spec;
+      }
+      if (Object.keys(cur).length) ci.pins = cur; else delete ci.pins;
+      const eff = part.pins.flatMap((p) => {
+        const s = effectivePinSpec(part, ci.pins, p);
+        if (!s) return [];
+        const v = rmax(s.v), i = rmax(s.i);
+        const role = (s.role ?? (s.v ? "out" : "in")) === "out" ? "feeds board" : "board feeds";
+        return [`  ${p}: ${s.name ?? p} · ${s.type ?? "signal"} · ${role}${v != null ? ` · ${v}V` : ""}${i != null ? ` · ${i}A` : ""}`];
+      });
+      return {
+        text: [`Declared. ${ref} (${part.name}) effective pins:`, ...eff,
+          part.pinAmps ? `Contact rating ${part.pinAmps} A/pin — enforced against actual through-current.` : "",
+        ].filter(Boolean).join("\n"), changed: true,
+      };
+    }
+    case "stress_test": {
+      const volts = Number(input.volts);
+      if (!Number.isFinite(volts) || volts <= 0) return { text: "stress_test needs volts, e.g. 24.", changed: false };
+      const r2 = (x: number) => Math.round(x * 100) / 100;
+      try {
+        const a = analyze(design, blockMap);
+        // authored voltage limits on placed blocks + the declared input maxima of everything sitting on an
+        // input-tracking rail (a rail whose source declares a RANGE — it follows the external input).
+        const authored = design.blocks.flatMap((bi) => (blocks[bi.block]?.limits ?? [])
+          .filter((l) => l.unit === "V" || /\bv|vin|vac/i.test(l.field))
+          .map((l) => ({ ref: bi.ref, field: l.field, value: l.value, note: l.note, margin: r2(l.value - volts) })));
+        const entryNets = a.resolved.nets.filter((net) =>
+          (net.type === "power" || net.type === "rail") &&
+          net.sources.some((src) => src.def.v && src.def.v.min != null && src.def.v.max != null && src.def.v.max > src.def.v.min));
+        const fromRails = entryNets.flatMap((net) => net.sinks.flatMap((sk) => {
+          const lim = sk.pin.def.v?.max ?? sk.pin.def.v?.value;
+          if (lim == null) return [];
+          return [{ ref: sk.pin.instance, field: `${sk.pin.terminal} max`, value: lim, note: `sits on input-tracking rail ${net.id}`, margin: r2(lim - volts) }];
+        }));
+        const seen = new Set<string>();
+        const limits = [...fromRails, ...authored]
+          .filter((l) => { const k = `${l.ref}|${l.field}`; if (seen.has(k)) return false; seen.add(k); return true; })
+          .sort((x, y) => x.margin - y.margin);
+        if (!limits.length) return { text: "No declared voltage limits sit on an input-tracking rail — the stress test has nothing to check against. Say so honestly rather than guessing.", changed: false };
+        const dead = limits.filter((l) => l.margin < 0);
+        const head = dead.length
+          ? `FAILS at ${volts} V — ${dead.length} limit${dead.length > 1 ? "s" : ""} exceeded:`
+          : `Holds at ${volts} V — tightest: ${limits[0].ref} ${limits[0].field} (${limits[0].margin} V headroom).`;
+        const rows = limits.slice(0, 12).map((l) => `  ${l.margin < 0 ? "✕" : "✓"} ${l.ref} ${l.field} = ${l.value} V → margin ${l.margin >= 0 ? "+" : ""}${l.margin} V${l.note ? ` (${l.note})` : ""}`);
+        return { text: [head, ...rows].join("\n"), changed: false };
+      } catch (e) { return { text: `Stress test failed: ${String(e).slice(0, 160)}`, changed: false }; }
+    }
     default:
       return { text: `Unknown tool ${name}.`, changed: false };
   }
@@ -613,6 +757,10 @@ const TOOLS = [
   { name: "power_budget", description: "Per-rail current/power budget: each power/rail net's total load draw vs the source's capacity, headroom, %-used (flags over-budget), and watts. The load math — read this to reason about whether a regulator/source can actually supply its rail, not just whether it's wired.", input_schema: { type: "object", properties: {} } },
   { name: "acknowledge", description: "Mark a specific finding as INTENDED so it's muted and stops counting as a warning/error — for a correct-but-noisy check, e.g. an intentional diode-OR where two sources (USB 5V + regulator) legitimately share a rail. Use the rule + at from analyze_design. Only acknowledge findings that are genuinely correct; never silence a real problem. Always note WHY.", input_schema: { type: "object", properties: { rule: { type: "string", description: "the finding's rule, e.g. connectivity/multiple-drivers" }, at: { type: "array", items: { type: "string" }, description: "the finding's subjects (net ids/refs), e.g. [\"VCC\"]" }, note: { type: "string", description: "why it's intended (shown to the user)" } }, required: ["rule", "at"] } },
   { name: "unacknowledge", description: "Remove an acknowledgement so the finding is flagged again.", input_schema: { type: "object", properties: { rule: { type: "string" }, at: { type: "array", items: { type: "string" } } }, required: ["rule", "at"] } },
+  { name: "set_isolation", description: "Declare that two blocks must share NO conductive path (galvanic isolation) — or remove such a requirement. Verified immediately and re-verified on every change; a violation names the bridging net (the classic bug: a carelessly shared ground). Use it right after placing an isolating part (optocoupler, transformer, digital isolator) so the barrier becomes a standing guarantee instead of a hope. b may be \"*\" to isolate a from every other block.", input_schema: { type: "object", properties: { a: { type: "string", description: "block ref, e.g. OPTO1" }, b: { type: "string", description: 'block ref, or "*" for all others' }, note: { type: "string", description: "why this barrier exists (optional, shown to the user)" }, remove: { type: "boolean", description: "true to remove the requirement instead of adding it" } }, required: ["a", "b"] } },
+  { name: "set_signal_class", description: `Declare what a net IS so the checker enforces what that requires: termination present (it looks for the actual resistor bridging the pair), rise time achievable (I2C: computed from pull-ups + bus capacitance, with the fix in the message), and on the PCB, trace length + pair matching vs the class's edge rate. Classes: ${Object.values(NET_CLASSES).map((c) => `${c.id} (${c.name})`).join(", ")}. Pass cls "none" to clear. Pair classes (rs485, can, usb-fs) need pairPin — the other side of the pair.`, input_schema: { type: "object", properties: { pin: { type: "string", description: 'a pin on the net — "REF.terminal" (e.g. U1.canh) or a connector pin (J1.D+)' }, cls: { type: "string", enum: [...Object.keys(NET_CLASSES), "none"] }, pairPin: { type: "string", description: "the pair's other side (B / CANL / D−) — required for pair classes" }, pullupOhms: { type: "number", description: "I2C: the actual pull-up value (default 4700)" }, busCapPf: { type: "number", description: "I2C: bus capacitance override (default 20 + 10 per device)" }, terminated_externally: { type: "boolean", description: "termination lives off-board — silences the on-board check" } }, required: ["pin", "cls"] } },
+  { name: "declare_connector_pins", description: "Declare what the outside world presents (or draws) at a placed connector's pins — name, net type, direction, voltage, current. A declared pin becomes a real terminal at the board edge: it types and names the net (VBUS), feeds every check (12 V arriving on a header pin vs a 5 V-max input fires over-voltage; declared off-board loads count in the power budget; a hot wire into a gnd pin flags as a short), and the family's per-contact current rating is enforced. USB receptacles, the LiPo JST, and barrel jacks arrive pre-declared — only declare what differs (e.g. the actual wall-wart voltage on a barrel jack). ALWAYS declare what arrives at a power-entry connector; without it the engine is blind at the board edge.", input_schema: { type: "object", properties: { ref: { type: "string", description: "placed connector ref, e.g. J1" }, pins: { type: "object", description: 'pin id → declaration, e.g. {"+": {name: "VIN", type: "power", direction: "feeds_board", v_max: 12, i_max: 2}, "-": {name: "GND", type: "gnd"}}', additionalProperties: { type: "object", properties: { name: { type: "string", description: "net-meaningful name, e.g. VBAT, SDA" }, type: { type: "string", enum: ["power", "rail", "gnd", "signal"] }, direction: { type: "string", enum: ["feeds_board", "board_feeds"], description: "feeds_board = arrives from off-board (a supply); board_feeds = the board drives what's plugged in (a load)" }, v_max: { type: "number", description: "volts (worst case)" }, i_max: { type: "number", description: "amps (source capability or load draw)" }, clear: { type: "boolean", description: "true to drop this pin's per-instance declaration (built-in defaults remain)" } } } } }, required: ["ref", "pins"] } },
+  { name: "stress_test", description: "What-if: would the design survive X volts at its input? Checks that voltage against every declared limit sitting on an input-tracking rail (a rail whose source declares a range — it follows the external input; regulated rails are rightly excluded) plus each block's authored limits, sorted tightest-first. Use it to answer \"can I run this from a 24 V brick?\" with arithmetic instead of vibes.", input_schema: { type: "object", properties: { volts: { type: "number", description: "the input voltage to test" } }, required: ["volts"] } },
 ];
 
 export async function POST(req: Request) {
