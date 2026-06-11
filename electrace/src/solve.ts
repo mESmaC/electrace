@@ -20,6 +20,7 @@ import { UnionFind } from "./uf.js";
 export interface DcPartResult {
   ref: string;               // "REG1/R1"
   footprint?: string;
+  ratingWatts?: number;      // declared rating beats footprint inference
   ohms: number;
   volts: number;             // across the part
   amps: number;
@@ -29,6 +30,13 @@ export interface DcPartResult {
 export interface DcSolve {
   /** Solved node voltages by flat-net name — only nets inside solved subcircuits appear. */
   netVolts: Record<string, number>;
+  /** "REF/<part>.<pin>" → flat-net name — self-asserts anchor to part pins (stable across
+   *  layout re-derivation, where internal net NAMES are not). */
+  pinNet: Record<string, string>;
+  /** "REF.terminal" → flat-net name (from flatten) — the UI's lookup from a design net member. */
+  termNet: Record<string, string>;
+  /** Voltage across each capacitor whose two nets solved — feeds the cap voltage-rating rule. */
+  caps: { ref: string; volts: number; ratingVolts?: number }[];
   /** Per-resistor operating point for every resistor in a solved subcircuit. */
   parts: DcPartResult[];
   /** Honesty stream: missing values, ignored nonlinear parts, skipped subcircuits. */
@@ -91,7 +99,8 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
   const N = (name: string | undefined) => (name ? uf.find(name) : undefined);
 
   // elements
-  const conducts: { a: string; b: string; g: number; ohms: number; ref: string; footprint?: string }[] = [];
+  const conducts: { a: string; b: string; g: number; ohms: number; ref: string; footprint?: string; ratingWatts?: number }[] = [];
+  const capPins: { ref: string; a: string; b: string; ratingVolts?: number }[] = [];
   const nonlinearByNet = new Map<string, Set<string>>(); // merged-net → part refs left open there
   // one pass: every part's pinned nets (the per-part pinNet scan was O(parts²) at scale)
   const netsOfRef = new Map<string, string[]>();
@@ -113,7 +122,10 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
         continue;
       }
       if (ohms === 0) { uf.union(a, b); continue; }
-      conducts.push({ a, b, g: 1 / ohms, ohms, ref: p.ref, footprint: p.footprint });
+      conducts.push({ a, b, g: 1 / ohms, ohms, ref: p.ref, footprint: p.footprint, ratingWatts: p.rating?.watts });
+    } else if (p.type === "cap" || p.type === "cap-pol" || p.type === "capacitor") {
+      const a = N(netOfPart(p.ref, "1")), b = N(netOfPart(p.ref, "2"));
+      if (a && b && a !== b) capPins.push({ ref: p.ref, a, b, ratingVolts: p.rating?.volts });
     } else if (SHORT_AT_DC.has(p.type) || OPEN_AT_DC.has(p.type)) {
       // handled above / genuinely open at DC
     } else {
@@ -126,6 +138,7 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
   }
   // re-key shorts-merged conductances (a union after push could stale a name)
   for (const c of conducts) { c.a = uf.find(c.a); c.b = uf.find(c.b); }
+  for (const c of capPins) { c.a = uf.find(c.a); c.b = uf.find(c.b); }
 
   // boundary sources: declared source terminals → ideal V-sources to their own block's gnd
   const gndNetOf = (instance: string): string | undefined => {
@@ -247,7 +260,7 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
       if (!inComp.has(c.a)) continue;
       const dv = volt(c.a) - volt(c.b);
       const amps = dv * c.g;
-      parts.push({ ref: c.ref, footprint: c.footprint, ohms: c.ohms, volts: Math.abs(dv), amps: Math.abs(amps), watts: dv * amps });
+      parts.push({ ref: c.ref, footprint: c.footprint, ratingWatts: c.ratingWatts, ohms: c.ohms, volts: Math.abs(dv), amps: Math.abs(amps), watts: dv * amps });
     }
     // nonlinear honesty: one note per subcircuit, only when something was actually left open
     const ignored = new Set<string>();
@@ -260,5 +273,18 @@ export function solveDc(rd: ResolvedDesign): DcSolve {
     }
   }
 
-  return { netVolts, parts, findings, solvedComponents: solved };
+  // pre-merge flat names alias to their solved root (shorts merged names away; lookups shouldn't care)
+  for (const net of flat.nets) {
+    const root = uf.find(net.name);
+    if (netVolts[net.name] == null && netVolts[root] != null) netVolts[net.name] = netVolts[root];
+  }
+
+  const caps: DcSolve["caps"] = [];
+  for (const c of capPins) {
+    const va = netVolts[c.a], vb = netVolts[c.b];
+    if (va == null || vb == null) continue; // both ends must be in solved subcircuits
+    caps.push({ ref: c.ref, volts: Math.abs(va - vb), ratingVolts: c.ratingVolts });
+  }
+
+  return { netVolts, pinNet: Object.fromEntries(pinNet), termNet, caps, parts, findings, solvedComponents: solved };
 }

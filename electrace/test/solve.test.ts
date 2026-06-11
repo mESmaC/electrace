@@ -211,3 +211,118 @@ test("a dangling declared load (unwired vin with i draw) must not poison the sol
   assert.ok(!sol.findings.some((f) => f.rule === "solve/unsolvable"));
   assert.ok(sol.parts.some((p) => p.ref === "D1/R1" && Math.abs(p.volts - 12) < 1e-9));
 });
+
+test("terminal aliases: wiring REF.gnd reaches a gnd_in terminal end-to-end (resolve + flatten + solve)", () => {
+  const reg = B("@s/reg", [
+    { id: "vin", role: "in", type: "power" },
+    { id: "gnd_in", aliases: ["gnd"], role: "in", type: "gnd" },
+  ], {
+    parts: [{ ref: "R1", type: "res", value: "1k", footprint: "R0603" }],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "GND", connect: ["R1.2", "@gnd_in"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(SRC12) }, { ref: "X1", block: key(reg) }],
+    connections: [{ from: "S1.vout", to: "X1.vin" }, { from: "S1.gnd", to: "X1.gnd" }], // alias!
+  };
+  const rd = resolve(d, lib(SRC12, reg));
+  assert.equal(rd.invalid, undefined, "alias connection must be valid");
+  const sol = solveDc(rd);
+  const r1 = sol.parts.find((p) => p.ref === "X1/R1");
+  assert.ok(r1 && Math.abs(r1.volts - 12) < 1e-9, "12 V across R1 proves the alias carried the return path");
+});
+
+test("self-assert verifies: a divider block claiming 6 V at MID passes; claiming 9 V fails loudly", () => {
+  const mk = (id: string, claim: number): Block => ({
+    ...B(id, [
+      { id: "vin", role: "in", type: "power" },
+      { id: "gnd", role: "in", type: "gnd" },
+    ], {
+      parts: [
+        { ref: "R1", type: "res", value: "10k", footprint: "R0603" },
+        { ref: "R2", type: "res", value: "10k", footprint: "R0603" },
+      ],
+      nets: [
+        { name: "VIN", connect: ["R1.1", "@vin"] },
+        { name: "MID", connect: ["R1.2", "R2.1"] },
+        { name: "GND", connect: ["R2.2", "@gnd"] },
+      ],
+    }),
+    asserts: [{ pin: "R2.1", volts: claim }],
+  });
+  const good = mk("@s/agood", 6), bad = mk("@s/abad", 9);
+  const d = (blk: Block): Design => ({
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(SRC12) }, { ref: "A1", block: key(blk) }],
+    connections: [{ from: "S1.vout", to: "A1.vin" }, { from: "S1.gnd", to: "A1.gnd" }],
+  });
+  const okF = lint(resolve(d(good), lib(SRC12, good)));
+  assert.ok(!okF.some((f) => f.rule.startsWith("assert/")), "true claim stays silent");
+  const badF = lint(resolve(d(bad), lib(SRC12, bad)));
+  const hit = badF.find((f) => f.rule === "assert/failed");
+  assert.ok(hit, "false claim must fail: " + badF.map((f) => f.rule).join(","));
+  assert.match(hit!.message, /9 V/);
+  assert.match(hit!.message, /6 V/);
+});
+
+test("declared part ratings beat inference: cap over its working voltage errors; resistor rating.watts respected", () => {
+  const blk = B("@s/rated", [
+    { id: "vin", role: "in", type: "power" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "C1", type: "cap", value: "10uF", rating: { volts: 10 } },     // 12 V across a 10 V cap
+      { ref: "R1", type: "res", value: "100", rating: { watts: 2 } },       // 1.44 W but rated 2 W → only warn (>70%)
+    ],
+    nets: [
+      { name: "VIN", connect: ["C1.1", "R1.1", "@vin"] },
+      { name: "GND", connect: ["C1.2", "R1.2", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(SRC12) }, { ref: "P1", block: key(blk) }],
+    connections: [{ from: "S1.vout", to: "P1.vin" }, { from: "S1.gnd", to: "P1.gnd" }],
+  };
+  const findings = lint(resolve(d, lib(SRC12, blk)));
+  const cap = findings.find((f) => f.rule === "voltage/cap-rating" && f.severity === "error");
+  assert.ok(cap, "10 V cap at 12 V must error: " + findings.map((f) => f.rule).join(","));
+  const res = findings.filter((f) => f.rule === "thermal/resistor-dissipation");
+  assert.equal(res.length, 1);
+  assert.equal(res[0].severity, "warn", "2 W rating means 1.44 W is hot, not fatal");
+});
+
+test("two distinct nets sharing a derived name must NOT merge (flat names dedupe)", () => {
+  // regression: power-entry's derived output and the buck's derived output were both named
+  // "VOUT" — the name-keyed solver fused them (18 V vs 5 V → singular), and a KiCad netlist
+  // export would physically short them on import.
+  const stage = (id: string, volts: number): Block => B(id, [
+    { id: "vin", role: "in", type: "power", ...(volts ? {} : {}) },
+    { id: "vout", role: "out", type: "rail", v: { value: volts, unit: "V" }, i: { max: 1, unit: "A" } },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [{ ref: "R1", type: "res", value: "1k", footprint: "R0603" }],
+    nets: [
+      { name: "VOUT", connect: ["R1.1", "@vout"] },   // both stages name their output net VOUT
+      { name: "GND", connect: ["R1.2", "@gnd"] },
+      { name: "VIN", connect: ["@vin"] },
+    ],
+  });
+  const a = stage("@s/stageA", 12), b2 = stage("@s/stageB", 5);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(SRC12) }, { ref: "A1", block: key(a) }, { ref: "B1", block: key(b2) }],
+    connections: [
+      { from: "S1.vout", to: "A1.vin" }, { from: "S1.gnd", to: "A1.gnd" },
+      { from: "A1.vout", to: "B1.vin" }, { from: "S1.gnd", to: "B1.gnd" },
+    ],
+  };
+  const sol = solveDc(resolve(d, lib(SRC12, a, b2)));
+  assert.ok(!sol.findings.some((f) => f.rule === "solve/unsolvable"), "name collision must not produce a singular merge");
+  // both rails solved at their own voltage
+  const volts = Object.entries(sol.netVolts).filter(([k]) => k.includes("VOUT")).map(([, v]) => Math.round(v));
+  assert.deepEqual(volts.sort((x, y) => x - y), [5, 12], JSON.stringify(sol.netVolts));
+});

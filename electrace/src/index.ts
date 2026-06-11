@@ -1,6 +1,6 @@
 // Public API for the Electrace core.
 export * from "./types.js";
-export { resolve } from "./resolve.js";
+export { resolve, canonicalTerminal } from "./resolve.js";
 export { lint, RULES, findingKey } from "./lint.js";
 export { bom, bomCsv } from "./bom.js";
 export { flatten } from "./flatten.js";

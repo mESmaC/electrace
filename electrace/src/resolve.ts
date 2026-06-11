@@ -18,6 +18,14 @@ function applyOverrides(block: Block, ov: InstanceOverrides): Block {
   return { ...block, terminals, transform };
 }
 
+/** Resolve a terminal reference that may use an alias to the canonical terminal id.
+ *  Returns undefined when the block has no such terminal under any name. */
+export function canonicalTerminal(block: Block, term: string): string | undefined {
+  for (const t of block.terminals) if (t.id === term) return t.id;
+  for (const t of block.terminals) if (t.aliases?.includes(term)) return t.id;
+  return undefined;
+}
+
 /** Net type by precedence across its members. */
 function netType(pins: ResolvedPin[]): NetType {
   const types = new Set(pins.map((p) => p.def.type));
@@ -112,11 +120,22 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   // and recorded — never thrown. One stale wire killing the whole analysis left users (and agents)
   // with a single cryptic error and an empty net graph; partial truth + a precise finding beats that.
   const invalid: InvalidConnection[] = [];
+  const instOf = new Map(instances.map((i) => [i.ref, i]));
+  const canon = (e: string): string => {
+    if (pinOf.has(e) || connectorPins.has(e)) return e;
+    const dot = e.indexOf(".");
+    if (dot < 0) return e;
+    const inst = instOf.get(e.slice(0, dot));
+    if (!inst) return e;
+    const t = canonicalTerminal(inst.def, e.slice(dot + 1));
+    return t ? `${inst.ref}.${t}` : e;
+  };
   for (const c of design.connections) {
+    const from = canon(c.from), to = canon(c.to);
     const known = (e: string) => pinOf.has(e) || connectorPins.has(e);
-    const missing = [c.from, c.to].filter((e) => !known(e));
+    const missing = [from, to].filter((e) => !known(e));
     if (missing.length) { invalid.push({ from: c.from, to: c.to, missing }); continue; }
-    uf.union(c.from, c.to);
+    uf.union(from, to);
   }
 
   // Intra-block terminal equivalence: terminals a block bridges internally are the

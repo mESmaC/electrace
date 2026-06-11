@@ -30,6 +30,10 @@ export type GroundClass = "gnd" | "agnd" | "pgnd" | "dgnd";
 /** An exposed net on a block's boundary — its interface to the rest of a design. */
 export interface Terminal {
   id: string;
+  /** Alternate names this terminal answers to ("gnd" for a gnd_in) — the #1 agent/human wiring
+   *  error is terminal-name guessing across blocks with divergent conventions. Aliases must be
+   *  unique within a block (and not collide with real terminal ids). */
+  aliases?: string[];
   role: TerminalRole;
   type: NetType;
   v?: Range;                 // declared voltage (sources declare it; inputs declare accepted range)
@@ -53,6 +57,9 @@ export interface Part {
   ref: string;               // "U1", "R1"
   type: string;              // "ic" | "res" | "cap" | "inductor" | "diode" | ...
   value?: string;
+  /** Declared physical ratings — truth beats footprint inference. watts: resistor dissipation
+   *  limit; volts: capacitor working voltage. The solver-backed rules read these first. */
+  rating?: { watts?: number; volts?: number };
   part?: string;             // mpn / family
   footprint?: string;
   why?: string;              // authored reason → hover/explainer content
@@ -104,6 +111,12 @@ export interface Block {
    *  this block (an optocoupler's LED side vs its transistor side — only light crosses). Absent =
    *  all terminals conduct internally (true of nearly everything). */
   isolation?: string[][];
+  /** Self-asserts: the block's own claims about its operating point, verified by the DC solver on
+   *  every change ("the node at R2.1 sits at 1.02 V"). An authored block that states what it should
+   *  do — and an agent-authored block that must prove it. pin = a part pin on the asserted node
+   *  ("R2.1") — pins survive layout-derived re-derivation where net NAMES don't; tol = ± volts
+   *  (default: max(0.05 V, 5%)). */
+  asserts?: { pin: string; volts: number; tol?: number }[];
 }
 
 /** The editable internal schematic: predefined symbols placed on a canvas, wired pin-to-pin.
@@ -268,6 +281,7 @@ export interface FlatPart {
   instance: string;
   type: string;
   value?: string;
+  rating?: { watts?: number; volts?: number };
   part?: string;
   footprint?: string;
   why?: string;
@@ -287,4 +301,6 @@ export interface FlatSchematic {
   /** "REF.terminal" → flat-net name, for every block terminal that landed in a physical net.
    *  The DC solver's boundary hook: declared source/load terminals attach to the matrix here. */
   termNet?: Record<string, string>;
+  /** "REF/<internal net name>" → flat-net name — how a block's self-asserts find their node. */
+  internalNet?: Record<string, string>;
 }

@@ -35,7 +35,7 @@ Tier legend: **[F]** free · **[P]** Pro · **[F→P soft]** visible to all, Pro
 
 ## Checking engine (@electrace/core — runs client-side on every change)
 
-23 lint rules: danglingWire, openNet, overCurrent, **connectorPinCurrent** (per-contact rating),
+25 lint rules (+ assert/cap-rating): danglingWire, openNet, overCurrent, **connectorPinCurrent** (per-contact rating),
 **usbInrush** (hard-attached bulk C on a USB rail vs the ~10 µF spec allowance), overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers,
 undrivenRail, internalShort, regulatorDissipation (linear topology, (Vin−Vout)·I), isolationBridged,
 busTermination (finds the actual resistor bridging the pair), i2cRiseTime (pull-ups + bus C, fix in
@@ -50,6 +50,14 @@ declaration-missing + honesty notes), lowEfficiency, underUtilized, testPoints, 
   conduction-graph BFS names the bridging path
 - SI net classes (rs485, can, i2c-100k/400k, usb-fs, fast-edge): z0/termination/rise/edge/skew
 - Connector pins as real terminals: catalog defaults merged under per-instance specs
+- **Terminal aliases** (gnd answers for gnd_in everywhere — resolve/flatten/Sparky all canonicalize)
+- **Block self-asserts**: blocks declare expected operating points (pin-anchored, e.g. "R2.1 ≈
+  1.02 V"); the solver verifies the block's own claims on every change — agent-authored blocks
+  must prove themselves. assert/failed = error with the arithmetic
+- **Part ratings**: rating.watts (resistors) + rating.volts (caps) on parts — declared truth beats
+  footprint inference; cap working-voltage checked against the SOLVED dc across it
+- Flat net names DEDUPED ("VOUT"/"VOUT#2") — two distinct nets sharing a derived name used to
+  short on KiCad netlist import AND fuse in the solver matrix (found by the solver, fixed in flatten)
 - **DC operating-point solver (analysis ladder stage 1):** MNA over the flattened design —
   R stamps, boundary V-sources from declared terminals, declared draws as I-sinks, L/ferrite/fuse
   short at DC, C open, semiconductors/ICs honestly left open with a note; per-subcircuit solve

@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, solveDc, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { useProfile } from "@/lib/auth";
 import { touchProject } from "@/lib/projects";
@@ -788,6 +788,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [pcbOpen, setPcbOpen] = useState(false);
   const [schemView, setSchemView] = useState(false); // the flat whole-design schematic sheet
   const passportNet = selectedNet ? analysis.resolved.nets.find((n) => n.members.some((m) => m.node === selectedNet)) : undefined;
+  // the DC operating point, surfaced: solved node voltage on the net passport (real number, not bound)
+  const dcSolved = useMemo(() => { try { return solveDc(analysis.resolved); } catch { return null; } }, [analysis]);
+  const passportSolvedV = useMemo(() => {
+    if (!dcSolved || !passportNet) return null;
+    for (const mb of passportNet.members) {
+      const flat = dcSolved.termNet[mb.node];
+      const v = flat != null ? dcSolved.netVolts[flat] : undefined;
+      if (v != null) return v;
+    }
+    return null;
+  }, [dcSolved, passportNet]);
   const passportBudget = passportNet ? budgets.find((b) => b.net === passportNet.id) : undefined;
   const drilledBlock = drillRef
     ? (nodes.find((n) => n.id === drillRef)?.data as BlockNodeData | undefined)?.block
@@ -1572,6 +1583,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
               <span className="ml-auto text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{passportNet.type} net</span>
             </div>
             <div className="mt-1.5 font-mono text-[11px] text-[var(--color-text)]">{passportNet.voltage ? `≈ ${fmtRange(passportNet.voltage)}` : "voltage not declared"}</div>
+            {passportSolvedV != null && (
+              <div className="mt-0.5 font-mono text-[11px] text-[#46dca6]" title="DC operating point — solved from the actual resistor network (MNA), not a declared bound">
+                = {Math.abs(passportSolvedV) < 0.001 ? "0" : passportSolvedV.toFixed(passportSolvedV < 10 ? 3 : 2)} V solved
+              </div>
+            )}
             {passportBudget?.capacityA != null && (
               <div className="mt-2.5">
                 <div className="flex justify-between text-[11.5px]"><span className="text-[var(--color-faint)]">Current</span><span className="font-mono text-[var(--color-text)]">{round1(passportBudget.drawA)} / {round1(passportBudget.capacityA)} A</span></div>

@@ -14,16 +14,18 @@ spec:
   efficiency: { value: 0.85 }
 terminals:
   - { id: vin,     role: in,  type: power, polarity: "+", v: { min: 9, max: 18, unit: V } }
-  - { id: gnd_in,  role: in,  type: gnd }
+  - { id: gnd_in,  role: in,  type: gnd, aliases: [gnd] }
   - { id: vout,    role: out, type: rail, v: { value: 5.0, unit: V }, i: { max: 3, unit: A } }
   - { id: gnd_out, role: out, type: gnd }
+asserts:
+  - { pin: R2.1, volts: 1.02, tol: 0.05 }   # the FB node: 5 V × 10k/(39k+10k) — the divider's whole job
 limits:
   - { field: vin.max, value: 20, unit: V, note: "Cin is rated 25 V; sustained input above ~20 V risks the input cap." }
 schematic:
   parts:
     - { ref: U1,   type: ic,       part: buck-controller, footprint: SOIC-8, why: "switches to hold the output at 5 V" }
     - { ref: L1,   type: inductor, value: 10uH, footprint: IND-5040, shielded: false, why: "stores/releases energy each switching cycle" }
-    - { ref: Cin,  type: cap,      value: 22uF, footprint: C0805, why: "supplies the switcher's fast current pulses" }
+    - { ref: Cin,  type: cap,      value: 22uF, footprint: C0805, rating: { volts: 25 }, why: "supplies the switcher's fast current pulses" }
     - { ref: Cout, type: cap,      value: 47uF, footprint: C1206, why: "smooths the output, keeps the loop stable" }
     - { ref: R1,   type: res,      value: 39k,  footprint: R0603, why: "top of feedback divider — sets Vout" }
     - { ref: R2,   type: res,      value: 10k,  footprint: R0603, why: "bottom of feedback divider" }

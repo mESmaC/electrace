@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
+import { analyze, canonicalTerminal, solveDc, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
 import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -452,7 +452,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const valid = (e: string) => {
         const [r, t] = e.split(".");
         const bi = design.blocks.find((x) => x.ref === r);
-        if (bi && blocks[bi.block]?.terminals.some((x) => x.id === t)) return true;
+        if (bi && (blocks[bi.block] && canonicalTerminal(blocks[bi.block], t) != null)) return true;
         const ci = (design.connectors ?? []).find((x) => x.ref === r); // a connector pin is a valid endpoint too
         return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
       };
@@ -499,7 +499,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const epOk = (e: string) => {
         const [r, t] = e.split(".");
         const bi = design.blocks.find((x) => x.ref === r);
-        if (bi) return blocks[bi.block]?.terminals.some((x) => x.id === t) ? true : false;
+        if (bi) return (blocks[bi.block] && canonicalTerminal(blocks[bi.block], t) != null) ? true : false;
         const ci = (design.connectors ?? []).find((x) => x.ref === r);
         return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
       };
@@ -514,7 +514,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const epOk = (e: string) => {
         const [r, t] = e.split(".");
         const bi = design.blocks.find((x) => x.ref === r);
-        if (bi) return blocks[bi.block]?.terminals.some((x) => x.id === t) ? true : false;
+        if (bi) return (blocks[bi.block] && canonicalTerminal(blocks[bi.block], t) != null) ? true : false;
         const ci = (design.connectors ?? []).find((x) => x.ref === r);
         return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
       };
@@ -633,7 +633,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const pinOk = (e: string) => {
         const [r, t] = e.split(".");
         const bi = design.blocks.find((x) => x.ref === r);
-        if (bi) return !!blocks[bi.block]?.terminals.some((x) => x.id === t);
+        if (bi) return !!(blocks[bi.block] && canonicalTerminal(blocks[bi.block], t) != null);
         const ci = (design.connectors ?? []).find((x) => x.ref === r);
         return !!ci && !!connectorPart(ci.connector)?.pins.includes(t);
       };
@@ -724,6 +724,27 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         return { text: [head, ...rows].join("\n"), changed: false };
       } catch (e) { return { text: `Stress test failed: ${String(e).slice(0, 160)}`, changed: false }; }
     }
+    case "solve_dc": {
+      try {
+        const sol = solveDc(analyze(design, blockMap).resolved);
+        if (!sol.solvedComponents) {
+          return { text: `Nothing solvable yet — the DC solver needs a declared source wired into resistive paths. ${sol.findings[0]?.message ?? ""}`.trim(), changed: false };
+        }
+        const volts = Object.entries(sol.netVolts)
+          .filter(([k]) => !k.startsWith("~"))
+          .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 30)
+          .map(([k, v]) => `  ${k}: ${v.toFixed(3)} V`).join("\n");
+        const rs = sol.parts.filter((p) => p.watts > 1e-4).sort((a, b) => b.watts - a.watts).slice(0, 15)
+          .map((p) => `  ${p.ref}: ${(p.amps * 1000).toFixed(2)} mA · ${(p.watts * 1000).toFixed(1)} mW${p.ratingWatts ? ` (rated ${p.ratingWatts} W)` : ""}`).join("\n");
+        const notes = sol.findings.map((f) => `  [${f.severity}] ${f.message}`).join("\n");
+        return {
+          text: [`Solved ${sol.solvedComponents} subcircuit(s) — REAL numbers, not worst-case bounds.`,
+            `Node voltages:\n${volts}`, rs ? `Resistor operating points (hottest first):\n${rs}` : "",
+            notes ? `Solver notes:\n${notes}` : ""].filter(Boolean).join("\n"),
+          changed: false,
+        };
+      } catch (e) { return { text: `Solve failed: ${String(e).slice(0, 160)}`, changed: false }; }
+    }
     default:
       return { text: `Unknown tool ${name}.`, changed: false };
   }
@@ -760,6 +781,7 @@ const TOOLS = [
   { name: "set_isolation", description: "Declare that two blocks must share NO conductive path (galvanic isolation) — or remove such a requirement. Verified immediately and re-verified on every change; a violation names the bridging net (the classic bug: a carelessly shared ground). Use it right after placing an isolating part (optocoupler, transformer, digital isolator) so the barrier becomes a standing guarantee instead of a hope. b may be \"*\" to isolate a from every other block.", input_schema: { type: "object", properties: { a: { type: "string", description: "block ref, e.g. OPTO1" }, b: { type: "string", description: 'block ref, or "*" for all others' }, note: { type: "string", description: "why this barrier exists (optional, shown to the user)" }, remove: { type: "boolean", description: "true to remove the requirement instead of adding it" } }, required: ["a", "b"] } },
   { name: "set_signal_class", description: `Declare what a net IS so the checker enforces what that requires: termination present (it looks for the actual resistor bridging the pair), rise time achievable (I2C: computed from pull-ups + bus capacitance, with the fix in the message), and on the PCB, trace length + pair matching vs the class's edge rate. Classes: ${Object.values(NET_CLASSES).map((c) => `${c.id} (${c.name})`).join(", ")}. Pass cls "none" to clear. Pair classes (rs485, can, usb-fs) need pairPin — the other side of the pair.`, input_schema: { type: "object", properties: { pin: { type: "string", description: 'a pin on the net — "REF.terminal" (e.g. U1.canh) or a connector pin (J1.D+)' }, cls: { type: "string", enum: [...Object.keys(NET_CLASSES), "none"] }, pairPin: { type: "string", description: "the pair's other side (B / CANL / D−) — required for pair classes" }, pullupOhms: { type: "number", description: "I2C: the actual pull-up value (default 4700)" }, busCapPf: { type: "number", description: "I2C: bus capacitance override (default 20 + 10 per device)" }, terminated_externally: { type: "boolean", description: "termination lives off-board — silences the on-board check" } }, required: ["pin", "cls"] } },
   { name: "declare_connector_pins", description: "Declare what the outside world presents (or draws) at a placed connector's pins — name, net type, direction, voltage, current. A declared pin becomes a real terminal at the board edge: it types and names the net (VBUS), feeds every check (12 V arriving on a header pin vs a 5 V-max input fires over-voltage; declared off-board loads count in the power budget; a hot wire into a gnd pin flags as a short), and the family's per-contact current rating is enforced. USB receptacles, the LiPo JST, and barrel jacks arrive pre-declared — only declare what differs (e.g. the actual wall-wart voltage on a barrel jack). ALWAYS declare what arrives at a power-entry connector; without it the engine is blind at the board edge.", input_schema: { type: "object", properties: { ref: { type: "string", description: "placed connector ref, e.g. J1" }, pins: { type: "object", description: 'pin id → declaration, e.g. {"+": {name: "VIN", type: "power", direction: "feeds_board", v_max: 12, i_max: 2}, "-": {name: "GND", type: "gnd"}}', additionalProperties: { type: "object", properties: { name: { type: "string", description: "net-meaningful name, e.g. VBAT, SDA" }, type: { type: "string", enum: ["power", "rail", "gnd", "signal"] }, direction: { type: "string", enum: ["feeds_board", "board_feeds"], description: "feeds_board = arrives from off-board (a supply); board_feeds = the board drives what's plugged in (a load)" }, v_max: { type: "number", description: "volts (worst case)" }, i_max: { type: "number", description: "amps (source capability or load draw)" }, clear: { type: "boolean", description: "true to drop this pin's per-instance declaration (built-in defaults remain)" } } } } }, required: ["ref", "pins"] } },
+  { name: "solve_dc", description: "Compute the DC operating point — Modified Nodal Analysis over the flattened design. Returns REAL node voltages and per-resistor current/dissipation (not worst-case bounds): the tool for \"what voltage is actually at this node\" and \"how hot does this resistor run\". Honest scope: linear elements only — semiconductors/ICs are left open (bias networks around them solve correctly) and the result says what was skipped. Run after wiring changes; cheap.", input_schema: { type: "object", properties: {} } },
   { name: "stress_test", description: "What-if: would the design survive X volts at its input? Checks that voltage against every declared limit sitting on an input-tracking rail (a rail whose source declares a range — it follows the external input; regulated rails are rightly excluded) plus each block's authored limits, sorted tightest-first. Use it to answer \"can I run this from a 24 V brick?\" with arithmetic instead of vibes.", input_schema: { type: "object", properties: { volts: { type: "number", description: "the input voltage to test" } }, required: ["volts"] } },
 ];
 

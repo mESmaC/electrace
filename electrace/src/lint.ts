@@ -140,7 +140,7 @@ const dcOperatingPoint: Rule = (rd) => {
   for (const p of sol.parts) {
     if (p.watts < 0.005) continue; // milliwatt noise
     const instance = p.ref.slice(0, p.ref.indexOf("/"));
-    const rating = RATING.find(([re]) => re.test(p.footprint ?? ""))?.[1];
+    const rating = p.ratingWatts ?? RATING.find(([re]) => re.test(p.footprint ?? ""))?.[1]; // declared truth first
     const derivation = `${round2(p.volts)} V across ${p.ohms} Ω → ${round2(p.amps * 1000) / 1000} A → P = ${round2(p.watts)} W`;
     if (rating != null && p.watts > rating) {
       out.push({
@@ -160,6 +160,46 @@ const dcOperatingPoint: Rule = (rd) => {
         message: `${p.ref} dissipates ${round2(p.watts)} W — more than a typical small resistor's ¼ W. Check the part's actual rating.`,
         derivation,
       } satisfies Finding);
+    }
+  }
+  // capacitor working-voltage vs the solved DC across it (declared rating only — no guessing)
+  for (const c of sol.caps) {
+    if (c.ratingVolts == null || c.volts < 0.01) continue;
+    const instance = c.ref.slice(0, c.ref.indexOf("/"));
+    if (c.volts > c.ratingVolts) {
+      out.push({
+        rule: "voltage/cap-rating", severity: "error", category: "voltage", at: [instance, c.ref],
+        message: `${c.ref} sees ${round2(c.volts)} V at the operating point — it's rated ${c.ratingVolts} V. Electrolytics vent; ceramics crack.`,
+        derivation: `solved ${round2(c.volts)} V  >  rated ${c.ratingVolts} V`,
+        fix: { label: "Use a higher-voltage part" },
+      } satisfies Finding);
+    } else if (c.volts > 0.8 * c.ratingVolts) {
+      out.push({
+        rule: "voltage/cap-rating", severity: "warn", category: "voltage", at: [instance, c.ref],
+        message: `${c.ref} runs at ${round2(c.volts)} V — over 80% of its ${c.ratingVolts} V rating. Standard derating says leave 20% headroom.`,
+        derivation: `solved ${round2(c.volts)} V  >  80% of ${c.ratingVolts} V`,
+      } satisfies Finding);
+    }
+  }
+  // self-asserts: the block's own operating-point claims, checked against the solve
+  for (const inst of rd.instances) {
+    for (const a of inst.def.asserts ?? []) {
+      const flat = sol.pinNet[`${inst.ref}/${a.pin}`];
+      const v = flat != null ? sol.netVolts[flat] : undefined;
+      const tol = a.tol ?? Math.max(0.05, Math.abs(a.volts) * 0.05);
+      if (v == null) {
+        out.push({
+          rule: "assert/unverified", severity: "info", category: "completeness", at: [inst.ref],
+          message: `${inst.def.name} asserts the node at ${a.pin} ≈ ${a.volts} V, but it wasn't solvable here (nonlinear path or no source) — the claim is unverified, not wrong.`,
+        } satisfies Finding);
+      } else if (Math.abs(v - a.volts) > tol) {
+        out.push({
+          rule: "assert/failed", severity: "error", category: "voltage", at: [inst.ref],
+          message: `${inst.def.name}'s own spec says the node at ${a.pin} should sit at ${a.volts} V — it solves to ${round2(v)} V. Something in this block's values or wiring no longer does what the block claims.`,
+          derivation: `assert ${a.volts} V ± ${round2(tol)}; solved ${round2(v)} V`,
+          fix: { label: "Fix the values/wiring, or update the block's assert" },
+        } satisfies Finding);
+      }
     }
   }
   return out;

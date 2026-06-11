@@ -1,4 +1,5 @@
 import { UnionFind } from "./uf.js";
+import { canonicalTerminal } from "./resolve.js";
 import type { FlatNet, FlatPart, FlatSchematic, ResolvedDesign } from "./types.js";
 
 const termNode = (inst: string, term: string) => `${inst}::@${term}`;
@@ -30,7 +31,7 @@ export function flatten(rd: ResolvedDesign): FlatSchematic {
     for (const p of sc.parts) {
       parts.push({
         ref: `${inst.ref}/${p.ref}`, instance: inst.ref, type: p.type,
-        value: p.value, part: p.part, footprint: p.footprint, why: p.why,
+        value: p.value, rating: p.rating, part: p.part, footprint: p.footprint, why: p.why,
         polarized: p.polarized, shielded: p.shielded, chip: p.chip,
       });
     }
@@ -52,11 +53,17 @@ export function flatten(rd: ResolvedDesign): FlatSchematic {
   // physical pad on the board — register it as a component pin so it lands in the netlist (and the PCB),
   // rather than a block terminal node (which gets filtered out as having no physical pin).
   const connRefs = new Set((rd.design.connectors ?? []).map((x) => x.ref));
+  const instOf = new Map(rd.instances.map((x) => [x.ref, x]));
   const epNode = (pinRef: string): string => {
     const i = pinRef.indexOf(".");
     if (i < 0) return pinRef;
-    if (connRefs.has(pinRef.slice(0, i))) { uf.add(pinRef); compPins.add(pinRef); return pinRef; }
-    return termNode(pinRef.slice(0, i), pinRef.slice(i + 1));
+    const ref = pinRef.slice(0, i);
+    if (connRefs.has(ref)) { uf.add(pinRef); compPins.add(pinRef); return pinRef; }
+    // canonicalize aliases — an aliased endpoint must land on the REAL terminal node,
+    // not mint a phantom one (phantom nodes were the solver-singularity bug class)
+    const inst = instOf.get(ref);
+    const t = inst ? canonicalTerminal(inst.def, pinRef.slice(i + 1)) : undefined;
+    return termNode(ref, t ?? pinRef.slice(i + 1));
   };
   for (const c of rd.design.connections) {
     const a = epNode(c.from), b = epNode(c.to);
@@ -74,24 +81,38 @@ export function flatten(rd: ResolvedDesign): FlatSchematic {
 
   const nets: FlatNet[] = [];
   const termNet: Record<string, string> = {};          // "REF.term" → flat-net name (solver boundary hook)
+  const internalNet: Record<string, string> = {};      // "REF/<internal net name>" → flat-net name (asserts hook)
   let k = 0;
   let t = 0;
+  const used = new Set<string>();
+  const unique = (n: string): string => {
+    if (!used.has(n)) { used.add(n); return n; }
+    let i = 2;
+    while (used.has(`${n}#${i}`)) i++;
+    used.add(`${n}#${i}`);
+    return `${n}#${i}`;
+  };
   for (const members of groups.values()) {
     const pins = members.filter((m) => compPins.has(m)).sort();
     // pure-terminal groups carry no physical pin → not in the netlist, but they ARE electrical
     // nodes (a source block's gnd terminal tied straight to a load's): termNet keeps them under
     // a synthetic "~" name so the DC solver doesn't lose the return path.
     // synthetic groups NEVER take a display name — a collision with a physical net's name
-    // would silently merge two distinct solver nodes
-    const name = pins.length ? (pickName(members, connName, internalName) ?? `N${k++}`) : `~T${t++}`;
+    // would silently merge two distinct solver nodes.
+    // Names are DEDUPED ("VOUT", "VOUT#2"): two distinct nets sharing one name would short
+    // them in an exported KiCad netlist on import — and merged them in the solver's matrix.
+    // (Two blocks' port-derived internals colliding on "VOUT" is the everyday case.)
+    const name = pins.length ? unique(pickName(members, connName, internalName) ?? `N${k++}`) : `~T${t++}`;
     if (pins.length) nets.push({ name, pins });
     for (const m of members) {
       const sep = m.indexOf("::@");
       if (sep >= 0) termNet[`${m.slice(0, sep)}.${m.slice(sep + 3)}`] = name;
+      const info = internalName.get(m);
+      if (info) internalNet[`${info.inst}/${info.name}`] = name;
     }
   }
   nets.sort((a, b) => a.name.localeCompare(b.name));
-  return { parts, nets, termNet };
+  return { parts, nets, termNet, internalNet };
 }
 
 /** Prefer a user-facing design-connection name; else the internal net name
