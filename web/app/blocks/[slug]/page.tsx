@@ -7,6 +7,7 @@ import { marked } from "marked";
 import { discreteEquivalentFor, type Terminal } from "@electrace/core";
 import { listBlocks, loadBlock, fmtSpec, type LoadedBlock } from "@/lib/blocks";
 import SchematicPreview from "@/app/editor/SchematicPreview";
+import { BLOCK_VIDEOS } from "@/lib/blockVideos";
 
 export function generateStaticParams() {
   return listBlocks().map((b) => ({ slug: b.slug }));
@@ -58,9 +59,21 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
     .flatMap((p) => { const eq = discreteEquivalentFor(p.part); return eq ? [{ part: p, eq }] : []; });
   const related = listBlocks().filter((b) => b.slug !== slug && b.block.category === block.category).slice(0, 4);
 
+  const video = BLOCK_VIDEOS[slug];
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "TechArticle",
+    ...(video ? {
+      video: {
+        "@type": "VideoObject",
+        name: video.title,
+        description: summary(explain),
+        thumbnailUrl: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
+        uploadDate: video.uploadDate,
+        embedUrl: `https://www.youtube.com/embed/${video.id}`,
+        contentUrl: `https://www.youtube.com/watch?v=${video.id}`,
+      },
+    } : {}),
     breadcrumb: {
       "@type": "BreadcrumbList",
       itemListElement: [
@@ -107,6 +120,21 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
       )}
 
       <article className="prose-block mt-8 max-w-3xl" dangerouslySetInnerHTML={{ __html: html }} />
+      {video && (
+        <section className="mt-10">
+          <h2 className="text-xl font-bold tracking-tight">Watch it explained</h2>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-border" style={{ width: 315, maxWidth: "100%" }}>
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${video.id}`}
+              title={video.title}
+              loading="lazy"
+              allow="accelerometer; encrypted-media; picture-in-picture"
+              allowFullScreen
+              style={{ display: "block", width: "100%", aspectRatio: "9 / 16", border: 0 }}
+            />
+          </div>
+        </section>
+      )}
 
       <h2 className="mt-10 text-xl font-bold">Exposed nets</h2>
       <div className="mt-3 space-y-2">
