@@ -26,6 +26,7 @@ import { marked } from "marked";
 import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import PcbEditor from "./PcbEditor";
+import { CHECK_DOC_BY_RULE } from "@/lib/checkDocs";
 
 const NET_COLOR: Record<string, string> = {
   power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff",
@@ -1971,6 +1972,12 @@ function FindingCard({ f, onToggleAck }: { f: Finding; onToggleAck?: (f: Finding
       </div>
       {ackd && f.acknowledged?.note && <div className="mt-1 text-[11px] text-[#46dca6]">intended: {f.acknowledged.note}</div>}
       {!ackd && f.derivation && <div className="mt-1 font-mono text-[11px] text-[var(--color-text)]">{f.derivation}</div>}
+      {!ackd && f.rule && CHECK_DOC_BY_RULE[f.rule] && (
+        <a href={`/docs/checks/${CHECK_DOC_BY_RULE[f.rule].slug}`} target="_blank" rel="noreferrer"
+          className="mt-1 inline-block text-[10.5px] text-[var(--color-faint)] underline-offset-2 hover:text-[var(--color-text)] hover:underline">
+          about this check ↗
+        </a>
+      )}
     </div>
   );
 }

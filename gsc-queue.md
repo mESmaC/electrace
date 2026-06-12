@@ -62,6 +62,13 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 - [ ] https://www.electrace.net/calculators/delta-wye
 - [ ] https://www.electrace.net/calculators/current-divider
 - [ ] https://www.electrace.net/calculators/filter-designer
+- [ ] https://www.electrace.net/docs/checks
+- [ ] https://www.electrace.net/docs/checks/voltage-over-input
+- [ ] https://www.electrace.net/docs/checks/current-usb-inrush
+- [ ] https://www.electrace.net/docs/checks/thermal-resistor-dissipation
+- [ ] https://www.electrace.net/docs/checks/si-i2c-rise-time
+- [ ] https://www.electrace.net/docs/checks/connectivity-multiple-drivers
+- [ ] https://www.electrace.net/docs/checks/voltage-cap-rating
 
 ## Leave to the sitemap (low intent — submit only if bored)
 
