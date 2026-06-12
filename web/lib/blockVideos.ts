@@ -7,4 +7,5 @@ export const BLOCK_VIDEOS: Record<string, { id: string; title: string; uploadDat
   "opamp-noninverting": { id: "sDrgscWDw7w", title: "The only difference between an op-amp and a comparator is one tiny capacitor", uploadDate: "2026-06-11" },
   "liion-charger": { id: "IYFb2K2S5vI", title: "How your battery knows to stop charging at exactly 4.2V", uploadDate: "2026-06-11" },
   "comparator-hysteresis": { id: "4fV1H43HSkI", title: "Why your comparator chatters (and the one resistor that fixes it)", uploadDate: "2026-06-12" },
+  "relay-driver": { id: "w28h3jI5lwA", title: "Why relays kill microcontrollers (one diode fixes it)", uploadDate: "2026-06-12" },
 };
