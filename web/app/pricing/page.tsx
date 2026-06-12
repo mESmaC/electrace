@@ -9,6 +9,7 @@ export const metadata = {
 };
 
 const FAQ = [
+  { q: "Why is the price crossed out?", a: "$15/month is the planned price once Electrace leaves alpha. Early adopters pay $9 — and keep $9 for as long as they stay subscribed. You're taking a chance on a young tool; the discount is permanent thanks." },
   { q: "Is the free tier actually free?", a: "Yes — forever. The entire understand-loop is free: blocks, hover & drill-in, expand-to-discrete, the core checking engine (voltage propagation, current budgets, shorts, polarity, connector ratings), the PCB editor with DRC, and the calculators — with up to 10 designs. We never charge you to learn." },
   { q: "What do I get with Pro?", a: "The professional-grade layer: Sparky (the AI engineer), signal-integrity analysis, galvanic-isolation guarantees, manufacturing export (the routed board + BOM CSV), private designs, and unlimited designs — for when you're shipping real hardware. Version history is on the way." },
   { q: "Are my designs private?", a: "On Hobby, designs are public or link-only (unlisted) — like a public repo. Keeping designs fully private is a Pro feature, for when you need to hold work to yourself. You'll see this before you save your first design, not after." },
@@ -53,6 +54,7 @@ export default function PricingPage() {
             <div className="mt-1 min-h-[40px] text-[13.5px] text-dim">{p.tagline}</div>
             {p.price ? (
               <div className="mt-4 flex h-[44px] items-end gap-2">
+                {p.anchorPrice && <span className="pb-1 text-[20px] font-bold leading-none text-faint line-through decoration-[1.5px]">{p.anchorPrice}</span>}
                 <span className="text-[34px] font-extrabold leading-none tracking-tight">{p.price}</span>
                 <span className="pb-0.5 text-[12.5px] text-faint">{p.priceNote}</span>
               </div>
@@ -114,6 +116,22 @@ export default function PricingPage() {
           Hobby gives you the entire understand-loop and up to 10 designs — plenty to learn and prototype, in the open.
           Pro lifts the cap and unlocks private projects and manufacturing-grade output, for when you&apos;re building real hardware.
         </p>
+      </div>
+
+      {/* the structural truths — things our architecture lets us promise that metered tools can't */}
+      <div className="mx-auto mt-14 grid max-w-[1000px] gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-border bg-surface p-5">
+          <div className="text-[15px] font-bold">Unlimited, because it&apos;s yours</div>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-dim">Every check, solve, and frequency sweep runs in your browser, on your machine. We couldn&apos;t meter your analysis if we wanted to — so it&apos;s unlimited on every plan, forever. No quotas, no credits, no counting.</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-surface p-5">
+          <div className="text-[15px] font-bold">Answers while you wire</div>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-dim">No simulation setup, no server round-trip, no convergence roulette. The engine re-checks your whole design in milliseconds on every change — and being closed-form, the same design gives the same answer, every single time.</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-surface p-5">
+          <div className="text-[15px] font-bold">Private by architecture</div>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-dim">Your design lives in your browser and never leaves it until you choose to sync. Work on sensitive hardware without trusting anyone&apos;s cloud — including ours — until you decide to.</p>
+        </div>
       </div>
 
       {/* faq */}

@@ -11,6 +11,7 @@ export interface Plan {
   name: string;
   tagline: string;
   price?: string;      // "$0" / "Let's talk" — omitted when there's no number to show (Pro, for now)
+  anchorPrice?: string; // the planned full price, shown struck through ("$15" → ~~$15~~ $9)
   priceNote: string;   // small line under the price (or a standalone badge when there's no price)
   cta: { label: string; href: string };
   highlight?: boolean; // featured column (Pro)
@@ -44,7 +45,8 @@ export const PLANS: Plan[] = [
     tagline: "For keeping work private and shipping real hardware.",
     // KEEP IN SYNC with the live Stripe price (STRIPE_PRICE_PRO_MONTHLY). The page promises this number.
     price: "$9",
-    priceNote: "/month · early-adopter price",
+    anchorPrice: "$15",
+    priceNote: "/month · early-adopter price, locked in for life",
     cta: { label: "Start free", href: "/signup" },
     highlight: true,
     featuresLead: "Everything in Hobby, plus:",

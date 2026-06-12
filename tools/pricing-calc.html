@@ -1,0 +1,85 @@
+<!doctype html>
+<!-- INTERNAL pricing calculator — open locally (file://), never deployed. Punch in the
+     MODEL-BENCH numbers + dashboard actuals; it shows margin per tier, break-even subs,
+     and a blended monthly P&L. All math client-side, nothing stored, nothing sent. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Electrace pricing calculator (internal)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 14px/1.5 system-ui, sans-serif; background: #11151d; color: #d4dae6; max-width: 980px; margin: 32px auto; padding: 0 20px; }
+  h1 { font-size: 22px; } h2 { font-size: 15px; margin: 22px 0 8px; color: #9aa3b5; text-transform: uppercase; letter-spacing: .06em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #9aa3b5; background: #1a2030; border: 1px solid #2a3247; border-radius: 10px; padding: 9px 11px; }
+  input { background: #11151d; color: #e8ecf4; border: 1px solid #2a3247; border-radius: 6px; padding: 5px 8px; font: inherit; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid #2a3247; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  .good { color: #46dca6; } .bad { color: #e2837e; } .big { font-size: 18px; font-weight: 700; }
+  .note { font-size: 12px; color: #6b7487; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h1>Pricing calculator <span style="font-size:12px;color:#e2837e">· internal — never deploy</span></h1>
+<p class="note">Sources: COST-MODEL.md (fixed costs, storage), MODEL-BENCH.md ($/session per model), sparky_usage (sessions/user), Stripe (fee).</p>
+
+<h2>Platform</h2>
+<div class="grid">
+  <label>Fixed costs $/mo (Vercel+Supabase+misc) <input id="fixed" type="number" value="45" step="1"></label>
+  <label>Stripe % <input id="stripePct" type="number" value="2.9" step="0.1"></label>
+  <label>Stripe flat $ <input id="stripeFlat" type="number" value="0.30" step="0.05"></label>
+  <label>Free users <input id="freeUsers" type="number" value="200" step="10"></label>
+  <label>Cost per free user $/mo <input id="freeCost" type="number" value="0.05" step="0.01"></label>
+</div>
+
+<h2>Tiers (price · model $/session · sessions/user/mo · subscribers)</h2>
+<div class="grid">
+  <label>Pro price $ <input id="p1" type="number" value="9" step="1"></label>
+  <label>Pro $/session <input id="m1" type="number" value="0.30" step="0.05"></label>
+  <label>Pro sessions/user/mo <input id="s1" type="number" value="12" step="1"></label>
+  <label>Pro subs <input id="n1" type="number" value="10" step="1"></label>
+</div>
+<div class="grid" style="margin-top:8px">
+  <label>Premium price $ <input id="p2" type="number" value="24" step="1"></label>
+  <label>Premium $/session <input id="m2" type="number" value="0.90" step="0.05"></label>
+  <label>Premium sessions/user/mo <input id="s2" type="number" value="25" step="1"></label>
+  <label>Premium subs <input id="n2" type="number" value="2" step="1"></label>
+</div>
+
+<h2>Result</h2>
+<table id="out"></table>
+<p class="note" id="be"></p>
+
+<script>
+const $ = (id) => +document.getElementById(id).value;
+const fmt = (x) => (x < 0 ? "−$" : "$") + Math.abs(x).toFixed(2);
+function calc() {
+  const stripe = (p) => p - p * $("stripePct") / 100 - $("stripeFlat");
+  const tier = (p, m, s) => { const net = stripe(p), ai = m * s, store = 0.05; return { net, ai, margin: net - ai - store }; };
+  const t1 = tier($("p1"), $("m1"), $("s1")), t2 = tier($("p2"), $("m2"), $("s2"));
+  const freeBurn = $("freeUsers") * $("freeCost");
+  const rev = t1.margin * $("n1") + t2.margin * $("n2");
+  const pl = rev - freeBurn - $("fixed");
+  const rows = [
+    ["", "net of Stripe", "AI cost/user", "margin/user", "× subs", "total"],
+    ["Pro", fmt(t1.net), fmt(t1.ai), fmt(t1.margin), $("n1"), fmt(t1.margin * $("n1"))],
+    ["Premium", fmt(t2.net), fmt(t2.ai), fmt(t2.margin), $("n2"), fmt(t2.margin * $("n2"))],
+    ["Free-user burn", "", "", fmt(-$("freeCost")), $("freeUsers"), fmt(-freeBurn)],
+    ["Fixed", "", "", "", "", fmt(-$("fixed"))],
+  ];
+  document.getElementById("out").innerHTML =
+    rows.map((r, i) => `<tr>${r.map((c, j) => `<t${i ? "d" : "h"}>${c}</t${i ? "d" : "h"}>`).join("")}</tr>`).join("") +
+    `<tr><td class="big">Monthly P&L</td><td colspan="4"></td><td class="big ${pl >= 0 ? "good" : "bad"}">${fmt(pl)}</td></tr>`;
+  const be = t1.margin > 0 ? Math.ceil((freeBurn + $("fixed")) / t1.margin) : Infinity;
+  document.getElementById("be").textContent =
+    `Break-even on Pro alone: ${be} subs. ` +
+    (t1.margin <= 0 ? "⚠ Pro margin is NEGATIVE — model too expensive or sessions too high for this price." :
+      t2.margin <= 0 ? "⚠ Premium margin is NEGATIVE at these numbers." :
+      `Margins per user: Pro ${fmt(t1.margin)}, Premium ${fmt(t2.margin)}.`);
+}
+document.querySelectorAll("input").forEach((i) => i.addEventListener("input", calc));
+calc();
+</script>
+</body>
+</html>
