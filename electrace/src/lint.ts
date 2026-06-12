@@ -388,6 +388,11 @@ function internalShorts(rd: ResolvedDesign): { net: ResolvedNet; inst: string; a
       for (let i = 0; i < pins.length; i++)
         for (let j = i + 1; j < pins.length; j++) {
           const a = pins[i], b = pins[j];
+          // the block AUTHOR tied these terminals in the internal schematic — a deliberate
+          // passthrough (USB-C vbus≡vout), not a user mis-wire. Authoring mistakes belong to
+          // block-level review, not to every design that places the block.
+          const ta = rd.internalTies?.[a.node], tb = rd.internalTies?.[b.node];
+          if (ta != null && ta === tb) continue;
           const va = rmax(a.def.v), vb = rmax(b.def.v);
           const vClash = va != null && vb != null && Math.abs(va - vb) > 1e-9;
           const gndA = a.def.type === "gnd", gndB = b.def.type === "gnd";

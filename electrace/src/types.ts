@@ -166,6 +166,14 @@ export interface Connection {
   net?: string;              // optional display name ("VBUS")
 }
 
+/** A design-level net label: every terminal carrying the same label name is ONE net — no wire
+ *  drawn. The classic named-power-rail/net-flag mechanism; the label is also the net's display
+ *  name (a user label is the strongest naming intent there is). */
+export interface NetLabel {
+  node: string;              // "MCU1.vdd"  (instanceRef.terminalId, aliases allowed)
+  name: string;              // "VCC" / "+5V" / "SDA"
+}
+
 /** What the off-board world presents (or draws) at one connector pin. A declared pin becomes a real
  *  terminal during resolve — net typing, voltage propagation, budgets, and every lint rule then work
  *  across the board edge instead of going blind at it. All fields optional: an undeclared pin stays a
@@ -194,6 +202,7 @@ export interface Design {
   visibility?: "public" | "unlisted" | "private"; // unlisted = link-shareable, not indexed (the free default)
   blocks: BlockInstance[];
   connections: Connection[];
+  labels?: NetLabel[];       // design-level net labels (same name = same net, wireless)
   connectors?: ConnectorInstance[];
   acks?: Ack[];              // findings the user/agent marked intended (e.g. an intentional diode-OR)
   isolation?: IsolationConstraint[]; // declared galvanic-isolation requirements, checked every pass
@@ -246,6 +255,9 @@ export interface ResolvedDesign {
   instances: ResolvedInstance[];
   nets: ResolvedNet[];
   invalid?: InvalidConnection[]; // stale wires skipped during resolve (→ dangling-wire findings)
+  /** Terminals the block AUTHOR tied via the internal schematic, keyed node → tie-group root.
+   *  Same root = deliberately common inside the block (a passthrough), not a user mis-wire. */
+  internalTies?: Record<string, string>;
 }
 
 // ── Lint ───────────────────────────────────────────────────────────────────

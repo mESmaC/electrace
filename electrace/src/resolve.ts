@@ -40,6 +40,10 @@ function netType(pins: ResolvedPin[]): NetType {
 // reaches — preferring a power/ground-looking rail when several terminals share the net. Returns null
 // only when there are no members to name it after (the caller then uses a numbered fallback).
 function netName(design: Design, members: Set<string>): string | null {
+  // a user's net label is the strongest naming intent — it wins over wire names and derivation
+  for (const l of design.labels ?? []) {
+    if (members.has(l.node)) return l.name;
+  }
   for (const c of design.connections) {
     if (c.net && (members.has(c.from) || members.has(c.to))) return c.net;
   }
@@ -138,19 +142,36 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
     uf.union(from, to);
   }
 
+  // Net labels: same name = same net, no wire. A label on a vanished terminal (block
+  // re-authored) is recorded like a stale wire — skipped with a finding, never thrown.
+  const byLabel = new Map<string, string[]>();
+  for (const l of design.labels ?? []) {
+    const node = canon(l.node);
+    if (!pinOf.has(node) && !connectorPins.has(node)) { invalid.push({ from: l.node, to: `label "${l.name}"`, missing: [l.node] }); continue; }
+    const g = byLabel.get(l.name);
+    if (g) g.push(node); else byLabel.set(l.name, [node]);
+  }
+  for (const nodes of byLabel.values()) for (let k = 1; k < nodes.length; k++) uf.union(nodes[0], nodes[k]);
+
   // Intra-block terminal equivalence: terminals a block bridges internally are the
   // same node. Found via the block's own schematic — an internal net listing several
   // `@terminal` refs (e.g. a regulator's GND net ties @gnd_in ≡ @gnd_out) means those
   // exposed terminals are common, so merge them across the whole design too.
+  // The ties are RECORDED (internalTies) so checks can tell a block author's deliberate
+  // passthrough (USB-C vbus≡vout through its TVS/cap net) apart from a user's mis-wire —
+  // flagging every placement of a passthrough block taught users to ignore the rule.
+  const tieUf = new UnionFind();
   for (const inst of instances) {
     for (const snet of inst.def.schematic?.nets ?? []) {
       const terms = snet.connect
         .filter((c) => c.startsWith("@"))
         .map((c) => `${inst.ref}.${c.slice(1)}`)
         .filter((node) => pinOf.has(node));
-      for (let k = 1; k < terms.length; k++) uf.union(terms[0], terms[k]);
+      for (let k = 1; k < terms.length; k++) { uf.union(terms[0], terms[k]); tieUf.add(terms[0]); tieUf.add(terms[k]); tieUf.union(terms[0], terms[k]); }
     }
   }
+  const internalTies: Record<string, string> = {};
+  for (const node of tieUf.keys()) internalTies[node] = tieUf.find(node);
 
   const groups = new Map<string, string[]>();
   for (const node of [...pinOf.keys(), ...connectorPins]) {
@@ -215,5 +236,5 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
     if (!changed) break;
   }
 
-  return { design, instances, nets, ...(invalid.length ? { invalid } : {}) };
+  return { design, instances, nets, ...(invalid.length ? { invalid } : {}), ...(Object.keys(internalTies).length ? { internalTies } : {}) };
 }

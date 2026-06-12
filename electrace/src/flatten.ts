@@ -71,6 +71,15 @@ export function flatten(rd: ResolvedDesign): FlatSchematic {
     if (c.net) { connName.set(a, c.net); connName.set(b, c.net); }
   }
 
+  // design-level net labels: union same-named groups (wireless nets), label name names the net
+  const labelFirst = new Map<string, string>();
+  for (const l of rd.design.labels ?? []) {
+    const n = epNode(l.node);
+    connName.set(n, l.name);
+    const first = labelFirst.get(l.name);
+    if (first) uf.union(first, n); else labelFirst.set(l.name, n);
+  }
+
   // group → nets
   const groups = new Map<string, string[]>();
   for (const id of uf.keys()) {

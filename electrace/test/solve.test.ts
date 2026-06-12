@@ -568,3 +568,82 @@ test("a declared draw whose internals conduct is NOT double-counted: LED behind 
   const r1 = sol.parts.find((p) => p.ref === "P1/R1")!;
   assert.ok(Math.abs(r1.amps - i) < 1e-12, `pull-up carries the LED current only, got ${r1.amps} A`);
 });
+
+test("a block author's internal passthrough is not an internal-short: USB-C vbus≡vout places clean", () => {
+  // Regression (VERIFICATION F11): usb-c-power's own schematic ties vbus (5.25 V max, in)
+  // through to vout (5 V, out) — TVS and caps are shunts, the rail passes straight through.
+  // The internal-short rule fired on EVERY placement. Author ties are deliberate; only
+  // user-wired same-instance shorts should fire.
+  const usb = B("@s/usbc", [
+    { id: "vbus", role: "in", type: "power", v: { min: 4.75, max: 5.25, unit: "V" } },
+    { id: "vout", role: "out", type: "rail", v: { value: 5, unit: "V" } },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [{ ref: "C1", type: "capacitor", value: "22µ", footprint: "C0805" }],
+    nets: [
+      { name: "VBUS", connect: ["C1.1", "@vbus", "@vout"] }, // the author's passthrough tie
+      { name: "GND", connect: ["C1.2", "@gnd"] },
+    ],
+  });
+  const load = B("@s/load5", [
+    { id: "vdd", role: "in", type: "rail", v: { min: 4.5, max: 5.5, unit: "V" } },
+    { id: "gnd", role: "in", type: "gnd" },
+  ]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "USB1", block: key(usb) }, { ref: "L1", block: key(load) }],
+    connections: [
+      { from: "USB1.vout", to: "L1.vdd" },
+      { from: "USB1.gnd", to: "L1.gnd" },
+    ],
+  };
+  const rd = resolve(d, lib(usb, load));
+  const findings = lint(rd);
+  const shorts = findings.filter((f) => f.rule === "connectivity/internal-short");
+  assert.equal(shorts.length, 0, "author tie must not fire: " + JSON.stringify(shorts.map((s) => s.message)));
+  // but a USER-wired same-instance short still fires: tie vout to gnd externally
+  const bad: Design = { ...d, connections: [...d.connections, { from: "USB1.vout", to: "USB1.gnd" }] };
+  const shorts2 = lint(resolve(bad, lib(usb, load))).filter((f) => f.rule === "connectivity/internal-short");
+  assert.ok(shorts2.length >= 1, "user-wired hot-to-gnd on one instance must still fire");
+});
+
+test("net labels: same name = same net, no wire — and the label names the net", () => {
+  const src5 = B("@s/src5c", [
+    { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 1, unit: "A" } },
+    { id: "gnd", role: "out", type: "gnd" },
+  ]);
+  const led = B("@s/led2", [
+    { id: "vin", role: "in", type: "signal" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "330", footprint: "R0603" },
+      { ref: "D1", type: "led", value: "2.0" },
+    ],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "A", connect: ["R1.2", "D1.1"] },
+      { name: "GND", connect: ["D1.2", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src5) }, { ref: "L1", block: key(led) }],
+    connections: [], // NO wires at all — the labels are the wiring
+    labels: [
+      { node: "S1.vout", name: "+5V" }, { node: "L1.vin", name: "+5V" },
+      { node: "S1.gnd", name: "GND" }, { node: "L1.gnd", name: "GND" },
+    ],
+  };
+  const rd = resolve(d, lib(src5, led));
+  assert.equal(rd.nets.length, 2, "two labeled nets: " + rd.nets.map((n) => n.id).join(","));
+  assert.ok(rd.nets.some((n) => n.id === "+5V") && rd.nets.some((n) => n.id === "GND"), "labels name the nets");
+  // the solver sees straight through labels: LED current solves exactly
+  const sol = solveDc(rd);
+  const led1 = sol.diodes.find((x) => x.ref === "L1/D1")!;
+  assert.ok(Math.abs(led1.amps - 3 / 330) < 1e-9, `LED solves through labels, got ${led1.amps}`);
+  // a label on a vanished terminal is a dangling finding, not a crash
+  const stale: Design = { ...d, labels: [...d.labels!, { node: "L1.nope", name: "+5V" }] };
+  const rd2 = resolve(stale, lib(src5, led));
+  assert.ok(rd2.invalid?.some((i) => i.missing.includes("L1.nope")), "stale label recorded as invalid");
+});

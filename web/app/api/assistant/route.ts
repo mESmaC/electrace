@@ -623,6 +623,32 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         };
       } catch { return { text: `Declared ${a} ⊘ ${b}.`, changed: true }; }
     }
+    case "set_net_label": {
+      const node = String(input.node ?? "").trim();
+      const name = typeof input.name === "string" ? input.name.trim().slice(0, 24) : "";
+      const dot = node.indexOf(".");
+      if (dot <= 0) return { text: 'set_net_label needs node as "REF.terminal" (e.g. MCU1.vdd).', changed: false };
+      const ref = node.slice(0, dot), term = node.slice(dot + 1);
+      const bi = design.blocks.find((x) => x.ref === ref);
+      if (!bi) return { text: `Unknown block ref "${ref}". Use refs from list_instances.`, changed: false };
+      const blk = blockMap.get(bi.block);
+      const canon = blk ? canonicalTerminal(blk, term) : undefined;
+      if (blk && !canon) return { text: `${ref} has no terminal "${term}". Terminals: ${blk.terminals.map((t) => t.id).join(", ")}.`, changed: false };
+      const n = `${ref}.${canon ?? term}`;
+      const labels = design.labels ?? (design.labels = []);
+      const idx = labels.findIndex((l) => l.node === n);
+      if (!name) {
+        if (idx < 0) return { text: `No net label on ${n}.`, changed: false };
+        labels.splice(idx, 1);
+        return { text: `Removed the net label from ${n}.`, changed: true };
+      }
+      if (idx >= 0) labels[idx] = { node: n, name }; else labels.push({ node: n, name });
+      const peers = labels.filter((l) => l.name === name && l.node !== n).map((l) => l.node);
+      return {
+        text: `Labeled ${n} as "${name}".${peers.length ? ` It now shares one net with ${peers.join(", ")} — no wire needed.` : ` Label another terminal "${name}" to join it into the same net without a wire.`}`,
+        changed: true,
+      };
+    }
     case "set_signal_class": {
       const pin = String(input.pin ?? "").trim();
       const cls = String(input.cls ?? "").trim();
@@ -809,6 +835,7 @@ const TOOLS = [
   { name: "power_budget", description: "Per-rail current/power budget: each power/rail net's total load draw vs the source's capacity, headroom, %-used (flags over-budget), and watts. The load math — read this to reason about whether a regulator/source can actually supply its rail, not just whether it's wired.", input_schema: { type: "object", properties: {} } },
   { name: "acknowledge", description: "Mark a specific finding as INTENDED so it's muted and stops counting as a warning/error — for a correct-but-noisy check, e.g. an intentional diode-OR where two sources (USB 5V + regulator) legitimately share a rail. Use the rule + at from analyze_design. Only acknowledge findings that are genuinely correct; never silence a real problem. Always note WHY.", input_schema: { type: "object", properties: { rule: { type: "string", description: "the finding's rule, e.g. connectivity/multiple-drivers" }, at: { type: "array", items: { type: "string" }, description: "the finding's subjects (net ids/refs), e.g. [\"VCC\"]" }, note: { type: "string", description: "why it's intended (shown to the user)" } }, required: ["rule", "at"] } },
   { name: "unacknowledge", description: "Remove an acknowledgement so the finding is flagged again.", input_schema: { type: "object", properties: { rule: { type: "string" }, at: { type: "array", items: { type: "string" } } }, required: ["rule", "at"] } },
+  { name: "set_net_label", description: "Set (or clear) a design-level net label on a block terminal. Every terminal carrying the same label name is ONE net — the standard named-rail mechanism (+5V, GND, SDA) that replaces long power wires. The label also names the net everywhere (checks, netlist, exports). Pass an empty/omitted name to remove.", input_schema: { type: "object", properties: { node: { type: "string", description: 'terminal as "REF.terminal", e.g. MCU1.vdd' }, name: { type: "string", description: "label name (+5V, GND, SDA…); empty removes" } }, required: ["node"] } },
   { name: "set_isolation", description: "Declare that two blocks must share NO conductive path (galvanic isolation) — or remove such a requirement. Verified immediately and re-verified on every change; a violation names the bridging net (the classic bug: a carelessly shared ground). Use it right after placing an isolating part (optocoupler, transformer, digital isolator) so the barrier becomes a standing guarantee instead of a hope. b may be \"*\" to isolate a from every other block.", input_schema: { type: "object", properties: { a: { type: "string", description: "block ref, e.g. OPTO1" }, b: { type: "string", description: 'block ref, or "*" for all others' }, note: { type: "string", description: "why this barrier exists (optional, shown to the user)" }, remove: { type: "boolean", description: "true to remove the requirement instead of adding it" } }, required: ["a", "b"] } },
   { name: "set_signal_class", description: `Declare what a net IS so the checker enforces what that requires: termination present (it looks for the actual resistor bridging the pair), rise time achievable (I2C: computed from pull-ups + bus capacitance, with the fix in the message), and on the PCB, trace length + pair matching vs the class's edge rate. Classes: ${Object.values(NET_CLASSES).map((c) => `${c.id} (${c.name})`).join(", ")}. Pass cls "none" to clear. Pair classes (rs485, can, usb-fs) need pairPin — the other side of the pair.`, input_schema: { type: "object", properties: { pin: { type: "string", description: 'a pin on the net — "REF.terminal" (e.g. U1.canh) or a connector pin (J1.D+)' }, cls: { type: "string", enum: [...Object.keys(NET_CLASSES), "none"] }, pairPin: { type: "string", description: "the pair's other side (B / CANL / D−) — required for pair classes" }, pullupOhms: { type: "number", description: "I2C: the actual pull-up value (default 4700)" }, busCapPf: { type: "number", description: "I2C: bus capacitance override (default 20 + 10 per device)" }, terminated_externally: { type: "boolean", description: "termination lives off-board — silences the on-board check" } }, required: ["pin", "cls"] } },
   { name: "declare_connector_pins", description: "Declare what the outside world presents (or draws) at a placed connector's pins — name, net type, direction, voltage, current. A declared pin becomes a real terminal at the board edge: it types and names the net (VBUS), feeds every check (12 V arriving on a header pin vs a 5 V-max input fires over-voltage; declared off-board loads count in the power budget; a hot wire into a gnd pin flags as a short), and the family's per-contact current rating is enforced. USB receptacles, the LiPo JST, and barrel jacks arrive pre-declared — only declare what differs (e.g. the actual wall-wart voltage on a barrel jack). ALWAYS declare what arrives at a power-entry connector; without it the engine is blind at the board edge.", input_schema: { type: "object", properties: { ref: { type: "string", description: "placed connector ref, e.g. J1" }, pins: { type: "object", description: 'pin id → declaration, e.g. {"+": {name: "VIN", type: "power", direction: "feeds_board", v_max: 12, i_max: 2}, "-": {name: "GND", type: "gnd"}}', additionalProperties: { type: "object", properties: { name: { type: "string", description: "net-meaningful name, e.g. VBAT, SDA" }, type: { type: "string", enum: ["power", "rail", "gnd", "signal"] }, direction: { type: "string", enum: ["feeds_board", "board_feeds"], description: "feeds_board = arrives from off-board (a supply); board_feeds = the board drives what's plugged in (a load)" }, v_max: { type: "number", description: "volts (worst case)" }, i_max: { type: "number", description: "amps (source capability or load draw)" }, clear: { type: "boolean", description: "true to drop this pin's per-instance declaration (built-in defaults remain)" } } } } }, required: ["ref", "pins"] } },

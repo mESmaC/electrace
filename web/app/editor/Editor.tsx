@@ -5,7 +5,7 @@ import {
   useNodesState, useEdgesState, type Node, type Edge, type NodeProps, type Connection as RFConnection, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { analyze, solveDc, theveninAt, standbyDraw, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
+import { analyze, solveDc, theveninAt, standbyDraw, railBudgets, NET_CLASSES, deriveBlockSchematic, designReport, flatten, toKicadNetlist, findingKey, searchBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, type Block, type Design, type Finding, type Severity, type Ack, type IsolationConstraint, type NetLabel, type NetClassAssignment, type ConnectorPinSpec, type RailBudget, type InstanceOverrides, type NetType, type Terminal, type TerminalRole, type SchematicLayout } from "@electrace/core";
 import { getUserBlocks, saveUserBlock, deleteUserBlock, isUserBlock, makeUserBlock } from "@/lib/userBlocks";
 import { useProfile } from "@/lib/auth";
 import { touchProject } from "@/lib/projects";
@@ -174,7 +174,7 @@ function ShareMenu({ designId }: { designId: string }) {
   );
 }
 
-interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; [k: string]: unknown }
+interface BlockNodeData { block: Block; instanceRef: string; blockKey: string; overrides?: InstanceOverrides; termLabels?: Record<string, string>; [k: string]: unknown }
 interface ConnectorNodeData { connectorId: string; ref: string; pins?: Record<string, ConnectorPinSpec>; [k: string]: unknown }
 
 /** Short ref prefix from a block key, e.g. "@electrace/buck-converter@1.2.0" → "BC". */
@@ -187,7 +187,9 @@ function abbrev(key: string): string {
 const RH = 22; // per-terminal row height
 
 function BlockNode(props: NodeProps) {
-  const { block, instanceRef } = props.data as unknown as BlockNodeData;
+  const { block, instanceRef, termLabels } = props.data as unknown as BlockNodeData;
+  const fireLabelEdit = (term: string) =>
+    window.dispatchEvent(new CustomEvent("electrace:edit-net-label", { detail: { node: `${instanceRef}.${term}` } }));
   const sel = props.selected;
   const edges = useEdges();
   const nodes = useNodes();
@@ -281,10 +283,11 @@ function BlockNode(props: NodeProps) {
           return (
             <Fragment key={t.id}>
               <Handle id={t.id} type={t.role === "out" ? "source" : "target"} position={posOf[side]}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); fireLabelEdit(t.id); }}
                 style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 9, height: 9, background: "#454e62", border: `2px solid ${NET_COLOR[t.type]}` }} />
               <Handle id={t.id} type={t.role === "out" ? "target" : "source"} position={posOf[side]}
                 style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 9, height: 9, opacity: 0 }} />
-              <div className={lblBase} style={lbl}>{t.id}</div>
+              <div className={lblBase} style={lbl} title={termLabels?.[t.id] ? `net label: ${termLabels[t.id]}` : undefined}>{t.id}{termLabels?.[t.id] ? <span style={{ color: "#46dca6" }}> ⚑</span> : null}</div>
             </Fragment>
           );
         }))}
@@ -317,7 +320,8 @@ function BlockNode(props: NodeProps) {
         {free.map((t) => {
           const out = t.role === "out";
           return (
-            <div key={t.id} className="relative flex items-center gap-2 px-3" style={{ height: RH }}>
+            <div key={t.id} className="relative flex items-center gap-2 px-3" style={{ height: RH }}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); fireLabelEdit(t.id); }}>
               <Handle
                 id={t.id}
                 type={out ? "source" : "target"}
@@ -337,6 +341,11 @@ function BlockNode(props: NodeProps) {
               {docked.has(t.id) && (
                 <span title={`docked → ${(docked.get(t.id) ?? []).map((d) => d.split(".")[1]).join(", ")}`}
                   className="rounded bg-[#4c8dff1a] px-1 font-mono text-[8px] text-[var(--color-link)]">⊟{(docked.get(t.id) ?? []).length}</span>
+              )}
+              {termLabels?.[t.id] && (
+                <button onClick={(e) => { e.stopPropagation(); fireLabelEdit(t.id); }}
+                  title="Net label — every terminal with this name is one net (click to edit)"
+                  className="rounded bg-[#46dca61a] px-1 font-mono text-[8px] text-[#46dca6]">⚑ {termLabels[t.id]}</button>
               )}
               <span className="ml-auto text-[9px] uppercase text-[var(--color-faint)]">{t.role}</span>
             </div>
@@ -448,7 +457,13 @@ function buildFlow(design: Design, blockMap: Map<string, Block>): { nodes: Node[
     .map((bi) => ({
       id: bi.ref, type: "block",
       position: { x: bi.pos?.[0] ?? 0, y: bi.pos?.[1] ?? 0 },
-      data: { block: blockMap.get(bi.block)!, instanceRef: bi.ref, blockKey: bi.block, overrides: bi.overrides },
+      data: {
+        block: blockMap.get(bi.block)!, instanceRef: bi.ref, blockKey: bi.block, overrides: bi.overrides,
+        termLabels: (() => {
+          const mine = Object.fromEntries((design.labels ?? []).filter((l) => l.node.startsWith(bi.ref + ".")).map((l) => [l.node.slice(bi.ref.length + 1), l.name]));
+          return Object.keys(mine).length ? mine : undefined;
+        })(),
+      },
     }));
   const connNodes: Node[] = (design.connectors ?? [])
     .filter((ci) => connectorPart(ci.connector))
@@ -488,6 +503,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // the project's display name (the SSR design is a stub; the real name arrives when we hydrate it)
   const [designName, setDesignName] = useState(design.name);
   const [acks, setAcks] = useState<Ack[]>(design.acks ?? []); // findings marked intended (muted, not counted)
+  const [labels, setLabels] = useState<NetLabel[]>(design.labels ?? []); // design-level net labels (same name = same net)
   const [isolation, setIsolation] = useState<IsolationConstraint[]>(design.isolation ?? []); // declared galvanic barriers
   const [signals, setSignals] = useState<NetClassAssignment[]>(design.signals ?? []); // declared SI net classes
   // A block's edited internal schematic (saved by the in-block editor) is the source of truth:
@@ -561,10 +577,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         .filter((e) => refs.has(e.source) && refs.has(e.target))
         .map((e) => ({ from: `${e.source}.${e.sourceHandle ?? ""}`, to: `${e.target}.${e.targetHandle ?? ""}` })),
       acks,
+      ...(labels.length ? { labels: labels.filter((l) => refs.has(l.node.split(".")[0])) } : {}),
       ...(isolation.length ? { isolation } : {}),
       ...(signals.length ? { signals } : {}),
     };
-  }, [nodes, edges, design, designName, acks, isolation, signals]);
+  }, [nodes, edges, design, designName, acks, labels, isolation, signals]);
 
   // analyze() never reads XY positions, so key it on a position-free snapshot — dragging a
   // block repaints the canvas every frame but must not re-run resolve/lint/bom per pixel
@@ -1032,6 +1049,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     restoring.current = true;
     if (d.name) setDesignName(d.name);
     setAcks(d.acks ?? []);
+    setLabels(d.labels ?? []);
     setIsolation(d.isolation ?? []);
     setSignals(d.signals ?? []);
     setNodes(flow.nodes);
@@ -1042,6 +1060,39 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     bumpHist((v) => v + 1);
   }, [blockMap, setNodes, setEdges]);
   loadDesignRef.current = loadDesign; // keep the assistant's apply() pointing at the latest
+
+  // Net-label editing: BlockNode fires a CustomEvent (it renders outside this component's
+  // scope), the dialog runs here where the state lives. Empty name removes the label.
+  useEffect(() => {
+    const onEdit = async (ev: Event) => {
+      const node = (ev as CustomEvent).detail?.node as string | undefined;
+      if (!node) return;
+      const cur = labelsRef.current.find((l) => l.node === node)?.name ?? "";
+      const name = await promptDialog({
+        title: `Net label — ${node}`,
+        message: "Every terminal with the same label is one net, no wire needed. Empty removes the label.",
+        defaultValue: cur, placeholder: "+5V, GND, SDA…", confirmText: "Set label",
+      });
+      if (name === null) return;
+      const nm = name.trim().slice(0, 24);
+      setLabels((prev) => {
+        const rest = prev.filter((l) => l.node !== node);
+        return nm ? [...rest, { node, name: nm }] : rest;
+      });
+    };
+    window.addEventListener("electrace:edit-net-label", onEdit);
+    return () => window.removeEventListener("electrace:edit-net-label", onEdit);
+  }, []);
+  const labelsRef = useRef(labels); labelsRef.current = labels;
+  useEffect(() => { // keep each block node's termLabels in sync so the flags render
+    setNodes((ns) => ns.map((n) => {
+      if (n.type !== "block") return n;
+      const mine = Object.fromEntries(labels.filter((l) => l.node.startsWith(n.id + ".")).map((l) => [l.node.slice(n.id.length + 1), l.name]));
+      const cur = (n.data as BlockNodeData).termLabels ?? {};
+      if (JSON.stringify(cur) === JSON.stringify(mine)) return n;
+      return { ...n, data: { ...n.data, termLabels: Object.keys(mine).length ? mine : undefined } };
+    }));
+  }, [labels, setNodes]);
 
   const resetSample = useCallback(() => loadDesign(design), [loadDesign, design]);
   // wipe every saved block-schematic draft so the blocks revert to their authored versions
