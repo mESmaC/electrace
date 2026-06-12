@@ -21,6 +21,8 @@ import { track } from "@/lib/telemetry";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
 import ReportBug from "./ReportBug";
+import NetlistView from "./NetlistView";
+import { marked } from "marked";
 import SymbolStyleToggle from "./SymbolStyleToggle";
 import AssistantBubble from "./AssistantBubble";
 import PcbEditor from "./PcbEditor";
@@ -715,6 +717,8 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNet, setSelectedNet] = useState<string | null>(null); // a member node "REF.term"
   const [pinsFor, setPinsFor] = useState<string | null>(null); // connector whose pin declarations are being edited
+  const [reportOpen, setReportOpen] = useState(false);   // design report dialog (view in-platform, export from it)
+  const [netlistOpen, setNetlistOpen] = useState(false); // netlist dialog (graph + nets table, export from it)
   // a deleted block must never keep filtering the checks panel — a stale filter shows a green
   // "no issues" for a ghost while the real design has findings (walkthrough #1, P1 #4)
   useEffect(() => {
@@ -1285,8 +1289,8 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={resetSample} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">New</button>
           <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Import</button>
           <button onClick={exportDesign} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Export</button>
-          <button onClick={downloadReport} title="Generate a Markdown design report" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
-          <button onClick={downloadNetlist} title="Export a KiCad netlist (.net) of the whole stitched design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
+          <button onClick={() => setReportOpen(true)} title="The design report — readable here, exportable as Markdown" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
+          <button onClick={() => setNetlistOpen(true)} title="The stitched netlist — graph + nets here, exportable as KiCad .net" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
           {projectId && <ShareMenu designId={design.id} />}
           <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset schematics</button>
           <button onClick={() => setSchemView(true)} title="The whole design as one traditional schematic sheet (read-only, SVG export)" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Schematic</button>
@@ -1305,6 +1309,63 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <button onClick={() => setSandboxHidden(true)} title="Hide" className="grid h-5 w-5 place-items-center rounded-full text-[11px] text-[var(--color-faint)] hover:text-[var(--color-text)]">✕</button>
           </div>
         )}
+      {reportOpen && (() => {
+        const md = designReport(designLive, blockMap);
+        // our own generated markdown, but it embeds user-named refs/values — escape raw HTML
+        const html = marked.parse(md.replace(/</g, "&lt;"), { async: false, gfm: true }) as string;
+        return (
+          <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50" onClick={() => setReportOpen(false)}>
+            <div className="flex max-h-[86vh] w-[760px] max-w-[94vw] flex-col rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
+                <span className="text-[15px] font-bold text-[var(--color-text)]">Design report</span>
+                <span className="text-[11px] text-[var(--color-faint)]">{designName || "design"}</span>
+                <button onClick={() => setReportOpen(false)} className="ml-auto grid h-7 w-7 place-items-center rounded-md text-[var(--color-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]">✕</button>
+              </div>
+              <div className="prose-block min-h-0 flex-1 overflow-y-auto px-6 py-4 text-[13px]" dangerouslySetInnerHTML={{ __html: html }} />
+              <div className="flex justify-end gap-2.5 border-t border-[var(--color-border)] px-5 py-3">
+                <button onClick={downloadReport} className="rounded-lg bg-[var(--color-accent)] px-4 py-1.5 text-[12.5px] font-semibold text-white hover:opacity-90">Export .md</button>
+                <button onClick={() => setReportOpen(false)} className="rounded-lg border border-[var(--color-border-strong)] px-4 py-1.5 text-[12.5px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {netlistOpen && (() => {
+        const flat = flatten(analysis.resolved);
+        return (
+          <div className="fixed inset-0 z-[120] grid place-items-center bg-black/50" onClick={() => setNetlistOpen(false)}>
+            <div className="flex max-h-[88vh] w-[900px] max-w-[96vw] flex-col rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
+                <span className="text-[15px] font-bold text-[var(--color-text)]">Netlist</span>
+                <span className="text-[11px] text-[var(--color-faint)]">{flat.parts.length} parts · {flat.nets.length} nets — the whole design, stitched flat</span>
+                <button onClick={() => setNetlistOpen(false)} className="ml-auto grid h-7 w-7 place-items-center rounded-md text-[var(--color-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]">✕</button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="h-[340px] border-b border-[var(--color-border)]">
+                  <NetlistView
+                    parts={flat.parts.map((p) => ({ ref: p.ref, type: p.type, value: p.value, part: p.part, why: p.why }))}
+                    nets={flat.nets.map((n) => ({ name: n.name, members: n.pins }))}
+                  />
+                </div>
+                <div className="px-5 py-3">
+                  {flat.nets.map((n) => (
+                    <div key={n.name} className="flex items-baseline gap-2 border-b border-[var(--color-border)] py-1.5 last:border-0">
+                      <span className="w-32 shrink-0 truncate font-mono text-[11.5px] font-semibold text-[var(--color-link)]">{n.name}</span>
+                      <span className="flex flex-wrap gap-1">
+                        {n.pins.map((p) => <span key={p} className="rounded bg-[var(--color-surface-2)] px-1.5 py-px font-mono text-[10.5px] text-[var(--color-dim)]">{p}</span>)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2.5 border-t border-[var(--color-border)] px-5 py-3">
+                <button onClick={downloadNetlist} className="rounded-lg bg-[var(--color-accent)] px-4 py-1.5 text-[12.5px] font-semibold text-white hover:opacity-90">Export KiCad .net</button>
+                <button onClick={() => setNetlistOpen(false)} className="rounded-lg border border-[var(--color-border-strong)] px-4 py-1.5 text-[12.5px] font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]">Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {sigFor && (() => {
         const current = signals.find((a) => a.pin === sigFor);
         const choose = (clsId: string | null) => {
