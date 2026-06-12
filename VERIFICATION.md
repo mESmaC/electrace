@@ -177,7 +177,7 @@ bug-fix + adjustment list that takes us to beta; ROADMAP's beta gate references 
 | F6 | Sparky | Reply lands in wrong chat when drilling out mid-stream (todo §2.5.5) | P2 | **fixed 2026-06-12** — progress is conversation-bound ('working in another chat →' hint), deleted-mid-run threads resurrect, busy survives remounts; adversarially verified live |
 | F10 | BOM | Digi-Key search got spec sentences (0 results) and cart got fake MPNs (list rejected) | P2 | **fixed 2026-06-12** — looksLikeMpn gate + searchable type fallbacks + authoring drops non-MPN mpns with guidance |
 | F7 | PCB | USB connector lands are header stand-ins, not real land patterns | P2 | open |
-| F8 | Billing | Stripe price vs page promise unverified with a live purchase | P1 until tested | open |
+| F8 | Billing | Stripe price vs page promise unverified with a live purchase | P1 until tested | **verified 2026-06-11** — Cameron ran a live purchase on his own account with a real card; payment completed |
 | F9 | Pro card | Version history promised "coming soon" — must exist by beta | P2 | open |
 | F11 | Engine | usb-c-power can NEVER be placed without an internal-short error: its own schematic ties vbus (5.25 V max) through to vout (5.0 V) and the rule flags any same-instance v-mismatch on one net. Fix = exempt block-author internal ties (or declare vout as the passthrough range it really is, minding downstream over-input) | P2 | open — found 2026-06-12 by template validation |
 | F12 | Engine | Declared draw + conductive internals double-counted in the DC solver (LED behind a pull-up solved to −145 V) | P1 | **fixed 2026-06-12** — internals that conduct from a pin replace the declaration; regression test added |

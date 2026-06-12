@@ -33,27 +33,30 @@ schematic:
     - { name: GND, connect: [U1.gnd, R2.2, "@gnd"] }
 layout:
   symbols:
-    - { id: P_vcc, type: port, ref: vcc, x: 40, y: 30, rot: 180 }
-    - { id: R1, type: resistor, ref: R1, value: 100k, x: 65, y: 71, rot: 90 }
-    - { id: R2, type: resistor, ref: R2, value: 100k, x: 65, y: 201, rot: 90 }
-    - { id: P_in, type: port, ref: in, x: 20, y: 100, rot: 180 }
-    - { id: Rin, type: resistor, ref: Rin, value: 10k, x: 90, y: 96 }
-    - { id: R3, type: resistor, ref: R3, value: 1M, x: 190, y: 30 }
-    - { id: U1, type: chip, ref: U1, value: cmp, x: 260, y: 120, chip: { profile: sot23, pins: 5, mpn: LM393, names: { "1": "in+", "2": "in-", "3": "gnd", "5": "vcc", "4": "out" } } }
-    - { id: R4, type: resistor, ref: R4, value: 10k, x: 375, y: 101, rot: 90 }
-    - { id: P_out, type: port, ref: out, x: 470, y: 150, rot: 0 }
-    - { id: P_gnd, type: port, ref: gnd, x: 185, y: 300, rot: 90 }
+    # Grid: VCC rail y40 · R3 feedback arc y90 · in+ line y200 · in-/out line y220 · gnd y330.
+    # R3 is the visual hero (it IS the hysteresis) — it must read as a clean loop from out
+    # back to in+. Three deliberate plain crossings, all mid-segment, clear of pins/corners.
+    - { id: P_vcc, type: port, ref: vcc, x: 20, y: 30, rot: 180 }
+    - { id: R1, type: resistor, ref: R1, value: 100k, x: 95, y: 71, rot: 90 }
+    - { id: R2, type: resistor, ref: R2, value: 100k, x: 95, y: 241, rot: 90 }
+    - { id: P_in, type: port, ref: in, x: 20, y: 190, rot: 180 }
+    - { id: Rin, type: resistor, ref: Rin, value: 10k, x: 160, y: 186 }
+    - { id: R3, type: resistor, ref: R3, value: 1M, x: 270, y: 76 }
+    - { id: U1, type: chip, ref: U1, value: cmp, x: 310, y: 180, chip: { profile: sot23, pins: 5, mpn: LM393, names: { "1": "in+", "2": "in-", "3": "gnd", "5": "vcc", "4": "out" } } }
+    - { id: R4, type: resistor, ref: R4, value: 10k, x: 405, y: 161, rot: 90 }
+    - { id: P_out, type: port, ref: out, x: 490, y: 210, rot: 0 }
+    - { id: P_gnd, type: port, ref: gnd, x: 200, y: 320, rot: 90 }
   wires:
     - { from: P_vcc.1, to: R1.1 }
+    - { from: R1.1, to: R4.1, via: [[450, 40]] }                  # the VCC rail, clear above everything
+    - { from: R4.1, to: U1.5, via: [[395, 130], [395, 200]] }     # vcc into pin 5 from the right
     - { from: R1.2, to: R2.1 }
-    - { from: R1.2, to: U1.2, via: [[240, 130], [240, 160]] }
+    - { from: R1.2, to: U1.2, via: [[140, 150], [290, 150], [290, 220]] }  # REF down to in-
     - { from: P_in.1, to: Rin.1 }
     - { from: Rin.2, to: U1.1 }
-    - { from: R3.1, to: Rin.2, via: [[180, 44]] }
-    - { from: R3.2, to: U1.4, via: [[350, 44], [350, 160]] }
-    - { from: P_vcc.1, to: U1.5 }
-    - { from: R4.1, to: U1.5 }
+    - { from: R3.1, to: U1.1, via: [[270, 200]] }                 # feedback lands on the in+ line
+    - { from: R3.2, to: U1.4, via: [[420, 90], [420, 220]] }      # the loop back from the output
     - { from: U1.4, to: R4.2 }
-    - { from: R4.2, to: P_out.1 }
-    - { from: R2.2, to: P_gnd.1 }
-    - { from: U1.3, to: P_gnd.1 }
+    - { from: U1.4, to: P_out.1 }
+    - { from: R2.2, to: P_gnd.1, via: [[140, 330]] }
+    - { from: U1.3, to: P_gnd.1, via: [[200, 240]] }
