@@ -123,9 +123,28 @@ don't do" line as each stage ships, the way the inrush rule did it.
    calculators teach the math; the engine applies it to YOUR schematic.
 
 Calculator wave shipped alongside (2026-06-11): current-divider, delta-wye, lc-resonance,
-ac-power (+PF correction), ac-motor, Joule's law inside ohms-law — 15 total. Still unpicked
+ac-power (+PF correction), ac-motor, Joule's law inside ohms-law — 15 total; filter-designer
+(Butterworth/Sallen-Key order 2–8) shipped 2026-06-12 → 16. Still unpicked
 from the list: RLC second-order calculator (ζ/ωₙ/Q standalone), three-phase wye/delta load
 currents. KCL/KVL themselves are stage-1 engine work, not calculators.
+
+Cameron's chapter 10–18 reference (2026-06-11), triaged against the ladder:
+- **Ch 10 (complex power) + Ch 11 (balanced three-phase)**: the math behind stage 3 — complex
+  power S=½VI*, conjugate-match max transfer (Z_L = Z_Th*), and the √3 line/phase algebra.
+  ac-power + delta-wye calculators already teach it; the engine applies it when phasors land.
+  Calculator candidates left: three-phase load currents (wye/delta, per-line), AC max-power match.
+- **Ch 14–15 (frequency-selective + active filters)**: rc-filter, lc-resonance, filter-designer
+  cover the calculator side (Chebyshev/Bessel polynomials are a cheap filter-designer extension).
+  Engine side IS stage 3: H(jω) of the user's actual schematic. Magnitude/frequency scaling
+  (km/kf) is a neat small calculator if ever needed.
+- **Ch 12–13 (Laplace)**: stage 4's machinery — s-domain element stamps (sL, 1/sC with initial
+  conditions) are exactly how the MNA grows transfer functions and step responses without SPICE.
+  Poles-in-LHP stability check is closed-form and very much in the "explainable verdicts" lane.
+- **Ch 16–17 (Fourier)**: out of engine scope for now (periodic-steady-state is simulation
+  territory); RMS-of-waveform might surface someday as a calculator.
+- **Ch 18 (two-port)**: far-future but philosophically on-brand — blocks already ARE two-ports
+  with declared behavior; z/y/h characterization could one day make analog block composition
+  rigorous (cascade = multiply ABCD matrices). Parked, noted here so it isn't lost.
 
 ## Feature backlog (consolidated from todo.md §2–4 + optimization.md)
 
