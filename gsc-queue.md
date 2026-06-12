@@ -69,6 +69,12 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 - [ ] https://www.electrace.net/docs/checks/si-i2c-rise-time
 - [ ] https://www.electrace.net/docs/checks/connectivity-multiple-drivers
 - [ ] https://www.electrace.net/docs/checks/voltage-cap-rating
+- [ ] https://www.electrace.net/glossary
+- [ ] https://www.electrace.net/glossary/hysteresis
+- [ ] https://www.electrace.net/glossary/flyback-diode
+- [ ] https://www.electrace.net/glossary/pull-up-resistor
+- [ ] https://www.electrace.net/glossary/decoupling-capacitor
+- [ ] https://www.electrace.net/glossary/duty-cycle
 
 ## Leave to the sitemap (low intent — submit only if bored)
 

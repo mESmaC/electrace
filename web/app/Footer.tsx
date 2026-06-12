@@ -20,6 +20,7 @@ export default function Footer() {
           <Link href="/#how" className="text-dim hover:text-text">Product</Link>
           <Link href="/pricing" className="text-dim hover:text-text">Pricing</Link>
           <Link href="/docs/checks" className="text-dim hover:text-text">Check rules</Link>
+          <Link href="/glossary" className="text-dim hover:text-text">Glossary</Link>
           <Link href="/help" className="text-dim hover:text-text">Help</Link>
           <Link href="/blocks" className="text-dim hover:text-text">Blocks</Link>
           <Link href="/calculators" className="text-dim hover:text-text">Calculators</Link>
