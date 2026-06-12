@@ -154,6 +154,12 @@ in editor, not just hover · blank-sheet "New" · project rename prompt on first
 net-name display polish ("vout#2" leaking into messages) · Sparky conversation-ID binding
 bug (chat loses stream when drilling out).
 
+**Post-beta candidate (Cameron, 2026-06-12):** community page — a /community browse of
+public designs. Foundation already exists (visibility column + RLS + share pages); the build
+is presentation + a public-read policy + moderation basics (report button, owner kill-switch).
+Gate on critical mass of public designs (a four-design community page reads as a ghost town);
+every public design is then a UGC SEO page + discovery loop, both passive-growth wins.
+
 **Post-beta candidate:** per-finding feedback affordance — "was this check right? ✓/✗ + why"
 on lint findings, all users. (Born from the in-product-verification idea, 2026-06-11: feature-
 activation triggers don't work — verification units are journeys — but finding-level feedback
