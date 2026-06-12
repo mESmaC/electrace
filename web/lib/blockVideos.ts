@@ -8,4 +8,5 @@ export const BLOCK_VIDEOS: Record<string, { id: string; title: string; uploadDat
   "liion-charger": { id: "IYFb2K2S5vI", title: "How your battery knows to stop charging at exactly 4.2V", uploadDate: "2026-06-11" },
   "comparator-hysteresis": { id: "4fV1H43HSkI", title: "Why your comparator chatters (and the one resistor that fixes it)", uploadDate: "2026-06-12" },
   "relay-driver": { id: "w28h3jI5lwA", title: "Why relays kill microcontrollers (one diode fixes it)", uploadDate: "2026-06-12" },
+  "reverse-polarity-protection": { id: "f1qXXlDM8NY", title: "The transistor that survives backwards batteries", uploadDate: "2026-06-12" },
 };
