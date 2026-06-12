@@ -1352,6 +1352,12 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <SymbolStyleToggle />
           <ReportBug getDesign={() => designForAnalysis.current} />
         </div>
+        {/* small screens: the editor is honestly desktop-first — say so instead of letting a
+            shorts-referred phone visitor conclude the product is broken. Browsing stays open. */}
+        <div className="absolute inset-x-3 top-3 z-10 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-3 text-center shadow-lg md:hidden">
+          <div className="text-[13px] font-semibold">Built for a bigger screen</div>
+          <div className="mt-0.5 text-[11.5px] text-[var(--color-dim)]">Wiring circuits needs desktop room — feel free to look around, then come back from a computer. The <a className="underline" href="/blocks">block library</a> and <a className="underline" href="/calculators">calculators</a> work great here.</div>
+        </div>
         {sandbox && !sandboxHidden && (
           <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-1.5 pl-3.5 pr-2 shadow-lg">
             <span className="text-[12px] text-[var(--color-dim)]">

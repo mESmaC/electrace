@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+/* fonts are self-hosted via next/font in app/layout.tsx — no render-blocking import */
 @import "tailwindcss";
 
 @theme {
@@ -20,8 +20,6 @@
   --color-amber: #f7b13c;
   --color-green: #46dca6;
   --color-gray: #9aa6b6;
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /* Three themes (spec: design.md). MID is the default — a slate-dusk middle ground. */

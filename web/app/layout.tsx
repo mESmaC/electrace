@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { SITE } from "@/lib/site";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
@@ -13,6 +14,11 @@ import { ContextMenuHost } from "./ui/contextMenu";
 import NavAccount from "./NavAccount";
 import Footer from "./Footer";
 import { Logo } from "./Logo";
+
+// Self-hosted via next/font — replaces the render-blocking Google Fonts @import that gated
+// first paint behind a third-party CSS+font chain (the mobile FCP offender).
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-sans", display: "swap" });
+const jbMono = JetBrains_Mono({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-mono", display: "swap" });
 
 // Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
 const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
@@ -39,7 +45,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="h-full antialiased" data-theme="mid" suppressHydrationWarning>
+    <html lang="en" className={`h-full antialiased ${inter.variable} ${jbMono.variable}`} data-theme="mid" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: NO_FLASH }} /></head>
       <body className="min-h-full flex flex-col">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -53,16 +59,19 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ErrorMonitor />
         <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
-          <div className="flex h-14 items-center gap-6 px-7 lg:px-9">
-            <Link href="/" aria-label="Electrace home"><Logo className="text-[17px]" /></Link>
-            <Link href="/projects" className="text-sm text-dim hover:text-text">Projects</Link>
-            <Link href="/blocks" className="text-sm text-dim hover:text-text">Blocks</Link>
-            <Link href="/calculators" className="text-sm text-dim hover:text-text">Calculators</Link>
-            <Link href="/docs/checks" className="text-sm text-dim hover:text-text">Docs</Link>
-            <Link href="/pricing" className="text-sm text-dim hover:text-text">Pricing</Link>
-            <Link href="/help" className="text-sm text-dim hover:text-text">Help</Link>
-            <div className="ml-auto flex items-center gap-4">
-              <ThemeToggle />
+          <div className="flex h-14 items-center gap-4 px-4 sm:gap-6 sm:px-7 lg:px-9">
+            <Link href="/" aria-label="Electrace home" className="shrink-0"><Logo className="text-[17px]" /></Link>
+            {/* the link row scrolls on narrow screens (scrollbar hidden) so nothing is unreachable */}
+            <div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto sm:gap-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <Link href="/projects" className="shrink-0 text-sm text-dim hover:text-text">Projects</Link>
+              <Link href="/blocks" className="shrink-0 text-sm text-dim hover:text-text">Blocks</Link>
+              <Link href="/calculators" className="shrink-0 text-sm text-dim hover:text-text">Calculators</Link>
+              <Link href="/docs/checks" className="shrink-0 text-sm text-dim hover:text-text">Docs</Link>
+              <Link href="/pricing" className="shrink-0 text-sm text-dim hover:text-text">Pricing</Link>
+              <Link href="/help" className="shrink-0 text-sm text-dim hover:text-text">Help</Link>
+            </div>
+            <div className="flex shrink-0 items-center gap-4">
+              <div className="hidden sm:block"><ThemeToggle /></div>
               <NavAccount />
             </div>
           </div>
