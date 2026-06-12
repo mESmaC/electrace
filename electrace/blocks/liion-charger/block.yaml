@@ -43,16 +43,16 @@ layout:
     - { id: P_gnd,  type: port,      ref: gnd,  x: 250, y: 380, rot: 90 }
   wires:
     - { from: P_vin.1, to: C1.1 }
-    - { from: C1.1,    to: U1.4 }
-    - { from: P_vin.1, to: U1.8 }
+    - { from: C1.1,    to: U1.4, via: [[172, 121], [172, 156]] }   # approach pin 4 level, not down the body edge
+    - { from: P_vin.1, to: U1.8, via: [[40, 36], [330, 36], [330, 96]] }   # over the top, approach CE from the right
     - { from: P_vin.1, to: R1.1, via: [[40, 36], [424, 36]] }   # over the top — not through the chip
     - { from: U1.5,    to: C2.1 }
     - { from: C2.1,    to: P_batt.1 }
     - { from: U1.7,    to: R1.2 }
     - { from: U1.7,    to: P_chrg.1 }
     - { from: U1.2,    to: R2.1 }
-    - { from: U1.1,    to: P_gnd.1 }
-    - { from: U1.3,    to: P_gnd.1 }
+    - { from: U1.1,    to: P_gnd.1, via: [[210, 96], [210, 181]] }   # left pins exit LEFT, not under the chip body
+    - { from: U1.3,    to: P_gnd.1, via: [[210, 136], [210, 181]] }
     - { from: R2.2,    to: P_gnd.1 }
     - { from: C1.2,    to: P_gnd.1 }
     - { from: C2.2,    to: P_gnd.1 }

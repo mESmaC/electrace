@@ -541,21 +541,24 @@ export const DISCRETE_LIBRARY: Record<string, DiscreteEquivalent> = {
         { id: "P_gnd", type: "port", ref: "GND", x: 400, y: 405, rot: 90 },
       ],
       wires: [
+        // Routed with explicit vias — the auto-router's straight runs went through Q1/Q3's
+        // circles, across RS's body, and (worse) wired RPU upside-down vs the netlist.
         { from: "P_vcc.1", to: "RS.1" },
-        { from: "P_vcc.1", to: "Q3.E" },
-        { from: "RS.2", to: "Q1.E" },
-        { from: "RS.2", to: "Q3.B" },
+        { from: "P_vcc.1", to: "Q3.E", via: [[60, 212]] },              // down the left edge, not across RS
+        { from: "P_vcc.1", to: "RPU.1", via: [[60, 20], [375, 20]] },   // the pull-up's top really is VIN
+        { from: "RS.2", to: "Q1.E", via: [[275, 70], [275, 150]] },     // around Q1's circle, enter E from the left
+        { from: "RS.2", to: "Q3.B", via: [[240, 70], [240, 220], [150, 220], [150, 182]] }, // B must be approached from the LEFT
         { from: "RS.2", to: "P_prog.1" },
-        { from: "Q1.C", to: "P_bat.1" },
+        { from: "Q1.C", to: "P_bat.1", via: [[320, 60], [560, 60]] },   // BAT runs above, clear of RPU.1
         { from: "D1.2", to: "P_bat.1" },
-        { from: "Q1.B", to: "RPU.1" },
-        { from: "RPU.1", to: "Q3.C" },
+        { from: "Q1.B", to: "RPU.2", via: [[268, 120], [268, 190]] },   // DRV node: base to the pull-up's BOTTOM
+        { from: "Q3.C", to: "Q1.B", via: [[215, 130], [280, 130]] },
         { from: "RPU.2", to: "RD.1" },
         { from: "RD.2", to: "Q2.C" },
         { from: "REN.2", to: "Q2.B" },
         { from: "P_ce.1", to: "REN.1" },
-        { from: "Q4.C", to: "Q2.B", via: [[700, 252], [430, 252]] },
-        { from: "R5.1", to: "Q2.B", via: [[598, 252], [430, 252]] },
+        { from: "Q4.C", to: "Q2.B", via: [[700, 282], [700, 245], [325, 245]] }, // EN bus clear of RD/RZ corners
+        { from: "R5.1", to: "Q2.B", via: [[555, 245], [325, 245]] },    // R5 feeds EN upward, not across its own body
         { from: "D1.1", to: "RZ.1" },
         { from: "RZ.2", to: "Q4.B" },
         { from: "R5.2", to: "Q5.B" },
