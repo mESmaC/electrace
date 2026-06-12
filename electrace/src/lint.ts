@@ -304,22 +304,33 @@ const connectorFull: Rule = (rd) => {
 
 // ── Recommendations (curated expert rules-of-thumb; advisory) ───────────────
 
-/** A linear regulator dropping a lot of voltage at current burns it as heat. */
+/** A linear regulator dropping a lot of voltage at current burns it as heat. The design knows
+ *  more than the datasheet: when the ACTUAL incoming rail and the ACTUAL declared load are
+ *  resolvable, use them — telling a user their 5 V-fed, 40 mA LDO "burns 4.35 W" because the
+ *  part's spec allows 12 V at 0.5 A is a wrong number, and a wrong number reads as a broken tool. */
 const lowEfficiency: Rule = (rd) =>
   rd.instances.flatMap((inst): Finding[] => {
     const b = inst.def;
     if (b.topology !== "linear" || !b.spec) return [];
-    const vin = rmax(b.spec.vin as Range);
+    const vinSpec = rmax(b.spec.vin as Range);
     const vout = num(b.spec.vout);
-    const iout = num(b.spec.iout_max);
-    if (vin == null || vout == null || iout == null) return [];
+    const ioutSpec = num(b.spec.iout_max);
+    if (vinSpec == null || vout == null || ioutSpec == null) return [];
+    const netOf = (tid: string) => rd.nets.find((n) => n.members.some((m) => m.node === `${inst.ref}.${tid}`));
+    const tin = b.terminals.find((t) => t.role === "in" && t.type === "power");
+    const tout = b.terminals.find((t) => t.role === "out" && (t.type === "rail" || t.type === "power"));
+    const vinNet = tin?.id ? netOf(tin.id)?.voltage : undefined;
+    const drawNet = tout?.id ? netOf(tout.id)?.sinks.reduce((a, s) => a + (rmax(s.current) ?? 0), 0) : undefined;
+    const vin = (vinNet ? rmax(vinNet) : undefined) ?? vinSpec;
+    const iout = drawNet && drawNet > 0 ? Math.min(drawNet, ioutSpec) : ioutSpec;
+    const actual = vinNet != null && drawNet != null && drawNet > 0;
     const diss = (vin - vout) * iout;
     if (diss <= 1) return [];
     return [{
       rule: "thermal/low-efficiency", severity: "recommendation", category: "thermal",
       at: [inst.ref],
-      message: `${inst.ref} (${b.name}) burns ~${round(diss)} W as heat dropping ${vin}→${vout} V at ${iout} A. A switching regulator would run far cooler.`,
-      derivation: `(${vin} − ${vout}) V × ${iout} A = ${round(diss)} W dissipated`,
+      message: `${inst.ref} (${b.name}) burns ~${round(diss)} W as heat dropping ${vin}→${vout} V at ${round(iout)} A${actual ? "" : " (worst case from its spec — wire its rails for the real number)"}. A switching regulator would run far cooler.`,
+      derivation: `(${vin} − ${vout}) V × ${round(iout)} A = ${round(diss)} W dissipated`,
     } satisfies Finding];
   });
 

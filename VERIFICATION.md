@@ -179,6 +179,8 @@ bug-fix + adjustment list that takes us to beta; ROADMAP's beta gate references 
 | F7 | PCB | USB connector lands are header stand-ins, not real land patterns | P2 | open |
 | F8 | Billing | Stripe price vs page promise unverified with a live purchase | P1 until tested | open |
 | F9 | Pro card | Version history promised "coming soon" — must exist by beta | P2 | open |
+| F11 | Engine | usb-c-power can NEVER be placed without an internal-short error: its own schematic ties vbus (5.25 V max) through to vout (5.0 V) and the rule flags any same-instance v-mismatch on one net. Fix = exempt block-author internal ties (or declare vout as the passthrough range it really is, minding downstream over-input) | P2 | open — found 2026-06-12 by template validation |
+| F12 | Engine | Declared draw + conductive internals double-counted in the DC solver (LED behind a pull-up solved to −145 V) | P1 | **fixed 2026-06-12** — internals that conduct from a pin replace the declaration; regression test added |
 
 ## Beta exit criteria (mirrors ROADMAP)
 

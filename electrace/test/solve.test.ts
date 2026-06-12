@@ -515,3 +515,56 @@ test("standby draw: a supply input with active draw but no iStandby is flagged, 
   const rep = standbyDraw(resolve(d, lib(bat, hungry)));
   assert.ok(rep.undeclared.includes("H1.vdd"), JSON.stringify(rep.undeclared));
 });
+
+test("a declared draw whose internals conduct is NOT double-counted: LED behind a 10k pull-up", () => {
+  // Regression: led-indicator declares i: 15 mA at vin AND models its R+LED internally. The
+  // solver used to inject the declaration as a phantom sink on top of solving the real parts —
+  // invisible behind a stiff source, but through a 10 k pull-up it dragged the net to ~-145 V
+  // ("R4 dissipates 2.21 W"). The internals are the load; the declaration is budget metadata.
+  const src5 = B("@s/src5b", [
+    { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 1, unit: "A" } },
+    { id: "gnd", role: "out", type: "gnd" },
+  ]);
+  const pullup = B("@s/pullup", [
+    { id: "vcc", role: "in", type: "power" },
+    { id: "out", role: "out", type: "signal" },
+  ], {
+    parts: [{ ref: "R1", type: "res", value: "10k", footprint: "R0603" }],
+    nets: [
+      { name: "VCC", connect: ["R1.1", "@vcc"] },
+      { name: "OUT", connect: ["R1.2", "@out"] },
+    ],
+  });
+  const led = B("@s/led", [
+    { id: "vin", role: "in", type: "signal", i: { max: 0.015, unit: "A" } }, // the declaration
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "330", footprint: "R0603" },
+      { ref: "D1", type: "led", value: "2.0" },
+    ],
+    nets: [
+      { name: "VIN", connect: ["R1.1", "@vin"] },
+      { name: "A", connect: ["R1.2", "D1.1"] },
+      { name: "GND", connect: ["D1.2", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src5) }, { ref: "P1", block: key(pullup) }, { ref: "L1", block: key(led) }],
+    connections: [
+      { from: "S1.vout", to: "P1.vcc" },
+      { from: "P1.out", to: "L1.vin", net: "OUT" },
+      { from: "S1.gnd", to: "L1.gnd" },
+    ],
+  };
+  const sol = solveDc(resolve(d, lib(src5, pullup, led)));
+  const out = Object.entries(sol.netVolts).find(([k]) => k.includes("OUT"));
+  assert.ok(out, "OUT net solved: " + JSON.stringify(sol.netVolts));
+  // 5 V through 10k + 330 to a 2 V drop: I = 3/10330 ≈ 0.29 mA → OUT ≈ 5 − 2.904 = 2.096 V
+  const i = 3 / 10330;
+  assert.ok(Math.abs(out![1] - (5 - 10000 * i)) < 1e-9, `expected ~2.096 V, got ${out![1]}`);
+  // and the LED's vin must NOT appear as an injected sink (the old bug's signature)
+  const r1 = sol.parts.find((p) => p.ref === "P1/R1")!;
+  assert.ok(Math.abs(r1.amps - i) < 1e-12, `pull-up carries the LED current only, got ${r1.amps} A`);
+});

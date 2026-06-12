@@ -29,7 +29,7 @@ function upsertMeta(meta: ProjectMeta) {
 }
 
 /** Create a project (optionally seeded from a base design, e.g. a template) and return its meta. */
-export function createProject(name?: string, base?: Design): ProjectMeta {
+export function createProject(name?: string, base?: Omit<Design, "id" | "name">): ProjectMeta {
   const id = `proj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const nm = (name ?? "").trim() || "Untitled project";
   const design: Design = { ...(base ?? { blocks: [], connections: [] }), id, name: nm };

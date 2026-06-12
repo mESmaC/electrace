@@ -168,6 +168,25 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
   for (const c of capPins) { c.a = uf.find(c.a); c.b = uf.find(c.b); }
   for (const d of diodes) { d.anode = uf.find(d.anode); d.cathode = uf.find(d.cathode); }
 
+  // Nets where a block's OWN parts conduct at DC, per instance. A terminal like an LED
+  // indicator's vin declares i: 15 mA as budget metadata — but its internals (330 Ω + LED) are
+  // flattened and solved exactly. Injecting the declaration as a sink ON TOP double-counts the
+  // load; behind a stiff source that's invisible, but through a weak one (a 10 k pull-up) the
+  // phantom sink drags the net tens of volts negative. Rule: internals that conduct from the
+  // pin ARE the load; the declaration only stands in where they can't (chips left open).
+  // Known limit: a block with BOTH a resistive path and an undrawn chip draw at one pin is
+  // under-counted by the chip's share — voltage correctness beats budget pessimism here.
+  const instConductNets = new Map<string, Set<string>>();
+  const noteConduct = (ref: string, ...nets: string[]) => {
+    const slash = ref.indexOf("/");
+    if (slash < 0) return;
+    const inst = ref.slice(0, slash);
+    const s = instConductNets.get(inst) ?? instConductNets.set(inst, new Set()).get(inst)!;
+    for (const n of nets) s.add(n);
+  };
+  for (const c of conducts) noteConduct(c.ref, c.a, c.b);
+  for (const d of diodes) noteConduct(d.ref, d.anode, d.cathode);
+
   // boundary sources: declared source terminals → ideal V-sources to their own block's gnd
   const gndNetOf = (instance: string): string | undefined => {
     const inst = rd.instances.find((x) => x.ref === instance);
@@ -202,12 +221,17 @@ export function solveDc(rd: ResolvedDesign, opts?: DcSolveOpts): DcSolve {
       vsources.push({ plus, minus, volts, node: s.node, instance: s.instance });
     }
     for (const sk of net.sinks) {
+      const from = N(nodeNet(sk.pin.node));
+      // the block's own flattened parts conduct from this pin — they ARE the load, solved
+      // exactly (in standby too: an always-on LED has no sleep mode). No declared sink, no
+      // "assumed 0" flag — nothing is assumed, it's computed.
+      if (from && instConductNets.get(sk.pin.instance)?.has(from)) continue;
       const amps = opts?.standby ? rmax(sk.pin.def.iStandby) ?? 0 : rmax(sk.current);
       if (opts?.standby && rmax(sk.pin.def.iStandby) == null && rmax(sk.current) != null) {
         undeclaredStandby.push(sk.pin.node);
       }
       if (amps == null || amps <= 0) continue;
-      const from = N(nodeNet(sk.pin.node)), to = gndNetOf(sk.pin.instance);
+      const to = gndNetOf(sk.pin.instance);
       if (!from || !to || from === to) continue;
       isinks.push({ from, to, amps, node: sk.pin.node });
     }

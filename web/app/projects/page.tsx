@@ -10,6 +10,7 @@ import { HOBBY_DESIGN_CAP } from "@/lib/plans";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
 import type { Design } from "@electrace/core";
+import { TEMPLATES, type Template } from "@/lib/templates";
 
 function relTime(t: number): string {
   const s = Math.floor((Date.now() - t) / 1000);
@@ -20,13 +21,6 @@ function relTime(t: number): string {
   return new Date(t).toLocaleDateString();
 }
 const STRIPE = ["#f7b13c", "#3fd0e6", "#46dca6", "#c08cf7", "#f178b6", "#4c8dff"];
-const TEMPLATES = [
-  { name: "Power supply", desc: "Entry → regulate → rails", glyph: "⎓", cls: "text-amber bg-amber/15 border-amber/40" },
-  { name: "Buck converter", desc: "Step a voltage down", glyph: "⇄", cls: "text-[#3fd0e6] bg-[#3fd0e6]/15 border-[#3fd0e6]/40" },
-  { name: "MCU board", desc: "Micro + power + IO", glyph: "⊞", cls: "text-[#c08cf7] bg-[#c08cf7]/15 border-[#c08cf7]/40" },
-  { name: "Sensor front-end", desc: "Amplify → filter → ADC", glyph: "⊳", cls: "text-green bg-green/15 border-green/40" },
-  { name: "Blank canvas", desc: "Start from nothing", glyph: "＋", cls: "text-dim bg-surface-2 border-border" },
-];
 
 /** Per-design lint status, derived from the summary the editor stashes on save. */
 function statusChip(lint?: LintSummary): { label: string; icon: string; cls: string } {
@@ -37,22 +31,45 @@ function statusChip(lint?: LintSummary): { label: string; icon: string; cls: str
   return { label: `${lint.warn} warning${lint.warn > 1 ? "s" : ""}`, icon: "▲", cls: "text-amber border-amber/45 bg-amber/10" };
 }
 
-/** A stylized peek of a design — up to 4 of its blocks as accent-striped cards with wires. */
+/** A real peek of a design: its blocks at their actual canvas positions (scaled down), its actual
+ *  wiring as orthogonal runs between them. Same block count, different design → different thumb. */
 function Thumb({ design }: { design: Design | null }) {
-  const n = Math.min(4, design?.blocks?.length ?? 0);
-  if (!n) return <div className="grid h-full place-items-center text-[11px] text-faint">empty</div>;
-  const w = 300, h = 140, bw = Math.min(80, (w - 40) / n - 12);
+  const blocks = design?.blocks ?? [];
+  if (!blocks.length) return <div className="grid h-full place-items-center text-[11px] text-faint">empty</div>;
+  const w = 300, h = 140, pad = 30;
+  const shown = blocks.slice(0, 12);
+  // canvas positions when present; row fallback keeps legacy pos-less designs rendering
+  const pts = shown.map((b, i) => b.pos ?? ([i * 280, (i % 2) * 160] as [number, number]));
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const sx = (x: number) => pad + (maxX === minX ? (w - 2 * pad) / 2 : ((x - minX) / (maxX - minX)) * (w - 2 * pad));
+  const sy = (y: number) => pad + (maxY === minY ? (h - 2 * pad) / 2 : ((y - minY) / (maxY - minY)) * (h - 2 * pad));
+  const at = new Map(shown.map((b, i) => [b.ref, [sx(pts[i][0]), sy(pts[i][1])] as const]));
+  const seen = new Set<string>();
+  const wires: { k: string; a: readonly [number, number]; b: readonly [number, number] }[] = [];
+  for (const c of design?.connections ?? []) {
+    const [fa, fb] = [c.from.split(".")[0], c.to.split(".")[0]];
+    if (fa === fb || !at.has(fa) || !at.has(fb)) continue;
+    const k = fa < fb ? `${fa}|${fb}` : `${fb}|${fa}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    wires.push({ k, a: at.get(fa)!, b: at.get(fb)! });
+  }
+  const bw = 46, bh = 24;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full">
-      {Array.from({ length: n - 1 }).map((_, i) => {
-        const x = 24 + (i + 1) * (bw + 24) - 12; return <line key={i} x1={x} y1={h / 2} x2={x + 12} y2={h / 2} stroke={STRIPE[i % STRIPE.length]} strokeWidth={2.5} />;
-      })}
-      {Array.from({ length: n }).map((_, i) => {
-        const x = 24 + i * (bw + 24);
+      {wires.map(({ k, a, b }) => (
+        <path key={k} d={`M ${a[0]} ${a[1]} H ${(a[0] + b[0]) / 2} V ${b[1]} H ${b[0]}`} fill="none" className="stroke-border-strong" strokeWidth={1.5} />
+      ))}
+      {shown.map((b, i) => {
+        const [cx, cy] = at.get(b.ref)!;
         return (
-          <g key={i}>
-            <rect x={x} y={h / 2 - 21} width={bw} height={42} rx={9} className="fill-surface-2 stroke-border-strong" />
-            <rect x={x} y={h / 2 - 21} width={5} height={42} rx={2} fill={STRIPE[i % STRIPE.length]} />
+          <g key={b.ref}>
+            <rect x={cx - bw / 2} y={cy - bh / 2} width={bw} height={bh} rx={6} className="fill-surface-2 stroke-border-strong" />
+            <rect x={cx - bw / 2} y={cy - bh / 2} width={4} height={bh} rx={2} fill={STRIPE[i % STRIPE.length]} />
+            {shown.length <= 8 && (
+              <text x={cx + 2} y={cy + 2.5} textAnchor="middle" fontSize={7.5} fontFamily="ui-monospace, monospace" style={{ fill: "var(--color-faint)" }}>{b.ref}</text>
+            )}
           </g>
         );
       })}
@@ -69,7 +86,7 @@ function Dashboard() {
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
-  const [promo, setPromo] = useState(true);
+  const [promo, setPromo] = useState(false);
   const [nav, setNav] = useState<Nav>("recent");
   const [sort, setSort] = useState<Sort>("recent");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -80,6 +97,7 @@ function Dashboard() {
   useEffect(() => {
     // RequireAuth gates the login; here we just send brand-new users through onboarding once.
     try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ }
+    try { setPromo(!localStorage.getItem("electrace:dash:promo-dismissed")); } catch { setPromo(true); }
     setMounted(true); refresh();
     let alive = true;
     fetch("/api/me").then((r) => r.json()).then((d) => { if (alive) setPro(!!d.pro); }).catch(() => {});
@@ -90,12 +108,12 @@ function Dashboard() {
   const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "YOU";
 
   const open = (id: string) => router.push(`/editor?p=${id}`);
-  const newProject = async (name?: string) => {
+  const newProject = async (name?: string, base?: Template["base"]) => {
     if (!pro && listProjects().length >= HOBBY_DESIGN_CAP) {
       if (await confirmDialog({ title: "You've reached the Hobby limit", message: `Hobby includes up to ${HOBBY_DESIGN_CAP} designs. Upgrade to Pro for unlimited designs and private projects.`, confirmText: "See plans", cancelText: "Not now" })) router.push("/pricing");
       return;
     }
-    open(createProject(name).id);
+    open(createProject(name, base).id);
   };
   const onRename = async (id: string, cur: string) => {
     const n = await promptDialog({ title: "Rename design", defaultValue: cur, placeholder: "Design name", confirmText: "Rename" });
@@ -151,12 +169,7 @@ function Dashboard() {
     <div className="flex" style={{ height: "calc(100vh - 3.5rem)" }}>
       {/* sidebar */}
       <aside className="hidden w-[248px] shrink-0 flex-col overflow-auto border-r border-border bg-surface p-3 md:flex">
-        <div className="mb-3.5 flex items-center gap-2.5 rounded-xl border border-border p-2">
-          <span className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-gradient-to-br from-accent to-[#7c6cff] text-[13px] font-extrabold text-white">UN</span>
-          <span className="leading-tight"><span className="block text-[14px] font-bold">US Nylon</span><span className="text-[11px] text-faint">Free plan</span></span>
-          <span className="ml-auto text-faint">▾</span>
-        </div>
-        <button onClick={() => newProject()} className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-2.5 font-semibold text-white shadow-lg shadow-accent/30 hover:bg-accent-hi">＋ New design</button>
+        <button onClick={() => newProject()} className="mb-4 mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-2.5 font-semibold text-white shadow-lg shadow-accent/30 hover:bg-accent-hi">＋ New design</button>
         <nav className="flex flex-col gap-0.5">
           {navBtn("recent", "⌂", "Recents")}
           {navBtn("starred", "★", "Starred", starCount)}
@@ -195,6 +208,7 @@ function Dashboard() {
             <div className="ml-auto flex w-full max-w-[360px] items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-faint">
               ⌕<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search designs…" className="w-full bg-transparent text-[13.5px] text-text outline-none placeholder:text-faint" />
             </div>
+            <button onClick={() => newProject()} className="shrink-0 rounded-lg bg-accent px-3 py-2 text-[13.5px] font-semibold text-white hover:bg-accent-hi md:hidden">＋ New</button>
           </div>
 
           <div className="mt-3.5 flex flex-wrap gap-2.5">
@@ -211,7 +225,7 @@ function Dashboard() {
               <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-accent text-[18px]">✦</span>
               <span><div className="text-[14px] font-semibold">Build faster with Sparky</div><div className="text-[12.5px] text-dim">Ask the assistant to wire a chip from its part number, or fan a big board out to parallel sparks.</div></span>
               <button onClick={() => newProject()} className="ml-auto whitespace-nowrap text-[13px] font-semibold text-accent">New design →</button>
-              <button onClick={() => setPromo(false)} className="ml-1.5 text-faint hover:text-text">✕</button>
+              <button onClick={() => { setPromo(false); try { localStorage.setItem("electrace:dash:promo-dismissed", "1"); } catch { /* ignore */ } }} className="ml-1.5 text-faint hover:text-text">✕</button>
             </div>
           )}
 
@@ -239,7 +253,7 @@ function Dashboard() {
             <div className="mb-3.5 mt-8 text-[15px] font-bold">Start something new</div>
             <div className="flex gap-3 overflow-auto pb-1.5">
               {TEMPLATES.map((t) => (
-                <button key={t.name} onClick={() => newProject(t.name === "Blank canvas" ? undefined : t.name)} className="w-[188px] shrink-0 rounded-xl border border-border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-accent">
+                <button key={t.name} onClick={() => newProject(t.base ? t.name : undefined, t.base)} className="w-[188px] shrink-0 rounded-xl border border-border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-accent">
                   <div className={`mb-2.5 grid h-[34px] w-[34px] place-items-center rounded-lg border text-[16px] ${t.cls}`}>{t.glyph}</div>
                   <div className="text-[13.5px] font-semibold">{t.name}</div><div className="mt-0.5 text-[11.5px] text-faint">{t.desc}</div>
                 </button>
