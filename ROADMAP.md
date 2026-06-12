@@ -72,8 +72,8 @@ Quality (the hard part — see VERIFICATION.md):
 - [ ] All P1 + P2 findings from verification fixed; P3s triaged with owners
 - [ ] Walkthrough #2 (PCB deep-dive: routing UX, DRC, exports) done and gaps fixed
 - [ ] Stripe live purchase + cancel tested end-to-end with a real card
-- [ ] Version history shipped (it's on the Pro card as "coming soon" — beta makes it true)
-- [ ] Error monitoring + basic analytics live (revenue-checklist Phase E)
+- [x] Version history shipped 2026-06-12 (DAG-shaped, loss-proof restore; Hobby 5 / Pro 200)
+- [x] Error monitoring live 2026-06-12 (client_errors capture; analytics via Vercel)
 - [ ] Block license decided and applied (DECISIONS.md #1)
 
 Content:
