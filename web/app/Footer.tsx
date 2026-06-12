@@ -19,7 +19,8 @@ export default function Footer() {
         <div className="flex flex-wrap gap-x-9 gap-y-2">
           <Link href="/#how" className="text-dim hover:text-text">Product</Link>
           <Link href="/pricing" className="text-dim hover:text-text">Pricing</Link>
-          <Link href="/help" className="text-dim hover:text-text">Docs</Link>
+          <Link href="/docs/checks" className="text-dim hover:text-text">Check rules</Link>
+          <Link href="/help" className="text-dim hover:text-text">Help</Link>
           <Link href="/blocks" className="text-dim hover:text-text">Blocks</Link>
           <Link href="/calculators" className="text-dim hover:text-text">Calculators</Link>
           <Link href="/vs" className="text-dim hover:text-text">Compare tools</Link>
