@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, canonicalTerminal, solveDc, theveninAt, standbyDraw, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
+import { analyze, canonicalTerminal, solveDc, theveninAt, standbyDraw, frequencyResponse, logSweep, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
 import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -649,6 +649,26 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         changed: true,
       };
     }
+    case "frequency_response": {
+      const from = String(input.from ?? "").trim(), to = String(input.to ?? "").trim();
+      if (!from || !to) return { text: 'frequency_response needs from and to ("REF.terminal" or a net name).', changed: false };
+      const f1 = Number(input.f_start ?? 10), f2 = Number(input.f_end ?? 1e6);
+      try {
+        const rd = analyze(design, blockMap).resolved;
+        const r = frequencyResponse(rd, from, to, logSweep(Math.max(0.01, f1), Math.max(f1 * 10, f2), 10));
+        if ("error" in r) return { text: r.error, changed: false };
+        const pts = r.points;
+        // headline numbers: passband, the −3 dB corner(s), slope at the top end
+        const peak = pts.reduce((m, p) => (p.mag > m.mag ? p : m), pts[0]);
+        const corner = pts.find((p) => p.mag <= peak.mag * Math.SQRT1_2);
+        const rows = pts.filter((_, i) => i % 5 === 0 || i === pts.length - 1)
+          .map((p) => `${p.f < 1000 ? `${Math.round(p.f)} Hz` : `${(p.f / 1000).toFixed(1)} kHz`}: ${p.db.toFixed(1)} dB ∠${Math.round(p.phaseDeg)}°`).join("\n");
+        return {
+          text: `H(jω) ${from} → ${to}, ${Math.round(f1)} Hz – ${f2 >= 1e6 ? `${f2 / 1e6} MHz` : `${f2 / 1e3} kHz`}:\n${rows}\nPeak |H| ${peak.mag.toFixed(3)} at ${Math.round(peak.f)} Hz${corner ? `; −3 dB near ${Math.round(corner.f)} Hz` : ""}.\n${r.notes.join(" ")}`,
+          changed: false,
+        };
+      } catch (e) { return { text: `Could not compute the response: ${String(e).slice(0, 140)}`, changed: false }; }
+    }
     case "set_signal_class": {
       const pin = String(input.pin ?? "").trim();
       const cls = String(input.cls ?? "").trim();
@@ -835,6 +855,7 @@ const TOOLS = [
   { name: "power_budget", description: "Per-rail current/power budget: each power/rail net's total load draw vs the source's capacity, headroom, %-used (flags over-budget), and watts. The load math — read this to reason about whether a regulator/source can actually supply its rail, not just whether it's wired.", input_schema: { type: "object", properties: {} } },
   { name: "acknowledge", description: "Mark a specific finding as INTENDED so it's muted and stops counting as a warning/error — for a correct-but-noisy check, e.g. an intentional diode-OR where two sources (USB 5V + regulator) legitimately share a rail. Use the rule + at from analyze_design. Only acknowledge findings that are genuinely correct; never silence a real problem. Always note WHY.", input_schema: { type: "object", properties: { rule: { type: "string", description: "the finding's rule, e.g. connectivity/multiple-drivers" }, at: { type: "array", items: { type: "string" }, description: "the finding's subjects (net ids/refs), e.g. [\"VCC\"]" }, note: { type: "string", description: "why it's intended (shown to the user)" } }, required: ["rule", "at"] } },
   { name: "unacknowledge", description: "Remove an acknowledgement so the finding is flagged again.", input_schema: { type: "object", properties: { rule: { type: "string" }, at: { type: "array", items: { type: "string" } } }, required: ["rule", "at"] } },
+  { name: "frequency_response", description: "Phasor AC analysis (stage 3): the frequency response H(jω) between two points of the ACTUAL design — R/C/L solved exactly at each frequency, nonlinear parts honestly open, ideal rails AC-grounded. Returns |H| in dB + phase across a log sweep with the −3 dB corner called out. Use for filter blocks, decoupling questions, 'what does this network do to my signal'.", input_schema: { type: "object", properties: { from: { type: "string", description: 'input node, "REF.terminal" or net name' }, to: { type: "string", description: "output node" }, f_start: { type: "number", description: "sweep start in Hz (default 10)" }, f_end: { type: "number", description: "sweep end in Hz (default 1e6)" } }, required: ["from", "to"] } },
   { name: "set_net_label", description: "Set (or clear) a design-level net label on a block terminal. Every terminal carrying the same label name is ONE net — the standard named-rail mechanism (+5V, GND, SDA) that replaces long power wires. The label also names the net everywhere (checks, netlist, exports). Pass an empty/omitted name to remove.", input_schema: { type: "object", properties: { node: { type: "string", description: 'terminal as "REF.terminal", e.g. MCU1.vdd' }, name: { type: "string", description: "label name (+5V, GND, SDA…); empty removes" } }, required: ["node"] } },
   { name: "set_isolation", description: "Declare that two blocks must share NO conductive path (galvanic isolation) — or remove such a requirement. Verified immediately and re-verified on every change; a violation names the bridging net (the classic bug: a carelessly shared ground). Use it right after placing an isolating part (optocoupler, transformer, digital isolator) so the barrier becomes a standing guarantee instead of a hope. b may be \"*\" to isolate a from every other block.", input_schema: { type: "object", properties: { a: { type: "string", description: "block ref, e.g. OPTO1" }, b: { type: "string", description: 'block ref, or "*" for all others' }, note: { type: "string", description: "why this barrier exists (optional, shown to the user)" }, remove: { type: "boolean", description: "true to remove the requirement instead of adding it" } }, required: ["a", "b"] } },
   { name: "set_signal_class", description: `Declare what a net IS so the checker enforces what that requires: termination present (it looks for the actual resistor bridging the pair), rise time achievable (I2C: computed from pull-ups + bus capacitance, with the fix in the message), and on the PCB, trace length + pair matching vs the class's edge rate. Classes: ${Object.values(NET_CLASSES).map((c) => `${c.id} (${c.name})`).join(", ")}. Pass cls "none" to clear. Pair classes (rs485, can, usb-fs) need pairPin — the other side of the pair.`, input_schema: { type: "object", properties: { pin: { type: "string", description: 'a pin on the net — "REF.terminal" (e.g. U1.canh) or a connector pin (J1.D+)' }, cls: { type: "string", enum: [...Object.keys(NET_CLASSES), "none"] }, pairPin: { type: "string", description: "the pair's other side (B / CANL / D−) — required for pair classes" }, pullupOhms: { type: "number", description: "I2C: the actual pull-up value (default 4700)" }, busCapPf: { type: "number", description: "I2C: bus capacitance override (default 20 + 10 per device)" }, terminated_externally: { type: "boolean", description: "termination lives off-board — silences the on-board check" } }, required: ["pin", "cls"] } },

@@ -115,9 +115,11 @@ don't do" line as each stage ships, the way the inrush rule did it.
    the circuit look like from here": Voc, Rth = Voc/Isc, two solver runs); source transformation
    and superposition as TEACHING modes — "which source is responsible for this voltage" is the
    self-explaining thesis applied to analysis itself.
-3. **Phasor steady-state (AC)** — the same MNA with complex impedances at a chosen frequency:
-   real filter response from the actual schematic, impedance at a port vs frequency, design-level
-   power factor, resonance detection. Still closed-form.
+3. **Phasor steady-state (AC) — SHIPPED 2026-06-12 (v1)** — the same MNA with complex impedances:
+   frequencyResponse (H(jω) between any two points, log sweep, −3 dB corner), impedanceAt (Z at a
+   port vs f — resonance shows up where it lives). Sparky tool live. Honesty: R/C/L exact,
+   nonlinear open + noted, ideal rails AC-grounded. Still to surface: in-editor Bode dialog;
+   later: design-level power factor.
 4. **First/second-order responses** — RC/RL time constants, RLC ζ/ωₙ/Q symbolically from the
    actual circuit ("is this snubber underdamped?"). The calculator↔engine bridge: today's
    calculators teach the math; the engine applies it to YOUR schematic.

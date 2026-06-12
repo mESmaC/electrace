@@ -65,3 +65,5 @@ export function analyze(design: Design, blocks: Map<string, Block>): Analysis {
   const power = annotatePower(resolved);
   return { resolved, power, findings: lint(resolved), bom: bom(resolved) };
 }
+export { frequencyResponse, impedanceAt, logSweep } from "./ac.js";
+export type { AcPoint, AcResponse, Cx } from "./ac.js";

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolve, solveDc, theveninAt, standbyDraw, lint } from "../src/index.js";
+import { resolve, solveDc, theveninAt, standbyDraw, lint, frequencyResponse, impedanceAt } from "../src/index.js";
 import type { Block, Design, Terminal } from "../src/index.js";
 
 // Stage 1 of the analysis ladder: MNA over the flattened design. These tests pin the
@@ -646,4 +646,67 @@ test("net labels: same name = same net, no wire — and the label names the net"
   const stale: Design = { ...d, labels: [...d.labels!, { node: "L1.nope", name: "+5V" }] };
   const rd2 = resolve(stale, lib(src5, led));
   assert.ok(rd2.invalid?.some((i) => i.missing.includes("L1.nope")), "stale label recorded as invalid");
+});
+
+test("AC stage 3: RC low-pass H(jω) — −3 dB at fc, −45°, and 1/10 slope a decade up", () => {
+  const src = B("@s/sig", [
+    { id: "out", role: "out", type: "signal" },
+    { id: "gnd", role: "out", type: "gnd" },
+  ]);
+  const rc = B("@s/rc", [
+    { id: "in", role: "in", type: "signal" },
+    { id: "out", role: "out", type: "signal" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "1k", footprint: "R0603" },
+      { ref: "C1", type: "capacitor", value: "159n" },
+    ],
+    nets: [
+      { name: "IN", connect: ["R1.1", "@in"] },
+      { name: "OUT", connect: ["R1.2", "C1.1", "@out"] },
+      { name: "GND", connect: ["C1.2", "@gnd"] },
+    ],
+  });
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "S1", block: key(src) }, { ref: "F1", block: key(rc) }],
+    connections: [{ from: "S1.out", to: "F1.in" }, { from: "S1.gnd", to: "F1.gnd" }],
+  };
+  const rd = resolve(d, lib(src, rc));
+  const fc = 1 / (2 * Math.PI * 1000 * 159e-9); // ≈ 1001 Hz
+  const r = frequencyResponse(rd, "F1.in", "F1.out", [fc / 100, fc, fc * 10]);
+  assert.ok(!("error" in r), JSON.stringify(r));
+  const [lo, mid, hi] = (r as { points: { mag: number; phaseDeg: number }[] }).points;
+  assert.ok(Math.abs(lo.mag - 1) < 0.01, `passband ~1, got ${lo.mag}`);
+  assert.ok(Math.abs(mid.mag - Math.SQRT1_2) < 0.01, `fc ~0.707, got ${mid.mag}`);
+  assert.ok(Math.abs(mid.phaseDeg + 45) < 1.5, `fc phase ~-45°, got ${mid.phaseDeg}`);
+  assert.ok(Math.abs(hi.mag - 0.0995) < 0.005, `decade up ~0.0995, got ${hi.mag}`);
+});
+
+test("AC stage 3: series RLC impedance dips to R at resonance; L blocks at AC unlike DC", () => {
+  const rlc = B("@s/rlc", [
+    { id: "in", role: "in", type: "signal" },
+    { id: "gnd", role: "in", type: "gnd" },
+  ], {
+    parts: [
+      { ref: "R1", type: "res", value: "10", footprint: "R0603" },
+      { ref: "L1", type: "inductor", value: "1m" },
+      { ref: "C1", type: "capacitor", value: "1µ" },
+    ],
+    nets: [
+      { name: "IN", connect: ["R1.1", "@in"] },
+      { name: "A", connect: ["R1.2", "L1.1"] },
+      { name: "B", connect: ["L1.2", "C1.1"] },
+      { name: "GND", connect: ["C1.2", "@gnd"] },
+    ],
+  });
+  const d: Design = { id: "d", name: "d", blocks: [{ ref: "X1", block: key(rlc) }], connections: [] };
+  const rd = resolve(d, lib(rlc));
+  const f0 = 1 / (2 * Math.PI * Math.sqrt(1e-3 * 1e-6)); // ≈ 5033 Hz
+  const r = impedanceAt(rd, "X1.in", [f0 / 10, f0, f0 * 10]);
+  assert.ok(!("error" in r), JSON.stringify(r));
+  const pts = (r as { points: { ohms: number }[] }).points;
+  assert.ok(Math.abs(pts[1].ohms - 10) < 0.1, `at resonance Z→R=10, got ${pts[1].ohms}`);
+  assert.ok(pts[0].ohms > 100 && pts[2].ohms > 100, `off resonance reactance dominates: ${pts[0].ohms}, ${pts[2].ohms}`);
 });
