@@ -14,8 +14,9 @@ to ROADMAP.md, and (if it changes standing behavior) note it in the relevant spe
 2. **Lawyer-reviewed ToS.** business-setup.md Stage 1 requires it before charging; Stripe
    is live. Self-drafted ToS/privacy are good but unreviewed. Spend the money now, or
    accept the risk until revenue exists?
-3. **Version history scope.** It's promised on the Pro card ("coming soon") and gates beta.
-   v1 = snapshot-on-save with restore (~one session). Approve the build slot?
+3. **Version history scope.** RESOLVED 2026-06-12 — built as approved scope, git-SHAPED data
+   (parent-pointer DAG, restore-as-new-version) so future branching is a UI feature, not a
+   migration. Branches/merge deliberately deferred; real parallel editing is a CRDT problem.
 4. **Stripe live test.** $9 promise vs live price — needs your real card once. (Also a
    VERIFICATION.md P1.)
 

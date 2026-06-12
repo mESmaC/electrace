@@ -6,6 +6,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { planForEmail } from "@/lib/entitlements";
+import { captureVersion } from "@/lib/versionCapture";
 
 export const FREE_DESIGN_CAP = 10;
 
@@ -82,5 +83,8 @@ export async function POST(req: Request) {
     // RLS rejections surface here too (e.g. trying to upsert someone else's id) — don't leak which
     return Response.json({ error: "Could not save this design.", code: "denied" }, { status: 403 });
   }
+  // auto checkpoint — versionCapture dedupes no-op saves and rate-limits to one per 15 min,
+  // so this rides every autosave without bloating history. Failures never fail the save.
+  try { await captureVersion(sb, { designId: b.id, ownerId: u.id, graph: b.graph as Record<string, unknown>, pcb: b.pcb, pro, kind: "auto" }); } catch { /* best-effort */ }
   return Response.json({ ok: true });
 }

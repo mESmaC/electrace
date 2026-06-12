@@ -178,7 +178,7 @@ bug-fix + adjustment list that takes us to beta; ROADMAP's beta gate references 
 | F10 | BOM | Digi-Key search got spec sentences (0 results) and cart got fake MPNs (list rejected) | P2 | **fixed 2026-06-12** — looksLikeMpn gate + searchable type fallbacks + authoring drops non-MPN mpns with guidance |
 | F7 | PCB | USB connector lands are header stand-ins, not real land patterns | P2 | open |
 | F8 | Billing | Stripe price vs page promise unverified with a live purchase | P1 until tested | **verified 2026-06-11** — Cameron ran a live purchase on his own account with a real card; payment completed |
-| F9 | Pro card | Version history promised "coming soon" — must exist by beta | P2 | open |
+| F9 | Pro card | Version history promised “coming soon” — must exist by beta | P2 | **shipped 2026-06-12** — DAG-shaped design_versions (migration 0007), auto checkpoints on save, named snapshots, loss-proof restore; Hobby keeps 5, Pro 200. Needs Cameron's live pass with a real account |
 | F11 | Engine | usb-c-power can NEVER be placed without an internal-short error: its own schematic ties vbus (5.25 V max) through to vout (5.0 V) and the rule flags any same-instance v-mismatch on one net | P2 | **fixed 2026-06-12** — resolve records block-author internal ties; internal-short exempts them (user mis-wires still fire); regression test |
 | F12 | Engine | Declared draw + conductive internals double-counted in the DC solver (LED behind a pull-up solved to −145 V) | P1 | **fixed 2026-06-12** — internals that conduct from a pin replace the declaration; regression test added |
 
