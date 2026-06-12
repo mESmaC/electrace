@@ -37,16 +37,16 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 
 ## Batch 2
 
-- [ ] https://www.electrace.net/vs/easyeda
-- [ ] https://www.electrace.net/vs/kicad
-- [ ] https://www.electrace.net/blocks/liion-charger
-- [ ] https://www.electrace.net/blocks/comparator-hysteresis
-- [ ] https://www.electrace.net/blocks/debounced-button
-- [ ] https://www.electrace.net/blocks/ldo-regulator
-- [ ] https://www.electrace.net/blocks/boost-converter
-- [ ] https://www.electrace.net/blocks/input-protection
-- [ ] https://www.electrace.net/pricing
-- [ ] https://www.electrace.net/vs
+- [x] https://www.electrace.net/vs/easyeda
+- [x] https://www.electrace.net/vs/kicad
+- [x] https://www.electrace.net/blocks/liion-charger
+- [x] https://www.electrace.net/blocks/comparator-hysteresis
+- [x] https://www.electrace.net/blocks/debounced-button
+- [x] https://www.electrace.net/blocks/ldo-regulator
+- [x] https://www.electrace.net/blocks/boost-converter
+- [x] https://www.electrace.net/blocks/input-protection
+- [x] https://www.electrace.net/pricing
+- [x] https://www.electrace.net/vs
 
 ## Batch 3 (new content)
 
