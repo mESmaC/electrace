@@ -61,6 +61,7 @@ Bing family (no quota, one visit, covers the whole site): https://www.electrace.
 - [ ] https://www.electrace.net/calculators/ac-motor
 - [ ] https://www.electrace.net/calculators/delta-wye
 - [ ] https://www.electrace.net/calculators/current-divider
+- [ ] https://www.electrace.net/calculators/filter-designer
 
 ## Leave to the sitemap (low intent — submit only if bored)
 

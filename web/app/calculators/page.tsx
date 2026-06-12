@@ -13,6 +13,7 @@ const CALCS = [
   { slug: "lc-resonance", name: "LC resonance & reactance", desc: "Resonant frequency, XL/XC at any frequency, series/parallel L & C math." },
   { slug: "ac-power", name: "AC power & power factor", desc: "Real/reactive/apparent power, single & three phase, PF correction sizing." },
   { slug: "ac-motor", name: "AC induction motor", desc: "Synchronous speed, slip, rotor frequency, shaft torque, efficiency." },
+  { slug: "filter-designer", name: "Active filter designer", desc: "Butterworth order 2–8 as cascaded Sallen-Key stages — standard parts, achieved response." },
   { slug: "parallel-resistor", name: "Parallel resistors", desc: "Any number in parallel + series, and what to parallel with what you have." },
   { slug: "555-timer", name: "555 timer (astable)", desc: "Frequency, duty cycle, HIGH/LOW times from Ra, Rb, and C." },
   { slug: "rc-filter", name: "RC filter cutoff", desc: "Cutoff from R and C; reverse picks the resistor for your target." },

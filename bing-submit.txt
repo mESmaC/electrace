@@ -49,3 +49,4 @@ https://www.electrace.net/calculators/delta-wye
 https://www.electrace.net/calculators/lc-resonance
 https://www.electrace.net/calculators/ac-power
 https://www.electrace.net/calculators/ac-motor
+https://www.electrace.net/calculators/filter-designer
