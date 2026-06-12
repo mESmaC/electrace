@@ -170,10 +170,10 @@ bug-fix + adjustment list that takes us to beta; ROADMAP's beta gate references 
 | # | Area | Finding | Sev | Status |
 |---|---|---|---|---|
 | F1 | Editor | "New" gives demo template, no blank-sheet option (walkthrough P2 #6) | P3→fix at beta | open |
-| F2 | Editor | Project keeps template name through redesign — no rename prompt (P3 #9) | P3 | open |
+| F2 | Editor | Project keeps template name through redesign — no rename prompt (P3 #9) | P3 | **fixed 2026-06-12** — one-time rename nudge after the 4th meaningful edit on a template-named design |
 | F3 | Checks copy | Internal net name leaks into insight copy ("vout#3") (P3 #10) | P3 | open |
 | F4 | Checks copy | Test-point insight duplicates per power-entry instance (P3 #11) | P3 | open |
-| F5 | Editor | in+/in− handles 20 px apart — cramped targets (P3 #12) | P3 | open |
+| F5 | Editor | in+/in− handles 20 px apart — cramped targets (P3 #12) | P3 | **fixed 2026-06-12** — invisible twin handles enlarged to 20–22 px hit areas; visible dots unchanged |
 | F6 | Sparky | Reply lands in wrong chat when drilling out mid-stream (todo §2.5.5) | P2 | **fixed 2026-06-12** — progress is conversation-bound ('working in another chat →' hint), deleted-mid-run threads resurrect, busy survives remounts; adversarially verified live |
 | F10 | BOM | Digi-Key search got spec sentences (0 results) and cart got fake MPNs (list rejected) | P2 | **fixed 2026-06-12** — looksLikeMpn gate + searchable type fallbacks + authoring drops non-MPN mpns with guidance |
 | F7 | PCB | USB connector lands are header stand-ins, not real land patterns | P2 | open |

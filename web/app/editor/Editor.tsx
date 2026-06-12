@@ -28,6 +28,7 @@ import AssistantBubble from "./AssistantBubble";
 import PcbEditor from "./PcbEditor";
 import { CHECK_DOC_BY_RULE } from "@/lib/checkDocs";
 import HistoryDialog from "./HistoryDialog";
+import EditorHints from "./EditorHints";
 
 const NET_COLOR: Record<string, string> = {
   power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff",
@@ -287,7 +288,7 @@ function BlockNode(props: NodeProps) {
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); fireLabelEdit(t.id); }}
                 style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 9, height: 9, background: "#454e62", border: `2px solid ${NET_COLOR[t.type]}` }} />
               <Handle id={t.id} type={t.role === "out" ? "target" : "source"} position={posOf[side]}
-                style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 9, height: 9, opacity: 0 }} />
+                style={{ ...(vertical(side) ? { top: pct } : { left: pct }), width: 20, height: 20, opacity: 0 }} />
               <div className={lblBase} style={lbl} title={termLabels?.[t.id] ? `net label: ${termLabels[t.id]}` : undefined}>{t.id}{termLabels?.[t.id] ? <span style={{ color: "#46dca6" }}> ⚑</span> : null}</div>
             </Fragment>
           );
@@ -336,7 +337,7 @@ function BlockNode(props: NodeProps) {
               {/* universal: also expose the opposite-direction handle so a terminal can sit on either end
                   of a connection (it's the net that matters; the lint enforces driver/load direction) */}
               <Handle id={t.id} type={out ? "target" : "source"} position={out ? Position.Right : Position.Left}
-                style={{ top: "50%", ...(out ? { right: 0, transform: "translate(50%,-50%)" } : { left: 0, transform: "translate(-50%,-50%)" }), width: 10, height: 10, opacity: 0 }} />
+                style={{ top: "50%", ...(out ? { right: 0, transform: "translate(50%,-50%)" } : { left: 0, transform: "translate(-50%,-50%)" }), width: 22, height: 22, opacity: 0 }} />
               <span style={{ color: NET_COLOR[t.type] }}>●</span>
               <span className="font-mono text-[11px]">{t.id}</span>
               {docked.has(t.id) && (
@@ -593,6 +594,30 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   );
   const designForAnalysis = useRef(designLive);
   designForAnalysis.current = designLive;
+
+  // Rename nudge (walkthrough F2): a design that's been meaningfully edited a few times but
+  // still wears its template name gets ONE gentle prompt — never again after, answered or not.
+  const TEMPLATE_NAMES = useRef(new Set(["Untitled project", "Power supply", "Buck converter", "MCU board", "Sensor front-end", "Blank canvas", "Buck Supply"]));
+  const editTicks = useRef(0);
+  const lastSemantic = useRef<string | null>(null);
+  useEffect(() => {
+    if (!mounted) return;
+    if (lastSemantic.current === null) { lastSemantic.current = semanticKey; return; } // baseline, not an edit
+    if (semanticKey === lastSemantic.current) return;
+    lastSemantic.current = semanticKey;
+    editTicks.current++;
+    if (editTicks.current !== 4 || !TEMPLATE_NAMES.current.has(designName.trim())) return;
+    const flag = `electrace:rename-nudged:${design.id}`;
+    try { if (localStorage.getItem(flag)) return; localStorage.setItem(flag, "1"); } catch { /* ignore */ }
+    void (async () => {
+      const n = await promptDialog({
+        title: "Name this design?",
+        message: `It's grown past “${designName}” — a real name makes it findable later. (Skip is fine.)`,
+        defaultValue: designName, placeholder: "e.g. Greenhouse controller", confirmText: "Rename",
+      });
+      if (n && n.trim() && n.trim() !== designName) setDesignName(n.trim().slice(0, 120));
+    })();
+  }, [semanticKey, mounted, designName, design.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const analysis = useMemo(() => {
     const d = designForAnalysis.current;
     try {
@@ -1355,6 +1380,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <SymbolStyleToggle />
           <ReportBug getDesign={() => designForAnalysis.current} />
         </div>
+        <EditorHints />
         {/* small screens: the editor is honestly desktop-first — say so instead of letting a
             shorts-referred phone visitor conclude the product is broken. Browsing stays open. */}
         <div className="absolute inset-x-3 top-3 z-10 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-3 text-center shadow-lg md:hidden">
@@ -2036,6 +2062,9 @@ function FindingCard({ f, onToggleAck }: { f: Finding; onToggleAck?: (f: Finding
       </div>
       {ackd && f.acknowledged?.note && <div className="mt-1 text-[11px] text-[#46dca6]">intended: {f.acknowledged.note}</div>}
       {!ackd && f.derivation && <div className="mt-1 font-mono text-[11px] text-[var(--color-text)]">{f.derivation}</div>}
+      {!ackd && /\w#\d/.test(f.message) && (
+        <div className="mt-1 text-[10.5px] text-[var(--color-faint)]">⚑ A net here has a derived name (the “#n”) — right-click a pin on it to label it, and findings will use your name.</div>
+      )}
       {!ackd && f.rule && CHECK_DOC_BY_RULE[f.rule] && (
         <a href={`/docs/checks/${CHECK_DOC_BY_RULE[f.rule].slug}`} target="_blank" rel="noreferrer"
           className="mt-1 inline-block text-[10.5px] text-[var(--color-faint)] underline-offset-2 hover:text-[var(--color-text)] hover:underline">
