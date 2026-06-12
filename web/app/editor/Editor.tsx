@@ -29,6 +29,7 @@ import PcbEditor from "./PcbEditor";
 import { CHECK_DOC_BY_RULE } from "@/lib/checkDocs";
 import HistoryDialog from "./HistoryDialog";
 import EditorHints from "./EditorHints";
+import AcDialog from "./AcDialog";
 
 const NET_COLOR: Record<string, string> = {
   power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff",
@@ -764,6 +765,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [reportOpen, setReportOpen] = useState(false);   // design report dialog (view in-platform, export from it)
   const [netlistOpen, setNetlistOpen] = useState(false); // netlist dialog (graph + nets table, export from it)
   const [historyOpen, setHistoryOpen] = useState(false); // version history dialog (timeline + restore)
+  const [acOpen, setAcOpen] = useState(false); // frequency response dialog (stage 3 surface)
   // a deleted block must never keep filtering the checks panel — a stale filter shows a green
   // "no issues" for a ghost while the real design has findings (walkthrough #1, P1 #4)
   useEffect(() => {
@@ -1371,6 +1373,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={() => setReportOpen(true)} title="The design report — readable here, exportable as Markdown" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
           <button onClick={() => setNetlistOpen(true)} title="The stitched netlist — graph + nets here, exportable as KiCad .net" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
           <button onClick={() => setHistoryOpen(true)} title="Version history — checkpoints, named snapshots, loss-proof restore" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">History</button>
+          <button onClick={() => setAcOpen(true)} title="Frequency response — H(jω) between any two points of this design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">AC</button>
           {projectId && <ShareMenu designId={design.id} />}
           <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset schematics</button>
           <button onClick={() => setSchemView(true)} title="The whole design as one traditional schematic sheet (read-only, SVG export)" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Schematic</button>
@@ -1417,6 +1420,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           </div>
         );
       })()}
+      {acOpen && <AcDialog rd={analysis.resolved} onClose={() => setAcOpen(false)} />}
       {historyOpen && (
         <HistoryDialog designId={design.id} signedIn={!!authProfile} onClose={() => setHistoryOpen(false)}
           onRestore={(d) => { loadDesign(d); setHistoryOpen(false); }} />
