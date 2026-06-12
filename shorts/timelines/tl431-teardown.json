@@ -1,0 +1,413 @@
+{
+ "duration": 49.06,
+ "tracks": [
+  {
+   "from": 0,
+   "to": 42.864,
+   "set": {
+    "title": "The most-made chip you've never heard of"
+   }
+  },
+  {
+   "from": 0.2,
+   "to": 1.4,
+   "tween": "symbolsShown",
+   "start": 0,
+   "end": 5
+  },
+  {
+   "from": 0.8,
+   "to": 6.908,
+   "tween": "wireProgress",
+   "start": 0,
+   "end": 5
+  },
+  {
+   "from": 6.908,
+   "to": 17.844,
+   "set": {
+    "wireProgress": 5,
+    "symbolsShown": 5
+   }
+  },
+  {
+   "from": 17.844,
+   "to": 42.864,
+   "set": {
+    "scene": 1,
+    "camK": 1,
+    "camU": 0,
+    "focus": "",
+    "title": "Inside the TL431"
+   }
+  },
+  {
+   "from": 17.844,
+   "to": 18.744,
+   "tween": "symbolsShown",
+   "start": 0,
+   "end": 12
+  },
+  {
+   "from": 18.144000000000002,
+   "to": 20.712,
+   "tween": "wireProgress",
+   "start": 0,
+   "end": 14
+  },
+  {
+   "from": 20.712,
+   "to": 42.864,
+   "set": {
+    "wireProgress": 14,
+    "symbolsShown": 12
+   }
+  },
+  {
+   "from": 20.712,
+   "to": 42.864,
+   "set": {
+    "focus": "D1"
+   }
+  },
+  {
+   "from": 20.712,
+   "to": 21.092,
+   "tween": "camK",
+   "start": 1,
+   "end": 1.5
+  },
+  {
+   "from": 21.092,
+   "to": 42.864,
+   "set": {
+    "camK": 1.5
+   }
+  },
+  {
+   "from": 20.712,
+   "to": 21.092,
+   "tween": "camU",
+   "start": 0,
+   "end": 1
+  },
+  {
+   "from": 21.092,
+   "to": 42.864,
+   "set": {
+    "camU": 1
+   }
+  },
+  {
+   "from": 20.712,
+   "to": 23.138,
+   "set": {
+    "highlight": "D1"
+   }
+  },
+  {
+   "from": 23.138,
+   "to": 42.864,
+   "set": {
+    "focus": "U2"
+   }
+  },
+  {
+   "from": 23.138,
+   "to": 27.039,
+   "set": {
+    "highlight": "U2"
+   }
+  },
+  {
+   "from": 27.039,
+   "to": 42.864,
+   "set": {
+    "focus": "Q1"
+   }
+  },
+  {
+   "from": 27.039,
+   "to": 30.859,
+   "set": {
+    "highlight": "Q1"
+   }
+  },
+  {
+   "from": 30.859,
+   "to": 31.239,
+   "tween": "camK",
+   "start": 2.1,
+   "end": 1
+  },
+  {
+   "from": 30.859,
+   "to": 31.239,
+   "tween": "camU",
+   "start": 1,
+   "end": 0
+  },
+  {
+   "from": 31.239,
+   "to": 42.864,
+   "set": {
+    "camK": 1,
+    "camU": 0,
+    "focus": ""
+   }
+  },
+  {
+   "from": 30.859,
+   "to": 42.864,
+   "set": {
+    "highlight": "D1,U2,Q1"
+   }
+  },
+  {
+   "from": 0,
+   "to": 0.886,
+   "set": {
+    "caption": "This is one of the"
+   }
+  },
+  {
+   "from": 0.824,
+   "to": 3.0460000000000003,
+   "set": {
+    "caption": "most manufactured chips in history"
+   }
+  },
+  {
+   "from": 3.065,
+   "to": 3.2430000000000003,
+   "set": {
+    "caption": "—"
+   }
+  },
+  {
+   "from": 3.286,
+   "to": 4.961,
+   "set": {
+    "caption": "billions every year —"
+   }
+  },
+  {
+   "from": 4.923,
+   "to": 6.355,
+   "set": {
+    "caption": "and you've probably never heard"
+   }
+  },
+  {
+   "from": 6.269,
+   "to": 6.761,
+   "set": {
+    "caption": "of it."
+   }
+  },
+  {
+   "from": 6.908,
+   "to": 8.189,
+   "set": {
+    "caption": "It's called the T L"
+   }
+  },
+  {
+   "from": 8.231,
+   "to": 9.941999999999998,
+   "set": {
+    "caption": "four three one, and it"
+   }
+  },
+  {
+   "from": 9.88,
+   "to": 11.915,
+   "set": {
+    "caption": "hides inside almost every phone"
+   }
+  },
+  {
+   "from": 11.819,
+   "to": 13.216,
+   "set": {
+    "caption": "charger ever made."
+   }
+  },
+  {
+   "from": 13.467,
+   "to": 14.364999999999998,
+   "set": {
+    "caption": "Its job:"
+   }
+  },
+  {
+   "from": 14.384,
+   "to": 15.665,
+   "set": {
+    "caption": "be exactly two and a"
+   }
+  },
+  {
+   "from": 15.603,
+   "to": 17.593,
+   "set": {
+    "caption": "half volts, no matter what."
+   }
+  },
+  {
+   "from": 17.844,
+   "to": 19.311,
+   "set": {
+    "caption": "Crack it open and it's"
+   }
+  },
+  {
+   "from": 19.249,
+   "to": 20.402,
+   "set": {
+    "caption": "three tricks."
+   }
+  },
+  {
+   "from": 20.712,
+   "to": 22.237000000000002,
+   "set": {
+    "caption": "A reference that refuses to"
+   }
+  },
+  {
+   "from": 22.186,
+   "to": 22.829,
+   "set": {
+    "caption": "drift."
+   }
+  },
+  {
+   "from": 23.138,
+   "to": 25.557000000000002,
+   "set": {
+    "caption": "An amplifier, comparing your voltage"
+   }
+  },
+  {
+   "from": 25.483,
+   "to": 26.846,
+   "set": {
+    "caption": "against that reference."
+   }
+  },
+  {
+   "from": 27.039,
+   "to": 28.46,
+   "set": {
+    "caption": "And a transistor that bleeds"
+   }
+  },
+  {
+   "from": 28.409,
+   "to": 29.864,
+   "set": {
+    "caption": "current away until the two"
+   }
+  },
+  {
+   "from": 29.837,
+   "to": 30.666,
+   "set": {
+    "caption": "agree."
+   }
+  },
+  {
+   "from": 30.859,
+   "to": 32.035,
+   "set": {
+    "caption": "It doesn't just measure your"
+   }
+  },
+  {
+   "from": 31.95,
+   "to": 32.696999999999996,
+   "set": {
+    "caption": "voltage —"
+   }
+  },
+  {
+   "from": 32.705,
+   "to": 33.87,
+   "set": {
+    "caption": "it pushes back."
+   }
+  },
+  {
+   "from": 34.121,
+   "to": 35.437,
+   "set": {
+    "caption": "That pushback is what holds"
+   }
+  },
+  {
+   "from": 35.352,
+   "to": 36.888,
+   "set": {
+    "caption": "your charger at exactly five"
+   }
+  },
+  {
+   "from": 36.803,
+   "to": 38.455999999999996,
+   "set": {
+    "caption": "volts while the wall voltage"
+   }
+  },
+  {
+   "from": 38.371,
+   "to": 39.059999999999995,
+   "set": {
+    "caption": "swings."
+   }
+  },
+  {
+   "from": 39.253,
+   "to": 41.44,
+   "set": {
+    "caption": "Three cents of silicon, regulating"
+   }
+  },
+  {
+   "from": 41.412,
+   "to": 42.669999999999995,
+   "set": {
+    "caption": "everything you own."
+   }
+  },
+  {
+   "from": 42.864,
+   "to": 49.06,
+   "set": {
+    "cta": true
+   }
+  }
+ ],
+ "sfx": [
+  {
+   "t": 20.712,
+   "sound": "whoosh"
+  },
+  {
+   "t": 23.138,
+   "sound": "pop"
+  },
+  {
+   "t": 27.039,
+   "sound": "pop"
+  },
+  {
+   "t": 30.859,
+   "sound": "whoosh"
+  },
+  {
+   "t": 32.705,
+   "sound": "thud"
+  }
+ ]
+}
