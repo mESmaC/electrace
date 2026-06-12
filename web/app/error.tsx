@@ -4,7 +4,13 @@ import { useEffect } from "react";
 
 /** Route-level error boundary (Next convention). Caught render/runtime errors land here. */
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => { console.error(error); }, [error]);
+  useEffect(() => {
+    console.error(error);
+    try {
+      const body = JSON.stringify({ message: `[boundary] ${error.message}`.slice(0, 600), stack: error.stack?.slice(0, 4000), url: location.pathname, meta: { digest: error.digest } });
+      navigator.sendBeacon?.("/api/client-error", new Blob([body], { type: "application/json" }));
+    } catch { /* reporting must never throw */ }
+  }, [error]);
   return (
     <main className="grid min-h-[calc(100vh-3.5rem)] place-items-center px-7 py-16 text-center">
       <div>

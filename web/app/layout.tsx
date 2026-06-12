@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import ServerSync from "./ServerSync";
+import ErrorMonitor from "./ErrorMonitor";
 import ThemeToggle from "./ThemeToggle";
 import SiteBackdrop from "./SiteBackdrop";
 import { DialogHost } from "./ui/dialog";
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           ],
         }) }} />
         <SiteBackdrop />
+        <ErrorMonitor />
         <ServerSync />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
           <div className="flex h-14 items-center gap-6 px-7 lg:px-9">
