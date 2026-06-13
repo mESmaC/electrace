@@ -400,6 +400,7 @@ function ConnectorNode(props: NodeProps) {
   const { connectorId, ref, pins: instPins } = props.data as unknown as ConnectorNodeData;
   const sel = props.selected;
   const edges = useEdges();
+  const nodes = useNodes();
   const part = connectorPart(connectorId);
   // pin id → "U1.tx" docked onto it (either edge direction)
   const dockOf = useMemo(() => {
@@ -410,7 +411,28 @@ function ConnectorNode(props: NodeProps) {
     }
     return m;
   }, [edges, ref]);
+  // Orientation: face the side where most-connected blocks sit. Connectors are vertical pin
+  // lists, so the meaningful choice is left vs right (up/down would need a transposed layout).
+  // Default left; flip to right when the bulk of connected blocks are to this connector's right.
+  const faceRight = useMemo(() => {
+    const me = nodes.find((n) => n.id === ref);
+    if (!me) return false;
+    const mx = me.position.x;
+    let right = 0, left = 0;
+    for (const e of edges) {
+      const other = e.source === ref ? e.target : e.target === ref ? e.source : null;
+      if (!other) continue;
+      const on = nodes.find((n) => n.id === other);
+      if (!on) continue;
+      if (on.position.x >= mx) right++; else left++;
+    }
+    return right > left;
+  }, [nodes, edges, ref]);
   if (!part) return null;
+  const HPOS = faceRight ? Position.Right : Position.Left;
+  const hStyle = faceRight
+    ? { right: 0, top: "50%", transform: "translate(50%,-50%)" as const }
+    : { left: 0, top: "50%", transform: "translate(-50%,-50%)" as const };
   return (
     <div
       style={{ width: 184, boxShadow: sel ? "0 0 0 2.5px rgba(110,163,255,.95), 0 8px 20px rgba(0,0,0,.5)" : "0 8px 20px rgba(0,0,0,.4)" }}
@@ -429,18 +451,26 @@ function ConnectorNode(props: NodeProps) {
           const v = rmax(spec?.v); const i = rmax(spec?.i);
           const ratings = [v != null ? `${v}V` : "", i != null ? `${i}A` : ""].filter(Boolean).join("·");
           return (
-            <div key={pin} className="relative flex items-center gap-1.5 px-2.5" style={{ height: 17 }}>
+            <div key={pin} className={`relative flex items-center gap-1.5 px-2.5 ${faceRight ? "flex-row-reverse" : ""}`} style={{ height: 17 }}>
+              {/* faint reference line from the pin's handle across the row to its docked-terminal text —
+                  a "this pin is wired to that block" cue (the actual edge is hidden when docked). Sits
+                  behind the row content; React Flow renders the node's HTML, so this leader is a thin div. */}
+              {d && <div className="pointer-events-none absolute top-1/2 h-px -translate-y-1/2 bg-[var(--color-border-strong)] opacity-50"
+                style={faceRight ? { right: 2, left: 28 } : { left: 2, right: 28 }} />}
               {/* A connector pin has no inherent direction — render BOTH a source and a target handle (same
-                  id, same spot) so it can sit on either end of a connection (block out→pin, or pin→block in). */}
-              <Handle id={pin} type="target" position={Position.Left}
-                style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, background: "#3c4658", border: `2px solid ${tcol ?? (d ? "#4c8dff" : "#677494")}` }} />
-              <Handle id={pin} type="source" position={Position.Left}
-                style={{ left: 0, top: "50%", transform: "translate(-50%,-50%)", width: 9, height: 9, opacity: 0 }} />
+                  id, same spot) so it can sit on either end of a connection (block out→pin, or pin→block in).
+                  The invisible source handle is enlarged (like block terminals) so it's a generous drop AND
+                  drag target — a wire from a gnd/in terminal lands on it reliably. Handles sit on whichever
+                  side the connector faces (HPOS), set from the bulk of its connections. */}
+              <Handle id={pin} type="target" position={HPOS}
+                style={{ ...hStyle, width: 9, height: 9, background: "#3c4658", border: `2px solid ${tcol ?? (d ? "#4c8dff" : "#677494")}` }} />
+              <Handle id={pin} type="source" position={HPOS}
+                style={{ ...hStyle, width: 20, height: 20, opacity: 0 }} />
               <span className="w-5 shrink-0 font-mono text-[9px] text-[var(--color-faint)]">{pin}</span>
               {spec?.name && spec.name !== pin && (
                 <span className="shrink-0 font-mono text-[9.5px] font-semibold" style={{ color: tcol ?? "var(--color-dim)" }}>{spec.name}</span>
               )}
-              <span className="flex-1 truncate font-mono text-[9.5px]" style={{ color: d ? "#fff" : "#566177" }}>{d ?? "—"}</span>
+              <span className={`relative flex-1 truncate font-mono text-[9.5px] ${faceRight ? "text-right" : ""}`} style={{ color: d ? "#fff" : "#566177" }}>{d ?? "—"}</span>
               {ratings && <span className="shrink-0 font-mono text-[8.5px] text-[var(--color-faint)]">{ratings}</span>}
             </div>
           );
@@ -1707,6 +1737,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         <BlockStatusContext.Provider value={blockSeverity}>
         <ReactFlow
           nodes={nodes} edges={edges} nodeTypes={nodeTypes} connectionMode={ConnectionMode.Loose}
+          // a connection is allowed in EITHER direction between any two pins — the net is what
+          // matters and the lint enforces driver/load roles. Without this, dragging from an
+          // `in`/gnd terminal to a connector could be refused (only the reverse drag worked).
+          isValidConnection={() => true}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
           onNodeClick={(_, n) => { setSelectedId(n.id); setSelectedNet(null); }}
           onEdgeClick={(_, e) => { setSelectedNet(`${e.source}.${e.sourceHandle}`); setSelectedId(null); }}
