@@ -58,6 +58,12 @@ Ordinary parts breaking the rules — the spookier sibling of long-form #1. Best
    electroscope (detect a comb across the room — fits long-form #1), optocoupler CTR as a
    consumable, TECs run backwards as generators (sensor long-form ch. candidate).
 
+**"Piezoelectrics might be magic"** (Cameron) — the piezo super-cut: a BBQ igniter makes
+~15 kV from a thumb press (no battery anywhere), the same crystal IS the buzzer, the knock
+sensor, the singing MLCC, the microphone, and the resonator keeping every quartz watch on
+time. One effect, five disguises — could be a Short ("this clicker makes 15,000 volts") or
+the bridge chapter linking long-form #1 (sensors) and #2 (haunted).
+
 Glossary candidates from this list: dielectric-absorption, thermal-emf, microphonics,
 negative-resistance. Add when the videos near.
 
