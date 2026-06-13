@@ -183,6 +183,24 @@ bug-fix + adjustment list that takes us to beta; ROADMAP's beta gate references 
 | F13 | Engine | si/termination-missing doesn't fire for an RS-485 class declared on CONNECTOR-pin pairs with no termination (bench T5 fixture: class registered, no finding) — silent no-fire on a declared SI class is trust-damaging if it's a resolution bug rather than intended scope | P2 | open — found 2026-06-12 by model bench; investigate pin→net resolution in the SI rules |
 | F12 | Engine | Declared draw + conductive internals double-counted in the DC solver (LED behind a pull-up solved to −145 V) | P1 | **fixed 2026-06-12** — internals that conduct from a pin replace the declaration; regression test added |
 
+### Editor verification sweep (Cameron, 2026-06-13) — 13 reported issues
+
+| # | Issue | Status |
+|---|---|---|
+| 1 | DPDT/relay coil pins labelled A/B, want +/− | **fixed** — display label is +/−, ids stay A/B (wiring keys) |
+| 2 | Relay/DPDT latch drawn closed onto NO, should rest on NC | **fixed** — armature rests on NC (de-energized) in both symbols |
+| 3 | After wiring one NO pin, the next reads red as if erroring | **needs repro** — couldn't reproduce from code (no relay *block* in library). Which surface — relay symbol in a custom block, or a block's NO terminals on the main canvas? Does the red appear on the wire, the block ring, or the pin? |
+| 4 | "Align" button redundant — auto-align on drop | **fixed** — drops/drags already snap; authored layouts now auto-snap on load; button removed |
+| 5 | QFP gnd terminals can't *initiate* a connection to a connector | **fixed** — isValidConnection allows either direction + connector pin drop target enlarged to 20px |
+| 6 | Connector pins always face left; should face most-connected block | **fixed** — connector flips left/right toward the bulk of its connections (verified both ways) |
+| 7 | QFP block text overlaps centre as label length grows | **fixed** — quad/QFP body grows with the longest pin name |
+| 8 | Right-click block-library tiles to edit/delete | **fixed** — every palette tile has a right-click menu (Add/Edit/Delete) |
+| 9 | Type-name confirm modal for user-block deletion | **fixed** — must type the block's name to delete |
+| 10 | Connectors draw no line to their terminal text | **fixed** — faint reference line per wired pin, behind row content |
+| 11 | Wires should look like they pass *behind* symbols, not vanish | **first pass** — soft inner-shadow edge on the body mask (both surfaces); wants Cameron's eye on shadow strength |
+| 12 | NO/COM/NC labels overlap the DPDT symbol | **fixed** — dense-symbol (>4 pin) names render outboard of the footprint |
+| 13 | (feature) user-controlled symbol scaling, set range like font size | **design decision pending** — depends on surface: scaling MAIN-CANVAS block nodes is safe (React Flow reconnects handles); scaling BLOCK-EDITOR schematic symbols is a real rework (pins must stay grid-aligned for wires to meet them — a naive scale detaches wires, the exact bug the old Align button fixed). Need Cameron to confirm which he means before building. |
+
 ## Beta exit criteria (mirrors ROADMAP)
 
 Every area dated as passed · all P1+P2 findings closed · P3s triaged with explicit
