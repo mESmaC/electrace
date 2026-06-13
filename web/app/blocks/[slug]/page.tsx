@@ -90,7 +90,9 @@ export default async function BlockPage({ params }: { params: Promise<{ slug: st
         name: video.title,
         description: summary(explain),
         thumbnailUrl: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
-        uploadDate: video.uploadDate,
+        // Schema.org wants a full ISO-8601 datetime WITH a timezone; bare YYYY-MM-DD trips
+        // GSC's "missing a timezone" warning. Promote date-only values to local-noon UTC.
+        uploadDate: /^\d{4}-\d{2}-\d{2}$/.test(video.uploadDate) ? `${video.uploadDate}T12:00:00+00:00` : video.uploadDate,
         embedUrl: `https://www.youtube.com/embed/${video.id}`,
         contentUrl: `https://www.youtube.com/watch?v=${video.id}`,
       },
