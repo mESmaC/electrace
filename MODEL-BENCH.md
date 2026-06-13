@@ -27,6 +27,7 @@ flat-rate with the budget cap as the silent backstop). To price tiers we need, p
 | claude-haiku-4-5 | 1.00 | 5.00 | ⬜ | ⬜ | floor candidate (cheap tier) |
 | claude-sonnet-4-6 | 3.00 | 15.00 | ⬜ | ⬜ | current default — the baseline to beat |
 | claude-opus-4-8 | 5.00 | 25.00 | ⬜ | ⬜ | premium-tier candidate |
+| claude-fable-5 | 10.00 | 50.00 | ⬜ | ⬜ | top-tier candidate ($49.99 power tier) — bench before launch claims |
 | gpt-5.4-mini | — | — | ⬜ | ⬜ | cross-provider floor check |
 | gpt-5.5 | — | — | ⬜ | ⬜ | cross-provider premium check |
 
@@ -174,6 +175,12 @@ math. 0–2.
 
 ## Tier sketch this feeds (decide after data)
 
-- Pro ($9 early / $15 planned): floor-or-mid model, flat rate, silent budget backstop.
-- Pro+ / Studio (name TBD, ~$19–29): premium model + deeper capacity. The pitch writes
-  itself if the bench shows a visible quality gap — and we only ship the tier if it does.
+- Pro ($9 early / $15 planned): Sonnet-class, flat rate, silent budget backstop.
+- Pro+ / Studio (name TBD, ~$19–29): Opus-class. Evidence in hand (12/12 at cost parity
+  with Sonnet): "Sparky exercises judgment" — every claim has a transcript.
+- Max (name TBD, $49.99): Fable-class (2× Opus token cost, $10/$50 per Mtok) for power
+  users. Economics: $48.24 net of Stripe; even a heavy 60-session month at ~2× Opus
+  session cost ≈ $20–25 of API → healthy margin with a tier-sized budget backstop.
+  RUN THE BENCH on claude-fable-5 before launch claims — same 6 tasks, same honesty.
+  Implementation note: budget cap is one global env today (SPARKY_MONTHLY_BUDGET_USD);
+  per-tier caps need a per-plan lookup before a multi-model ladder ships.
