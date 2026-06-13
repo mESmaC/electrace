@@ -64,6 +64,13 @@ sensor, the singing MLCC, the microphone, and the resonator keeping every quartz
 time. One effect, five disguises — could be a Short ("this clicker makes 15,000 volts") or
 the bridge chapter linking long-form #1 (sensors) and #2 (haunted).
 
+**"Your tape might be deep-frying your electronics"** (Cameron) — peeling tape is a
+triboelectric generator: kilovolt-scale static from every rip, right next to your
+ESD-sensitive parts (the reason real assembly lines use ESD tape and ionizers). The
+mind-blower escalation: peeling Scotch tape in a vacuum emits actual X-RAYS (Nature, 2008
+— enough to image a finger bone). Pairs naturally with the haunted long-form's
+triboelectric coax note; ESD-safe-bench practices as the practical payoff.
+
 Glossary candidates from this list: dielectric-absorption, thermal-emf, microphonics,
 negative-resistance. Add when the videos near.
 
