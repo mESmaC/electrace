@@ -1,0 +1,8 @@
+This regulator outputs 12 V right? Why is the LED so bright?
+
+Ah—the regulator outputs 5 V, not 12 V. That's why the LED is bright: it's getting 5 V through its series resistor, which is a normal brightness for an LED at that rail.
+
+The workspace note "false premise (5V, not 12V)" is actually the design's own acknowledgement of this. The input (vout net) is 9–18 V from the power entry, but the buck converter steps it down to 5 V for the LED. The DC solve confirms it: the +5V rail is rock-solid at 5.000 V, and the LED's anode sits at 2 V (normal forward-drop operation for an LED with a series resistor).
+
+Is the brightness actually too high for your use case, or were you just checking what voltage it was running at?
+

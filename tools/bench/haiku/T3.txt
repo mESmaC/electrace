@@ -1,0 +1,30 @@
+Why is my +5V rail showing a warning? Investigate and explain exactly what's wrong and the cheapest fix. *(Run on a design where the buck's load exceeds its declared amps — set this up once, export the JSON, re-import per model.)*
+Here's the exact problem:
+
+Your 5 V rail (vout#2) is drawing 3.6 A, but the buck converter REG1 is only rated for 3 A output. That's a 120% load — 0.6 A over budget.
+
+The root cause: MCU1 and MCU2 together pull more current than the buck's declared output capacity.
+
+The power budget shows:
+
+    vout#2 (5 V rail): needs 3.6 A, source provides 3 A → over by 0.6 A ✗
+    vout (input rail): needs 2.35 A, source provides 2 A → over by 0.35 A ✗
+
+The cheapest fix: Upgrade the buck converter's rated output current
+
+The library buck converter is a generic placeholder — it declares 3 A but has no real IC chosen. You need to replace it with an actual buck IC rated for ≥3.6 A (typically you'd pick one rated 4–5 A for headroom).
+
+Option A: Use a higher-current buck IC (best practice)
+Replace the generic buck with a real part like:
+
+    MP1584 (SOIC-8) — 3 A, 4.5–28 V input, adjustable output
+    AP63203 (SOIC-6) — 3 A, 5–36 V input, 0.8 V refernce (easier to set 5 V)
+    LMR62421 (SOIC-8) — 4 A, 3–42 V input
+
+I can author the actual converter with a real chip spec if you tell me which part you prefer, or I can search for a suitable option. Which would you like?
+
+Option B: Split the load (more expensive, adds parts)
+Add a second 3 A buck converter for one of the MCU blocks — but this costs more in board space and BOM.
+
+What would you like to do? Pick a higher-current buck IC model, and I'll author it into REG1 so it hits the BOM with the real rated current.
+

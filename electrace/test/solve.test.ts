@@ -710,3 +710,26 @@ test("AC stage 3: series RLC impedance dips to R at resonance; L blocks at AC un
   assert.ok(Math.abs(pts[1].ohms - 10) < 0.1, `at resonance Z→R=10, got ${pts[1].ohms}`);
   assert.ok(pts[0].ohms > 100 && pts[2].ohms > 100, `off resonance reactance dominates: ${pts[0].ohms}, ${pts[2].ohms}`);
 });
+
+test("a declared connector pin is ONE driver, not two (dedupe regression)", () => {
+  // "VIN has 2 drivers (J1.+, J1.+)" — declared pins lived in both pinOf and connectorPins
+  // and the grouping loop concatenated them. Found by the model bench's T5 fixture.
+  const load = B("@s/ldx", [
+    { id: "vcc", role: "in", type: "power", v: { min: 4, max: 24, unit: "V" } },
+    { id: "gnd", role: "in", type: "gnd" },
+  ]);
+  const d: Design = {
+    id: "d", name: "d",
+    blocks: [{ ref: "L1", block: key(load) }],
+    connectors: [{ ref: "J1", connector: "barrel", pins: { "+": { name: "VIN", type: "power", role: "out", v: { value: 12, unit: "V" }, i: { max: 2, unit: "A" } }, "-": { name: "GND", type: "gnd" } } }],
+    connections: [
+      { from: "J1.+", to: "L1.vcc" },
+      { from: "J1.-", to: "L1.gnd" },
+    ],
+  };
+  const rd = resolve(d, lib(load));
+  const vin = rd.nets.find((n) => n.id === "VIN")!;
+  assert.equal(vin.sources.length, 1, `one driver, got ${vin.sources.map((s) => s.node).join(",")}`);
+  const md = lint(rd).filter((f) => f.rule === "connectivity/multiple-drivers");
+  assert.equal(md.length, 0, "no phantom multiple-drivers: " + md.map((f) => f.message).join(";"));
+});

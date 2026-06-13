@@ -174,7 +174,9 @@ export function resolve(design: Design, blocks: Map<string, Block>): ResolvedDes
   for (const node of tieUf.keys()) internalTies[node] = tieUf.find(node);
 
   const groups = new Map<string, string[]>();
-  for (const node of [...pinOf.keys(), ...connectorPins]) {
+  // a DECLARED connector pin exists in both pinOf and connectorPins — dedupe, or every
+  // connector-driven rail gets a phantom second driver ("VIN has 2 drivers (J1.+, J1.+)")
+  for (const node of new Set([...pinOf.keys(), ...connectorPins])) {
     const root = uf.find(node);
     const g = groups.get(root);
     if (g) g.push(node); else groups.set(root, [node]);

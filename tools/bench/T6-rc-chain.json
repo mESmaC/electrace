@@ -1,0 +1,134 @@
+{
+  "id": "bench-t6",
+  "name": "Sensor chain rev A",
+  "blocks": [
+    {
+      "ref": "PWR1",
+      "block": "@electrace/power-entry@1.0.0",
+      "pos": [
+        40,
+        60
+      ]
+    },
+    {
+      "ref": "REG1",
+      "block": "@electrace/buck-converter@1.2.0",
+      "pos": [
+        320,
+        68
+      ]
+    },
+    {
+      "ref": "TH1",
+      "block": "@electrace/ntc-thermistor@1.0.0",
+      "pos": [
+        60,
+        380
+      ]
+    },
+    {
+      "ref": "AMP1",
+      "block": "@electrace/opamp-noninverting@1.0.0",
+      "pos": [
+        320,
+        400
+      ]
+    },
+    {
+      "ref": "FILT1",
+      "block": "@electrace/rc-lowpass@1.0.0",
+      "pos": [
+        640,
+        420
+      ]
+    },
+    {
+      "ref": "CMP1",
+      "block": "@electrace/comparator-hysteresis@1.0.0",
+      "pos": [
+        900,
+        400
+      ]
+    },
+    {
+      "ref": "LED1",
+      "block": "@electrace/led-indicator@1.0.0",
+      "pos": [
+        1160,
+        420
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "PWR1.vout",
+      "to": "REG1.vin",
+      "net": "VIN"
+    },
+    {
+      "from": "PWR1.gnd",
+      "to": "REG1.gnd_in",
+      "net": "GND"
+    },
+    {
+      "from": "REG1.vout",
+      "to": "TH1.vcc",
+      "net": "+5V"
+    },
+    {
+      "from": "REG1.vout",
+      "to": "AMP1.vcc",
+      "net": "+5V"
+    },
+    {
+      "from": "REG1.vout",
+      "to": "CMP1.vcc",
+      "net": "+5V"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "TH1.gnd",
+      "net": "GND"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "AMP1.gnd",
+      "net": "GND"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "FILT1.gnd",
+      "net": "GND"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "CMP1.gnd",
+      "net": "GND"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "LED1.gnd",
+      "net": "GND"
+    },
+    {
+      "from": "TH1.out",
+      "to": "AMP1.in",
+      "net": "SENSE"
+    },
+    {
+      "from": "AMP1.out",
+      "to": "FILT1.in",
+      "net": "AMP_OUT"
+    },
+    {
+      "from": "FILT1.out",
+      "to": "CMP1.in",
+      "net": "FILTERED"
+    },
+    {
+      "from": "CMP1.out",
+      "to": "LED1.vin",
+      "net": "ALERT"
+    }
+  ]
+}
