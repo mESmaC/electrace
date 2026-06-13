@@ -423,8 +423,10 @@ export const SYMBOLS: Record<string, SymbolDef> = {
   },
   relay: {
     label: "Relay", w: 76, h: 64, defaultRef: "K",
+    // coil pins DISPLAY as +/- (ids stay A/B — they're the wiring keys; renaming would orphan
+    // existing saved relay placements). Label is display-only, so this is safe.
     pins: [
-      { id: "A", x: 0, y: 20, label: "A" }, { id: "B", x: 0, y: 44, label: "B" },
+      { id: "A", x: 0, y: 20, label: "+" }, { id: "B", x: 0, y: 44, label: "−" },
       { id: "COM", x: 76, y: 32, label: "C" }, { id: "NO", x: 76, y: 10, label: "NO" }, { id: "NC", x: 76, y: 54, label: "NC" },
     ],
     draw: () => (
@@ -432,9 +434,10 @@ export const SYMBOLS: Record<string, SymbolDef> = {
         <line x1="0" y1="20" x2="10" y2="20" stroke={A} strokeWidth="2" />
         <line x1="0" y1="44" x2="10" y2="44" stroke={A} strokeWidth="2" />
         <rect x="10" y="14" width="18" height="36" fill="#566177" stroke={W} strokeWidth="2" />
+        {/* de-energized: the armature rests on NC (the lower contact). NO sits open above. */}
         <line x1="36" y1="32" x2="52" y2="32" stroke={W} strokeWidth="1" strokeDasharray="3 3" />
         <circle cx="54" cy="32" r="2.5" fill={W} />
-        <line x1="54" y1="32" x2="68" y2="14" stroke={W} strokeWidth="2" />
+        <line x1="54" y1="32" x2="68" y2="52" stroke={W} strokeWidth="2" />
         <line x1="54" y1="32" x2="76" y2="32" stroke={A} strokeWidth="2" />
         <circle cx="68" cy="12" r="2.5" fill={W} />
         <line x1="68" y1="12" x2="76" y2="10" stroke={A} strokeWidth="2" />
@@ -465,8 +468,9 @@ export const SYMBOLS: Record<string, SymbolDef> = {
   },
   dpdt: {
     label: "Relay DPDT", w: 80, h: 92, defaultRef: "K",
+    // coil DISPLAYS as +/- (ids stay A/B — wiring keys, see relay note). NO above COM, NC below.
     pins: [
-      { id: "A", x: 0, y: 30, label: "A" }, { id: "B", x: 0, y: 62, label: "B" },
+      { id: "A", x: 0, y: 30, label: "+" }, { id: "B", x: 0, y: 62, label: "−" },
       { id: "COM1", x: 80, y: 14, label: "C1" }, { id: "NO1", x: 80, y: 2, label: "NO1" }, { id: "NC1", x: 80, y: 26, label: "NC1" },
       { id: "COM2", x: 80, y: 62, label: "C2" }, { id: "NO2", x: 80, y: 50, label: "NO2" }, { id: "NC2", x: 80, y: 74, label: "NC2" },
     ],
@@ -479,7 +483,8 @@ export const SYMBOLS: Record<string, SymbolDef> = {
           <g key={k}>
             <line x1="34" y1={cy} x2="50" y2={cy} stroke={W} strokeWidth="1" strokeDasharray="3 3" />
             <circle cx="52" cy={cy} r="2.5" fill={W} />
-            <line x1="52" y1={cy} x2="66" y2={cy - 12} stroke={W} strokeWidth="2" />
+            {/* de-energized: armature rests on NC (cy+12, the lower throw), NO open above */}
+            <line x1="52" y1={cy} x2="66" y2={cy + 12} stroke={W} strokeWidth="2" />
             <line x1="52" y1={cy} x2="80" y2={cy} stroke={A} strokeWidth="2" />
             <line x1="66" y1={cy - 12} x2="80" y2={cy - 12} stroke={A} strokeWidth="2" />
             <line x1="66" y1={cy + 12} x2="80" y2={cy + 12} stroke={A} strokeWidth="2" />

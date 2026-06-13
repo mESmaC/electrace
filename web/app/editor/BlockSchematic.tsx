@@ -1047,15 +1047,23 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                 {/* every pin gets an upright indicator (its function name, else its number),
                     nudged INWARD off the pin's edge so rows of chip pins stay aligned */}
                 {!isPort && d.pins.map((p) => {
+                  // Multi-pin symbols whose body is densely drawn (relays: switch contacts fill the
+                  // right edge) need pin names OUTSIDE the footprint, not inset over the geometry —
+                  // that's standard schematic convention and stops NO/COM/NC overlapping the symbol.
+                  const dense = d.pins.length > 4;
                   const inset = 11;
                   let lx = p.x, ly = p.y;
-                  if (p.x <= 1) lx += inset;                 // left edge  → push right
-                  else if (p.x >= d.w - 1) lx -= inset;      // right edge → push left
-                  else if (p.y <= 1) ly += inset;            // top edge   → push down
-                  else if (p.y >= d.h - 1) ly -= inset;      // bottom edge→ push up
+                  let anchor: "start" | "middle" | "end" = "middle";
+                  const onLeft = p.x <= 1, onRight = p.x >= d.w - 1, onTop = p.y <= 1, onBottom = p.y >= d.h - 1;
+                  if (dense && (onLeft || onRight)) {        // outboard horizontal: name sits beyond the lead
+                    lx += onLeft ? -4 : 4; anchor = onLeft ? "end" : "start";
+                  } else if (onLeft) lx += inset;            // left edge  → push right (over body)
+                  else if (onRight) lx -= inset;             // right edge → push left
+                  else if (onTop) ly += inset;               // top edge   → push down
+                  else if (onBottom) ly -= inset;            // bottom edge→ push up
                   else { const len = Math.hypot(d.w / 2 - p.x, d.h / 2 - p.y) || 1; lx += ((d.w / 2 - p.x) / len) * inset; ly += ((d.h / 2 - p.y) / len) * inset; }
                   const a = symPoint(s, lx, ly, d.w, d.h);
-                  return <text key={p.id} x={a.x} y={a.y + 3} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8.5" fontWeight={600} fill="#dbe4f4" stroke="#2b3344" strokeWidth={0.6} paintOrder="stroke" style={{ paintOrder: "stroke" }} pointerEvents="none">{p.label ?? p.id}</text>;
+                  return <text key={p.id} x={a.x} y={a.y + 3} textAnchor={anchor} fontFamily="var(--font-mono)" fontSize="8.5" fontWeight={600} fill="#dbe4f4" stroke="#2b3344" strokeWidth={0.6} paintOrder="stroke" style={{ paintOrder: "stroke" }} pointerEvents="none">{p.label ?? p.id}</text>;
                 })}
               </g>
             );
