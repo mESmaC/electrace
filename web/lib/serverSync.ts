@@ -18,7 +18,7 @@ const ENDPOINT = "/api/store";
 const HYDRATED_EVENT = "electrace:hydrated";
 // keys that must NOT leave the device: local-only telemetry capture (a high-churn ~2k-entry blob, and
 // the privacy promise is that it's never transmitted). Mirror everything else under electrace:*.
-const NO_MIRROR = new Set(["electrace:events", "electrace:telemetry"]);
+const NO_MIRROR = new Set(["electrace:events", "electrace:telemetry", "electrace:tombstones"]);
 const mirrorable = (k: string) => k.startsWith(PREFIX) && !NO_MIRROR.has(k);
 
 let installed = false;
@@ -41,8 +41,9 @@ const pending = new Map<string, string | null>();
 /** Push one key to the server, debounced per-key (autosave writes the same key repeatedly). */
 function push(key: string, value: string | null): void {
   clearTimeout(timers[key]);
-  // page going away (editors flush their saves on pagehide) → no time left to debounce
-  if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+  // removals fire IMMEDIATELY — deletes are rare and destructive-intent; a debounced delete
+  // lost to a quick refresh was the project-resurrection bug
+  if (value === null || (typeof document !== "undefined" && document.visibilityState === "hidden")) {
     pending.delete(key);
     if (!syncDesignKey(key, value)) send(key, value);
     return;

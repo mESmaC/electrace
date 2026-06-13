@@ -25,7 +25,7 @@ export default function EditorHints() {
     try { localStorage.setItem(KEY, JSON.stringify([...next])); } catch { /* ignore */ }
   };
   return (
-    <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 hidden w-full max-w-md -translate-x-1/2 flex-col items-center gap-1.5 px-4 md:flex">
+    <div className="pointer-events-none absolute bottom-12 left-1/2 z-10 hidden w-full max-w-md -translate-x-1/2 flex-col items-center gap-1.5 px-4 md:flex">
       {live.map((h) => (
         <div key={h.id} className="pointer-events-auto flex w-full items-center gap-2.5 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)]/95 py-1.5 pl-3 pr-1.5 shadow-lg backdrop-blur">
           <span className="shrink-0 text-[13px]">{h.icon}</span>

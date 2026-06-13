@@ -596,6 +596,10 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const designForAnalysis = useRef(designLive);
   designForAnalysis.current = designLive;
 
+  const doRename = async () => {
+    const n = await promptDialog({ title: "Rename design", defaultValue: designName, placeholder: "Design name", confirmText: "Rename" });
+    if (n && n.trim() && n.trim() !== designName) setDesignName(n.trim().slice(0, 120));
+  };
   // Rename nudge (walkthrough F2): a design that's been meaningfully edited a few times but
   // still wears its template name gets ONE gentle prompt — never again after, answered or not.
   const TEMPLATE_NAMES = useRef(new Set(["Untitled project", "Power supply", "Buck converter", "MCU board", "Sensor front-end", "Blank canvas", "Buck Supply"]));
@@ -1366,7 +1370,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1 overflow-hidden" onDrop={onCanvasDrop} onDragOver={onCanvasDragOver}>
-        <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
+        <div className="absolute left-3 right-3 top-3 z-10 flex flex-wrap items-center gap-1.5">
+          <button onClick={doRename} title="Rename this design"
+            className="max-w-[200px] truncate rounded-md border border-transparent px-2 py-1 text-[12px] font-bold text-[var(--color-text)] hover:border-[var(--color-border)]">
+            {designName} <span className="font-normal text-[var(--color-faint)]">✎</span>
+          </button>
           <button onClick={resetSample} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">New</button>
           <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Import</button>
           <button onClick={exportDesign} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Export</button>
@@ -1391,7 +1399,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <div className="mt-0.5 text-[11.5px] text-[var(--color-dim)]">Wiring circuits needs desktop room — feel free to look around, then come back from a computer. The <a className="underline" href="/blocks">block library</a> and <a className="underline" href="/calculators">calculators</a> work great here.</div>
         </div>
         {sandbox && !sandboxHidden && (
-          <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-1.5 pl-3.5 pr-2 shadow-lg">
+          <div className="absolute left-1/2 top-14 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-1.5 pl-3.5 pr-2 shadow-lg">
             <span className="text-[12px] text-[var(--color-dim)]">
               <b className="font-semibold text-[var(--color-text)]">Sandbox</b> — everything works; your design saves to this browser only.
             </span>

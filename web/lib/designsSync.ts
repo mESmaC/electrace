@@ -18,7 +18,7 @@ const keepalive = () => typeof document !== "undefined" && document.visibilitySt
 async function api(path: string, init?: RequestInit): Promise<Response | null> {
   if (!available) return null;
   try {
-    const r = await fetch(path, { ...init, keepalive: keepalive(), headers: { "content-type": "application/json", ...init?.headers } });
+    const r = await fetch(path, { ...init, keepalive: init?.keepalive ?? keepalive(), headers: { "content-type": "application/json", ...init?.headers } });
     if (r.status === 503) available = false;
     if (r.status === 401) signedOut = true;
     return r;
@@ -90,6 +90,25 @@ export function syncDesignKey(key: string, value: string | null): boolean {
 }
 const lastIndex = new Map<string, ProjectMeta>();
 
+// ── delete tombstones ────────────────────────────────────────────────────────────────────
+// A deleted design is "missing locally" — exactly what reconcileDesigns treats as
+// pull-me-from-the-server. Without a tombstone, ANY lost DELETE (debounce + refresh,
+// offline, a latched 401) resurrects the project on next load. The tombstone makes the
+// delete intent durable until the server confirms (ok or 404), then clears itself.
+const TOMBS = "electrace:tombstones"; // in serverSync's NO_MIRROR set — local bookkeeping only
+const readTombs = (): string[] => readJson<string[]>(TOMBS) ?? [];
+const writeTombs = (ids: string[]) => { try { localStorage.setItem(TOMBS, JSON.stringify(ids)); } catch { /* ignore */ } };
+
+/** Record the delete intent durably, then push it to the server (keepalive — survives unload). */
+export function markDesignDeleted(id: string): void {
+  writeTombs([...new Set([...readTombs(), id])]);
+  void confirmDelete(id);
+}
+async function confirmDelete(id: string): Promise<void> {
+  const r = await api(`/api/designs/${encodeURIComponent(id)}`, { method: "DELETE", keepalive: true });
+  if (r && (r.ok || r.status === 404)) writeTombs(readTombs().filter((x) => x !== id));
+}
+
 /** Merge the account's designs with local work — both directions, newer updatedAt wins.
  *  Covers cross-device pull AND the first-sign-in import of pre-account local designs.
  *  `rawWrite` must bypass the mirror (or every pulled design would echo straight back up). */
@@ -103,7 +122,9 @@ export async function reconcileDesigns(rawWrite: (k: string, v: string) => void)
   let changed = 0;
 
   // pull: remote designs that are missing locally or newer than the local copy
+  const tombs = new Set(readTombs());
   for (const d of remote) {
+    if (tombs.has(d.id)) { void confirmDelete(d.id); continue; } // deleted HERE — finish the delete, don't resurrect
     const local = localById.get(d.id);
     const remoteStamp = d.meta?.updatedAt ?? Date.parse(d.updated_at);
     if (local && local.updatedAt >= remoteStamp && localStorage.getItem(`electrace:design:${d.id}`)) continue;

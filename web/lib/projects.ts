@@ -2,6 +2,7 @@
 // electrace:design:<id>, exactly the key the editor already autosaves to — plus a lightweight
 // index (electrace:projects) so the dashboard can list them. Maps cleanly onto a backend later.
 import type { Design } from "@electrace/core";
+import { markDesignDeleted } from "./designsSync";
 
 const INDEX = "electrace:projects";
 const designKey = (id: string) => `electrace:design:${id}`;
@@ -64,6 +65,7 @@ export function renameProject(id: string, name: string): void {
 export function deleteProject(id: string): void {
   write(INDEX, read<ProjectMeta[]>(INDEX, []).filter((p) => p.id !== id));
   try { localStorage.removeItem(designKey(id)); localStorage.removeItem(`electrace:pcb:${id}`); } catch { /* ignore */ }
+  markDesignDeleted(id); // durable tombstone — reconcile must never resurrect a local delete
 }
 
 // a render-safe timestamp (Date.now is fine in the browser; guarded for SSR)
