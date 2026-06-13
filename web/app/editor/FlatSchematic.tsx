@@ -4,7 +4,7 @@
 // connectivity by name (how real multi-sheet schematics read; no global routing needed). Read-only:
 // it's the review/handoff surface — double-click a block's drawing to edit it in its own editor.
 import { useMemo, useRef } from "react";
-import { CONNECTOR_CATALOG, type Block, type ResolvedDesign } from "@electrace/core";
+import { CONNECTOR_CATALOG, solveDc, type Block, type ResolvedDesign } from "@electrace/core";
 import { SYMBOLS, renderChip, useSymbolStyle, type SymStyle } from "./symbols";
 import {
   type Model, type Sym, ortho, wireAbsPath, pickModel, modelBounds, orientPorts, symDims, normRot, placeLabels,
@@ -14,15 +14,30 @@ const NET_COLOR: Record<string, string> = { power: "#f7b13c", rail: "#46dca6", g
 const PAD = 70;          // gap between block drawings
 const ROW_W = 1500;      // wrap width of the sheet
 
+interface Glow { amps: number; color: string }
 interface Item {
   ref: string;
   name: string;
   model: Model;
   why: Map<string, string>;             // symbol ref → authored part "why" (hover tooltip)
+  glow: Map<string, Glow>;              // symbol ref → SOLVED LED luminance (real mA, real color)
   netOfTerm: Map<string, string>;       // terminal id → design net id
   netTypeOfTerm: Map<string, string>;
   x: number; y: number; w: number; h: number;
   bx: number; by: number;               // model-space origin (bounds min)
+}
+
+// LED luminance from the DC solve: output is ~proportional to forward current in the normal
+// range, so the glow is the MATH, not decoration — a dim LED is a finding you can see.
+const LED_COLOR: Record<string, string> = {
+  red: "#ff5252", green: "#52ff8f", blue: "#52a8ff", yellow: "#ffe352",
+  amber: "#ffb852", orange: "#ffa040", white: "#f4f7ff", uv: "#b07bff", ir: "#a04848",
+};
+const TYPICAL_LED_A = 0.015; // full brightness reference for indicators
+function ledColor(value?: string): string {
+  const v = (value ?? "").toLowerCase();
+  for (const k of Object.keys(LED_COLOR)) if (v.includes(k)) return LED_COLOR[k];
+  return "#ffd28a"; // warm default when only a Vf number is declared
 }
 
 export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
@@ -34,6 +49,12 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const { items, connItems, sheetW, sheetH } = useMemo(() => {
+    // the DC solve: which LEDs conduct, and at how many real milliamps
+    const ledAmps = new Map<string, number>(); // "REF/D1" → amps
+    try {
+      const sol = solveDc(resolved);
+      for (const d of sol.diodes) if (d.on && d.amps > 1e-5) ledAmps.set(d.ref, d.amps);
+    } catch { /* unsolvable designs simply don't glow */ }
     // node → net id for the whole design (connector pins included)
     const netOf = new Map<string, { id: string; type: string }>();
     for (const n of resolved.nets) {
@@ -56,8 +77,17 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
       const model: Model = { ...base, syms: base.syms.map((s) => (s.type === "port" && s.ref ? { ...s, ref: netOfTerm.get(s.ref) ?? s.ref, value: undefined } : s)) };
       const why = new Map<string, string>();
       for (const p of def.schematic?.parts ?? []) if (p.why) why.set(p.ref, p.why);
+      // LEDs: pair the authored part type with the solved current (flat ref = "REF/part")
+      const glow = new Map<string, Glow>();
+      for (const p of def.schematic?.parts ?? []) {
+        if (p.type !== "led") continue;
+        const amps = ledAmps.get(`${inst.ref}/${p.ref}`);
+        if (amps == null) continue;
+        const symVal = base.syms.find((sy) => sy.ref === p.ref)?.value;
+        glow.set(p.ref, { amps, color: ledColor(symVal ?? (typeof p.value === "string" ? p.value : undefined)) });
+      }
       const b = modelBounds(model);
-      return [{ ref: inst.ref, name: def.name, model, why, netOfTerm, netTypeOfTerm, bx: b.x, by: b.y, w: b.w, h: b.h, x: 0, y: 0 }];
+      return [{ ref: inst.ref, name: def.name, model, why, glow, netOfTerm, netTypeOfTerm, bx: b.x, by: b.y, w: b.w, h: b.h, x: 0, y: 0 }];
     });
     // board I/O: every design-level connector is a region too — a schematic without its
     // headers/jacks is missing exactly the pins a reviewer checks first
@@ -150,9 +180,20 @@ function InstanceSheet({ it, symStyle, onOpen }: { it: Item; symStyle: SymStyle;
         const mask = d.body
           ? <rect x={d.body.x} y={d.body.y} width={d.body.w} height={d.body.h} fill="var(--color-bg)" />
           : d.w > 14 && d.h > 14 ? <rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" /> : null;
+        const g = s.ref ? it.glow.get(s.ref) : undefined;
+        const rel = g ? Math.min(1.4, g.amps / TYPICAL_LED_A) : 0;
         return (
           <g key={s.id} transform={`translate(${s.x},${s.y}) rotate(${normRot(s.rot ?? 0)} ${d.w / 2} ${d.h / 2})`} opacity={isPort ? 0.9 : 1}>
-            {s.ref && it.why.has(s.ref) && <title>{s.ref}: {it.why.get(s.ref)}</title>}
+            {s.ref && (g
+              ? <title>{s.ref}: lit — ≈{(g.amps * 1000).toFixed(1)} mA forward current ({Math.round(rel * 100)}% of a typical 15 mA indicator){it.why.has(s.ref) ? `
+${it.why.get(s.ref)}` : ""}</title>
+              : it.why.has(s.ref) ? <title>{s.ref}: {it.why.get(s.ref)}</title> : null)}
+            {g && (
+              <>
+                <circle cx={d.w / 2} cy={d.h / 2} r={Math.max(d.w, d.h) * (0.55 + rel * 0.5)} fill={g.color} opacity={0.10 + 0.18 * Math.min(rel, 1)} />
+                <circle cx={d.w / 2} cy={d.h / 2} r={Math.max(d.w, d.h) * 0.42} fill={g.color} opacity={0.18 + 0.3 * Math.min(rel, 1)} />
+              </>
+            )}
             {mask}{glyph}
           </g>
         );
