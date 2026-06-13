@@ -85,8 +85,8 @@ math. 0–2.
 
 | Model | T1 | T2 | T3 | T4 | T5 | T6 | /12 | $ total | $/point |
 |---|---|---|---|---|---|---|---|---|---|
-| claude-haiku-4-5 (run 1, 2026-06-12) | 1 | 1 | 1 | **2** | – | – | 5/8 valid | ⬜ (recover via bench-cost) | ⬜ |
-| claude-sonnet-4-6 (run 1, 2026-06-12) | 2 | 1 | 1 | **2** | 2 | 2 | **10/12** | ⬜ (recover via bench-cost) | ⬜ |
+| claude-haiku-4-5 (run 1, 2026-06-12) | 1 | 1 | 1 | **2** | – | – | 5/8 valid | **$0.22** (4 tasks) | ~$0.04 |
+| claude-sonnet-4-6 (run 1, 2026-06-12) | 2 | 1 | 1 | **2** | 2 | 2 | **10/12** | **$1.55** (6 tasks) | ~$0.16 |
 
 **Sonnet run-1 notes (transcripts in tools/bench/sonnet/):**
 - **T1 = 2 — the authoring gap is real.** Correct fixed-3.3 V handling (VFB→VOUT per the EVB
@@ -127,6 +127,16 @@ math. 0–2.
 - Pattern so far: **strong when the engine does the thinking** (diagnosis, refusing false
   premises), **weak on generative precision** (part specs, wiring subtleties, quoting tools
   instead of estimating). Exactly the shape that supports analysis-tier-cheap / authoring-tier-premium.
+
+## Cost read (run 1, recovered via bench-cost)
+
+- Haiku: $0.22 for its 4 tasks → **~$0.05/task**. Sonnet: $1.55 for 6 (incl. the heavy T2
+  build with 3 continues) → **~$0.26/task**, with T2 alone $1.28. Caching is doing massive
+  work on both (95%+ of input tokens cached).
+- Sessions-for-pricing translation: a "typical month" of 12 mixed sessions ≈ **$0.60 on
+  Haiku-class vs $3 on Sonnet-class** per user. Against $8.44 net: Haiku-tier margin ~$7.8,
+  Sonnet-tier ~$5.4 — both healthy WITH the budget cap as backstop. Punch into
+  tools/pricing-calc.html with your own session estimates.
 
 ## What we're looking for
 
