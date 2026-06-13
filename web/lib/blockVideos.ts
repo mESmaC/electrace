@@ -9,4 +9,5 @@ export const BLOCK_VIDEOS: Record<string, { id: string; title: string; uploadDat
   "comparator-hysteresis": { id: "4fV1H43HSkI", title: "Why your comparator chatters (and the one resistor that fixes it)", uploadDate: "2026-06-12" },
   "relay-driver": { id: "w28h3jI5lwA", title: "Why relays kill microcontrollers (one diode fixes it)", uploadDate: "2026-06-12" },
   "reverse-polarity-protection": { id: "f1qXXlDM8NY", title: "The transistor that survives backwards batteries", uploadDate: "2026-06-12" },
+  "tl431-reference": { id: "YwOGLH_tuAY", title: "The most-made chip you've never heard of", uploadDate: "2026-06-12" },
 };

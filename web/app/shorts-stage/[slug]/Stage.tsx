@@ -102,7 +102,7 @@ export default function Stage({ scenes }: { scenes: { layout: SchematicLayout }[
       <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(243,246,251,.05) 2.2px, transparent 2.2px)", backgroundSize: "44px 44px" }} />
       <div data-title style={{ position: "absolute", top: 120, left: 60, right: 60, textAlign: "center", fontSize: 84, fontWeight: 800, lineHeight: 1.08, color: "#f3f6fb", letterSpacing: "-1px" }} />
       {built.map((sc, si) => {
-        const pad = 60;
+        const pad = 96; // room for port-label text, which extends beyond the symbol bounds
         const vb = `${sc.b.x - pad} ${sc.b.y - pad} ${sc.b.w + pad * 2} ${sc.b.h + pad * 2}`;
         return (
           <div key={si} data-scene={si} data-nsyms={sc.m.syms.length} style={{ position: "absolute", top: 480, left: 40, right: 40, height: 900, display: si === 0 ? "grid" : "none", placeItems: "center" }}>
