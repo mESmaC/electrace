@@ -1,0 +1,60 @@
+id: "@electrace/led-color-sensor"
+name: LED Color Sensor
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "◐"
+spec:
+  channels: { value: 3 }
+  method: { note: "Mims technique — reverse-charge each LED's junction capacitance, time the photocurrent discharge. Faster decay = more light the LED can 'see'." }
+  vsense: { min: 3.0, max: 5.5, unit: V }
+limits:
+  - { field: physics.note, value: 0, note: "An LED is a photodiode in disguise: reverse-biased, light generates a tiny photocurrent — and each LED is most sensitive to wavelengths AT OR BELOW its own emission color. Red sees red/orange, green sees green/blue-green, blue sees blue/violet. Three readings = a crude but real color fingerprint." }
+  - { field: timing.note, value: 0, note: "No ADC needed: drive a sense pin HIGH to reverse-charge the LED's ~10-50 pF junction, switch the pin to input, and count how long until it reads LOW. Bright light ≈ microseconds-to-milliseconds; darkness ≈ seconds. Calibrate against a white reference — raw decay times vary wildly between LED batches." }
+  - { field: selectivity.note, value: 0, note: "Clear-lens LEDs work far better than diffused (the lens is the optic). Shield from ambient or subtract an ambient-only reading; the cheap trick is to take all three readings twice — illuminated by a white LED, then dark — and difference them." }
+terminals:
+  - { id: sense_r, role: in, type: signal }
+  - { id: sense_g, role: in, type: signal }
+  - { id: sense_b, role: in, type: signal }
+  - { id: gnd,     role: in, type: gnd }
+schematic:
+  parts:
+    - { ref: R1, type: res, value: 100, footprint: R0603, why: "protects the red LED (and your GPIO) if firmware ever drives the pin low while the LED conducts — sensing itself needs no resistance" }
+    - { ref: D1, type: led, value: red, footprint: LED-5MM, why: "the red channel — reverse-biased it photo-detects red/orange light best, near its own emission wavelength. Clear-lens parts sense far better than diffused" }
+    - { ref: R2, type: res, value: 100, footprint: R0603, why: "green channel protection, same job as R1" }
+    - { ref: D2, type: led, value: green, footprint: LED-5MM, why: "the green channel — sees green and blue-green; mostly blind to red (photons below its bandgap energy can't excite it)" }
+    - { ref: R3, type: res, value: 100, footprint: R0603, why: "blue channel protection, same job as R1" }
+    - { ref: D3, type: led, value: blue, footprint: LED-5MM, why: "the blue channel — the highest bandgap, so it only responds to blue/violet; it's the pickiest and slowest-discharging of the three" }
+  nets:
+    - { name: SENSE_R, connect: [R1.1, "@sense_r"] }
+    - { name: CR,      connect: [R1.2, D1.2] }
+    - { name: SENSE_G, connect: [R2.1, "@sense_g"] }
+    - { name: CG,      connect: [R2.2, D2.2] }
+    - { name: SENSE_B, connect: [R3.1, "@sense_b"] }
+    - { name: CB,      connect: [R3.2, D3.2] }
+    - { name: GND,     connect: [D1.1, D2.1, D3.1, "@gnd"] }
+layout:
+  # three identical channels: sense port → 100 Ω → LED (flipped — cathode toward the pin,
+  # anode to ground, so driving the pin HIGH reverse-biases the junction for sensing)
+  symbols:
+    - { id: P_r, type: port, ref: sense_r, x: 20, y: 64, rot: 180 }
+    - { id: R1, type: resistor, ref: R1, value: 100Ω, x: 100, y: 60 }
+    - { id: D1, type: led, ref: D1, value: red, x: 230, y: 52, rot: 180 }
+    - { id: P_g, type: port, ref: sense_g, x: 20, y: 174, rot: 180 }
+    - { id: R2, type: resistor, ref: R2, value: 100Ω, x: 100, y: 170 }
+    - { id: D2, type: led, ref: D2, value: green, x: 230, y: 162, rot: 180 }
+    - { id: P_b, type: port, ref: sense_b, x: 20, y: 284, rot: 180 }
+    - { id: R3, type: resistor, ref: R3, value: 100Ω, x: 100, y: 280 }
+    - { id: D3, type: led, ref: D3, value: blue, x: 230, y: 272, rot: 180 }
+    - { id: P_gnd, type: port, ref: gnd, x: 390, y: 174, rot: 0 }
+  wires:
+    - { from: P_r.1, to: R1.1 }
+    - { from: R1.2, to: D1.2 }
+    - { from: P_g.1, to: R2.1 }
+    - { from: R2.2, to: D2.2 }
+    - { from: P_b.1, to: R3.1 }
+    - { from: R3.2, to: D3.2 }
+    - { from: D1.1, to: P_gnd.1, via: [[360, 74]] }
+    - { from: D2.1, to: P_gnd.1 }
+    - { from: D3.1, to: P_gnd.1, via: [[360, 294]] }

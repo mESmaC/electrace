@@ -300,6 +300,15 @@ export const GLOSSARY: GlossaryTerm[] = [
       { label: "NTC thermistor — the sensing circuit", href: "/blocks/ntc-thermistor" },
     ],
   },
+  {
+    slug: "photovoltaic-mode", term: "Photovoltaic mode (LEDs as sensors)", also: ["LED as photodiode", "Mims technique"],
+    def: "Every LED junction generates a small current when light strikes it — and it responds most strongly to wavelengths at or just below its own emission color, because lower-energy photons can't cross its bandgap. An LED is a wavelength-selective photodiode in disguise.",
+    practice: "The classic trick needs no ADC: reverse-charge the LED's few-tens-of-picofarads junction capacitance from a GPIO, flip the pin to input, and time how long photocurrent takes to bleed it away — microseconds in bright light, seconds in darkness. Three LEDs (red, green, blue) give a workable color fingerprint for pennies. Calibrate on a white reference; LED batches vary.",
+    links: [
+      { label: "LED color sensor — the circuit", href: "/blocks/led-color-sensor" },
+      { label: "LED indicator — the same part, working forwards", href: "/blocks/led-indicator" },
+    ],
+  },
 ];
 
 export const GLOSSARY_BY_SLUG: Record<string, GlossaryTerm> = Object.fromEntries(GLOSSARY.map((t) => [t.slug, t]));

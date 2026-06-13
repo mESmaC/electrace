@@ -113,3 +113,5 @@ https://www.electrace.net/glossary/brown-out
 https://www.electrace.net/glossary/body-diode
 https://www.electrace.net/glossary/sallen-key
 https://www.electrace.net/glossary/ntc-thermistor
+https://www.electrace.net/blocks/led-color-sensor
+https://www.electrace.net/glossary/photovoltaic-mode
