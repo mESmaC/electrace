@@ -80,6 +80,15 @@ for its own long-form ("the machines hiding in your phone") or a Short per devic
 resonance with the channel thesis: the one chip family where "what's inside" is literally
 mechanical — teardown content where the magic turns out to be springs.
 
+**"Your brain is a datacenter"** (Cameron) — the bio-electronics crossover: ~86 billion
+neurons doing exascale-ish work on ~20 watts (a sandwich a day) while real datacenters
+burn megawatts for less; neurons as components (membrane = capacitor, ion channel =
+transistor-ish, axon = lossy transmission line, synapse = weighted summing node). Big
+broad-appeal ceiling. LANE NOTE: furthest from the bench of anything in the pipeline — no
+block page to land on, so it's an audience-growth play rather than a funnel play; best
+saved for when the channel wants a reach spike, and the EE-component framing (neuron AS
+circuit) keeps it on-brand if we do it.
+
 Glossary candidates from this list: dielectric-absorption, thermal-emf, microphonics,
 negative-resistance. Add when the videos near.
 
