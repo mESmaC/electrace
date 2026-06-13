@@ -1015,11 +1015,15 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                   <g onPointerDown={(e) => onSymDown(e, s)} style={{ cursor: "move" }}>
                     <rect x={-4} y={-4} width={d.w + 8} height={d.h + 8} fill="transparent" />
                     {/* opaque body: a wire passing beneath is MASKED, not visible through the glyph
-                        — a line through a part otherwise reads as a connection that doesn't exist.
-                        Chips mask their true body; others a box inset enough to keep pin stubs clear. */}
+                        — a line through a part reads as a connection that doesn't exist. The soft
+                        inner edge (a faint dark stroke just inside the mask) makes a wire look like
+                        it ducks UNDER the part rather than stopping dead at a flat cut — the same
+                        depth cue wire-over-wire crossings use. */}
                     {d.body
-                      ? <rect x={d.body.x} y={d.body.y} width={d.body.w} height={d.body.h} fill="var(--color-bg)" />
-                      : d.w > 14 && d.h > 14 && <rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" />}
+                      ? <><rect x={d.body.x} y={d.body.y} width={d.body.w} height={d.body.h} fill="var(--color-bg)" />
+                          <rect x={d.body.x + 0.75} y={d.body.y + 0.75} width={d.body.w - 1.5} height={d.body.h - 1.5} fill="none" stroke="#000" strokeOpacity={0.28} strokeWidth={1.5} rx={2} /></>
+                      : d.w > 14 && d.h > 14 && <><rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" />
+                          <rect x={5.75} y={5.75} width={d.w - 11.5} height={d.h - 11.5} fill="none" stroke="#000" strokeOpacity={0.28} strokeWidth={1.5} rx={2} /></>}
                     {glyph}
                   </g>
                   {selected && <rect x={-5} y={-5} width={d.w + 10} height={d.h + 10} fill="none" stroke="#4c8dff" strokeDasharray="4 3" rx="4" />}

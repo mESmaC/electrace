@@ -177,9 +177,14 @@ function InstanceSheet({ it, symStyle, onOpen }: { it: Item; symStyle: SymStyle;
         if (!d) return null;
         const isPort = s.type === "port";
         const glyph = s.chip ? renderChip(d, s.chip) : SYMBOLS[s.type]?.draw(symStyle);
+        // mask + soft inner edge so wires read as ducking UNDER the part, not stopping at a flat
+        // cut (matches the block editor's depth treatment; see BlockSchematic body mask).
         const mask = d.body
-          ? <rect x={d.body.x} y={d.body.y} width={d.body.w} height={d.body.h} fill="var(--color-bg)" />
-          : d.w > 14 && d.h > 14 ? <rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" /> : null;
+          ? <><rect x={d.body.x} y={d.body.y} width={d.body.w} height={d.body.h} fill="var(--color-bg)" />
+              <rect x={d.body.x + 0.75} y={d.body.y + 0.75} width={d.body.w - 1.5} height={d.body.h - 1.5} fill="none" stroke="#000" strokeOpacity={0.28} strokeWidth={1.5} rx={2} /></>
+          : d.w > 14 && d.h > 14 ? <><rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" />
+              <rect x={5.75} y={5.75} width={d.w - 11.5} height={d.h - 11.5} fill="none" stroke="#000" strokeOpacity={0.28} strokeWidth={1.5} rx={2} /></>
+          : null;
         const g = s.ref ? it.glow.get(s.ref) : undefined;
         const rel = g ? Math.min(1.4, g.amps / TYPICAL_LED_A) : 0;
         return (
