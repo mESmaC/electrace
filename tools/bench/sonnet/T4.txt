@@ -1,0 +1,14 @@
+This regulator outputs 12 V right? Why is the LED so bright?
+
+Two things to address here:
+
+1. The regulator outputs 5 V, not 12 V.
+The buck converter's feedback divider — R1 = 39 kΩ and R2 = 10 kΩ — sets the output voltage. The ratio R1/R2 = 3.9 is consistent with a ~5 V output (as shown in the net list: vout#2 is labeled 5 V). So REG1 is definitely a 5 V rail, not 12 V. (The 9–18 V rail is your input from PWR1, before regulation.)
+
+2. The LED is bright because the current-limiting resistor is too small for 5 V.
+The LED block has R1 = 330 Ω. At 5 V, assuming ~2 V forward drop across the LED:
+
+    I = (5 V − 2 V) / 330 Ω ≈ 9 mA
+
+That's on the high end for a status LED — a typical indicator only needs 1–2 mA to be clearly visible. A value like 1.5 kΩ would give a more comfortable ~2 mA. Want me to swap in a different resistor value?
+

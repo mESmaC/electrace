@@ -1,0 +1,26 @@
+What does the RC network between the sensor and the ADC do to a 10 kHz signal? Use the engine, then tell me whether I should worry.
+
+Here's what the engine found:
+
+The RC filter cuts 10 kHz by −16 dB (≈ ×0.16 in amplitude), with an 81° phase lag.
+
+Key numbers:
+Frequency 	Attenuation 	Phase
+100 Hz 	−0.0 dB 	−4°
+1 kHz 	−1.5 dB 	−32°
+10 kHz 	−16.1 dB 	−81°
+31.6 kHz 	−26.0 dB 	−87°
+
+The −3 dB corner is ~2 kHz, so at 10 kHz you're already two octaves past the roll-off knee — deep in the stopband.
+Should you worry?
+
+It depends entirely on what your signal contains:
+
+    Temperature/NTC signal — NTCs are slow. Real thermal signals have almost no content above a few Hz. The filter is doing exactly its job: blocking 50/60 Hz mains pickup, switching noise from the buck converter upstream, and RF interference. A 10 kHz signal getting crushed here is a feature, not a bug. ✅
+
+    If you ever expect to track fast transients (e.g. a pulsed heater, a fast-responding thermistor in moving fluid) — 2 kHz bandwidth may be tight. A 16 dB hit at 10 kHz means you'd see only ~16% of a fast-rising edge. You'd want to raise the corner frequency (lower R, lower C, or both).
+
+    For the comparator downstream — the comparator (CMP1) is driven by the filtered output. The 81° phase lag at 10 kHz is irrelevant for a static threshold decision, but if the comparator is hunting (chattering) on a noisy signal, the filter is actively helping suppress that. ✅
+
+Bottom line: no action needed for a thermal sensor chain. The 2 kHz corner is well-matched to NTC dynamics. The only reason to revisit it is if your application demands tracking thermal events faster than ~1 kHz.
+

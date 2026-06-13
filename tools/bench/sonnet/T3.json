@@ -1,0 +1,79 @@
+{
+  "id": "proj-mqbm953o-s6ji",
+  "name": "Dual MCU carrier",
+  "visibility": "unlisted",
+  "blocks": [
+    {
+      "ref": "REG1",
+      "block": "@electrace/buck-converter@1.2.0",
+      "pos": [
+        320,
+        128
+      ]
+    },
+    {
+      "ref": "MCU1",
+      "block": "@electrace/mcu-load@1.0.0",
+      "pos": [
+        640,
+        40
+      ]
+    },
+    {
+      "ref": "MCU2",
+      "block": "@electrace/mcu-load@1.0.0",
+      "pos": [
+        640,
+        260
+      ]
+    },
+    {
+      "ref": "REG2",
+      "block": "@electrace/buck-converter@1.2.0",
+      "pos": [
+        40,
+        340
+      ]
+    },
+    {
+      "ref": "PWR1",
+      "block": "@user/power-entry-5a@1.0.0",
+      "pos": [
+        40,
+        340
+      ]
+    }
+  ],
+  "connectors": [],
+  "connections": [
+    {
+      "from": "REG1.vout",
+      "to": "MCU1.vdd"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "MCU1.gnd"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "MCU2.gnd"
+    },
+    {
+      "from": "REG2.vout",
+      "to": "MCU2.vdd"
+    },
+    {
+      "from": "PWR1.vout",
+      "to": "REG1.vin"
+    },
+    {
+      "from": "PWR1.vout",
+      "to": "REG2.vin"
+    },
+    {
+      "from": "PWR1.gnd",
+      "to": "REG1.gnd_in"
+    }
+  ],
+  "acks": []
+}

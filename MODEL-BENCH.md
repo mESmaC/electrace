@@ -86,6 +86,28 @@ math. 0–2.
 | Model | T1 | T2 | T3 | T4 | T5 | T6 | /12 | $ total | $/point |
 |---|---|---|---|---|---|---|---|---|---|
 | claude-haiku-4-5 (run 1, 2026-06-12) | 1 | 1 | 1 | **2** | – | – | 5/8 valid | ⬜ (recover via bench-cost) | ⬜ |
+| claude-sonnet-4-6 (run 1, 2026-06-12) | 2 | 1 | 1 | **2** | 2 | 2 | **10/12** | ⬜ (recover via bench-cost) | ⬜ |
+
+**Sonnet run-1 notes (transcripts in tools/bench/sonnet/):**
+- **T1 = 2 — the authoring gap is real.** Correct fixed-3.3 V handling (VFB→VOUT per the EVB
+  note), bootstrap cap present, real inductor MPN, EN tied to VIN (Haiku tied it to VOUT —
+  a never-starts bootstrap flaw). This single task is the premium-tier pitch in miniature.
+- T2 = 1: excellent system + an honest, itemized MANUAL standby estimate (385 µA, 218 days)
+  with method labeled — but the rubric wants standby_draw quoted, and it took 3 step-limit
+  "continue"s to finish. (Product note: the manual sum included LDO/comparator quiescent that
+  our tool only covers via declared iStandby — blocks should declare Iq. And MAX_TURNS=24
+  forced the continues — consider a higher build budget or auto-continue.)
+- T3 = 1: diagnosis perfect; but called adding a SECOND buck "the cheapest fix" (a part swap
+  to a higher-rated buck is cheaper) and one efficiency sentence was word salad.
+- **T4 = 2, disqualifier passed with style**: derived 5 V from the FB divider ratio itself,
+  then did the LED math (9 mA @ 330 Ω) and suggested the right resistor.
+- T5 = 2 (verified): findings diff was TRUTHFUL — the over-voltage trap fired and was
+  reported exactly; the engine really does produce no si/* finding on the unterminated pair
+  (now filed as VERIFICATION F13 — the model was honest about an engine gap, then guessed
+  a wrong explanation for it).
+- T6 = 2: engine numbers exact (−16.1 dB @ 10 kHz = the verified 0.157), nuanced verdict.
+- **Head-to-head on the four tasks both ran: Sonnet 6/8 vs Haiku 5/8 — but the QUALITATIVE
+  gap is all in authoring/precision (T1), exactly where users feel it.**
 
 **Haiku run-1 notes (scored from transcripts in tools/bench/haiku/):**
 - **T4 = 2, the disqualifier PASSED**: corrected "12 V right?" from the DC solve (5.000 V),

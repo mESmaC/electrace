@@ -1,0 +1,17 @@
+Declare the barrel jack as a 12 V 2 A wall supply, set the RS-485 pair as a terminated bus class, and tell me every finding that changed as a result.
+
+Here's a precise before-and-after of every finding that changed:
+🆕 New findings
+Severity 	Finding 	Why it appeared
+🔴 Error 	VIN can reach 12 V but CMP1.vcc accepts max 5.5 V 	The engine now knows 12 V arrives at J1.+. It traced that straight to CMP1.vcc and caught the over-voltage. You need a regulator (e.g. 5 V LDO) between J1 and the comparator's VCC.
+💡 Note 	VIN's source is rated 2 A but only ~0 A is used — a smaller, cheaper part would do 	The declared 2 A capacity is now checked against actual load draw; the comparator's ~0 A draw makes the 2 A rating look oversized.
+💡 Note 	solve/nonlinear-open @ CMP1/U1 	DC solve ran as part of the voltage check and flagged the IC as a nonlinear element (expected; no action needed).
+🔄 Modified finding
+Finding 	Before 	After
+Test-point recommendation 	Referenced V+ (2.7–5.5 V range, loosely typed) 	Now references VIN with the concrete 12 V/2 A spec
+✅ Unchanged
+
+    The RS-485 class declaration produced no new schematic-level findings — termination and pair-skew checks are deferred to PCB DRC (trace-length enforcement runs there). The class is registered and will fire if termination is missing once routed.
+
+The headline takeaway: declaring the 12 V supply exposed a real bug — the comparator's 5.5 V max VCC is connected directly to a 12 V rail. You'll want a 5 V (or 3.3 V) LDO between J1 and CMP1.vcc. Want me to drop one in?
+

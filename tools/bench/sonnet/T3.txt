@@ -1,0 +1,32 @@
+Why is my +5V rail showing a warning? Investigate and explain exactly what's wrong and the cheapest fix.
+
+Here's the full picture:
+What's wrong
+
+The vout#2 (5 V) rail is 120% over budget — it needs 3.6 A but the buck converter only provides 3 A.
+
+Breaking it down precisely:
+Source 	Rated output
+REG1 (Buck Converter) 	3.0 A
+Load 	Draw
+MCU1 (MCU + Load) 	1.8 A
+MCU2 (MCU + Load) 	1.8 A
+Total demand 	3.6 A
+
+You have two MCU+Load blocks (MCU1 and MCU2) each drawing 1.8 A from the same 5 V rail, for a combined 3.6 A — 0.6 A over the single buck's 3 A limit. The converter is continuously overloaded and will either current-limit, thermally shut down, or fail.
+
+(Note: the vout input rail has the same problem — it's overloaded at 118% too, which is the upstream source feeding REG1.)
+The cheapest fix
+
+Add a second identical buck converter in parallel on the 5 V rail — or better, split the load: give each MCU its own dedicated buck. That way:
+
+    REG1 → MCU1 (1.8 A draw vs 3 A rated → 60% used ✅)
+    REG2 (new, same part) → MCU2 (1.8 A draw vs 3 A rated → 60% used ✅)
+
+The upstream vout overload also resolves because each buck only draws ~1.2 A from the input (at ~90% efficiency, 18 V→5 V), so the combined input draw drops from 2.35 A to ~2.35 A split more reasonably — or you can use a higher-current power entry.
+
+Want me to go ahead and add a second buck converter for MCU2 and rewire the rail? I can also fix the upstream vout input overload at the same time.
+Sure
+
+I made some changes but hit the step limit — ask me to continue if it's not finished.
+
