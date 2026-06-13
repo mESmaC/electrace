@@ -96,13 +96,25 @@ function Dashboard() {
   const refresh = () => setProjects(listProjects());
   useEffect(() => {
     // RequireAuth gates the login; here we just send brand-new users through onboarding once.
-    try { if (!localStorage.getItem("electrace:onboarded")) { router.replace("/welcome"); return; } } catch { /* ignore */ }
+    // The flag syncs with the account — on a FRESH DEVICE it may still be hydrating, so a
+    // missing flag waits for pullAll (or 1.5 s) before concluding the user is actually new.
+    let onboardCancelled = false;
+    try {
+      if (!localStorage.getItem("electrace:onboarded")) {
+        const recheck = () => {
+          if (onboardCancelled) return;
+          try { if (!localStorage.getItem("electrace:onboarded")) router.replace("/welcome"); } catch { /* ignore */ }
+        };
+        const offHyd = onHydrated(recheck);
+        setTimeout(() => { offHyd?.(); recheck(); }, 1500);
+      }
+    } catch { /* ignore */ }
     try { setPromo(!localStorage.getItem("electrace:dash:promo-dismissed")); } catch { setPromo(true); }
     setMounted(true); refresh();
     let alive = true;
     fetch("/api/me").then((r) => r.json()).then((d) => { if (alive) setPro(!!d.pro); }).catch(() => {});
     const off = onHydrated(refresh);
-    return () => { alive = false; off?.(); };
+    return () => { alive = false; onboardCancelled = true; off?.(); };
   }, [router]);
   const who = profile?.name?.trim() || "You";
   const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "YOU";

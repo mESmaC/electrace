@@ -1376,16 +1376,21 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             {designName} <span className="font-normal text-[var(--color-faint)]">✎</span>
           </button>
           <button onClick={resetSample} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">New</button>
-          <button onClick={() => fileRef.current?.click()} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Import</button>
-          <button onClick={exportDesign} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Export</button>
           <button onClick={() => setReportOpen(true)} title="The design report — readable here, exportable as Markdown" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
           <button onClick={() => setNetlistOpen(true)} title="The stitched netlist — graph + nets here, exportable as KiCad .net" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
           <button onClick={() => setHistoryOpen(true)} title="Version history — checkpoints, named snapshots, loss-proof restore" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">History</button>
           <button onClick={() => setAcOpen(true)} title="Frequency response — H(jω) between any two points of this design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">AC</button>
           {projectId && <ShareMenu designId={design.id} />}
-          <button onClick={resetSchematics} title="Discard saved block-schematic edits and revert to authored versions" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset schematics</button>
-          <button onClick={() => setSchemView(true)} title="The whole design as one traditional schematic sheet (read-only, SVG export)" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Schematic</button>
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
+          <button title="More — import/export, schematic sheet, reset"
+            onClick={(e) => openContextMenu(e, [
+              { label: "Import design JSON…", icon: "⤓", onSelect: () => fileRef.current?.click() },
+              { label: "Export design JSON", icon: "⤒", onSelect: exportDesign },
+              { label: "Schematic sheet (SVG)", icon: "▤", onSelect: () => setSchemView(true) },
+              { separator: true as const },
+              { label: "Reset block schematics", icon: "↺", danger: true, onSelect: resetSchematics },
+            ])}
+            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">⋯</button>
           {savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
           <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
           <SymbolStyleToggle />

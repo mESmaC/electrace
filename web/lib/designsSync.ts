@@ -139,7 +139,23 @@ export async function reconcileDesigns(rawWrite: (k: string, v: string) => void)
   }
   if (changed) rawWrite(INDEX, JSON.stringify([...localById.values()].sort((a, b) => b.updatedAt - a.updatedAt)));
 
-  // import/push: local designs the account doesn't have yet (the pre-account work)
+  // import/push: local designs the account doesn't have yet (the pre-account work).
+  // ALSO sweep raw design keys missing from the index — first-rev designs predate the
+  // index and were invisible to this loop (Cameron's cross-system gap): rebuild their
+  // meta from the design itself so they push like everything else.
+  const indexIds = new Set(index.map((p) => p.id));
+  let indexGrew = false;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    const m = k?.match(/^electrace:design:(.+)$/);
+    if (!m || indexIds.has(m[1]) || readTombs().includes(m[1])) continue;
+    const d = readJson<Design>(k!);
+    if (!d || !Array.isArray(d.blocks)) continue;
+    index.push({ id: m[1], name: d.name || "Untitled project", updatedAt: Date.now() });
+    indexIds.add(m[1]);
+    indexGrew = true;
+  }
+  if (indexGrew) rawWrite(INDEX, JSON.stringify([...index].sort((a, b) => b.updatedAt - a.updatedAt)));
   const remoteIds = new Set(remote.map((d) => d.id));
   for (const p of index) if (!remoteIds.has(p.id)) await pushDesignNow(p.id);
 
