@@ -1,0 +1,21 @@
+What does the RC network between the sensor and the ADC do to a 10 kHz signal? Use the engine, then tell me whether I should worry.
+
+Here's what the engine says.
+
+The filter: R1 = 1 kΩ, C1 = 100 nF — a first‑order RC low‑pass with a −3 dB corner at ~1.99 kHz (1/(2π·1k·100n)).
+
+What it does to your 10 kHz signal:
+
+    At 10 kHz the engine measured −16.1 dB, i.e. the amplitude is knocked down to ≈16% of input (factor of ~6.3), with −81° of phase lag.
+    For context, it's flat through ~300 Hz, already −1.5 dB at 1 kHz, and rolls off at the textbook −20 dB/decade beyond the corner.
+
+Should you worry? It depends entirely on what 10 kHz is in your chain:
+
+    If 10 kHz is signal you care about — yes, worry. This filter is sitting right at your sensor→ADC path and it's gutting anything above ~2 kHz. A temperature/NTC chain almost never has real signal up there, so this is usually fine — but if you intended this node to pass fast transients, the corner is far too low.
+
+    If 10 kHz is noise you're trying to kill (mains harmonics, switching ripple from REG1, EMI) — this is doing its job, and −16 dB is decent attenuation. Note your buck (REG1) switches much higher than 10 kHz, so its ripple gets attenuated even harder (≈−36 dB at 100 kHz per the sweep).
+
+The thing I'd actually flag: the downstream block is a comparator (CMP1), not a true ADC. For a comparator you mostly care about clean DC/slow level, so the 2 kHz corner is reasonable anti‑alias/de‑glitch behavior. But the −81° phase lag at 10 kHz means significant delay near the corner — if your threshold crossings need to be time‑accurate, that lag matters.
+
+Net: for a slow thermal sensing chain into a comparator, this RC is appropriate and you don't need to worry. If you actually need bandwidth past ~1–2 kHz at this node, raise the corner — e.g. drop C1 to 10 nF (corner ≈ 20 kHz) or R1 to 100 Ω (corner ≈ 16 kHz). Want me to bump the corner, or leave it?
+

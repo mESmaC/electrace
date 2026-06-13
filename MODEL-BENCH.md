@@ -87,6 +87,30 @@ math. 0–2.
 |---|---|---|---|---|---|---|---|---|---|
 | claude-haiku-4-5 (run 1, 2026-06-12) | 1 | 1 | 1 | **2** | – | – | 5/8 valid | **$0.22** (4 tasks) | ~$0.04 |
 | claude-sonnet-4-6 (run 1, 2026-06-12) | 2 | 1 | 1 | **2** | 2 | 2 | **10/12** | **$1.55** (6 tasks) | ~$0.16 |
+| claude-opus-4-8 (run 1, 2026-06-12) | 2 | 2 | 2 | **2** | 2 | 2 | **12/12** | **$1.06** (6 tasks) | ~$0.09 |
+
+**Opus run-1 notes (transcripts in tools/bench/opus/):**
+- **12/12, and CHEAPER than Sonnet in practice** ($1.06 vs $1.55): zero step-limit continues —
+  fewer round trips, fewer cache re-reads. Capability bought efficiency.
+- T1: enumerated the real TSOT-23-6 pinout pin-by-pin, quoted the datasheet's EN-to-VIN
+  guidance, flagged the deliberately-open vout itself.
+- **T2 is the tier pitch**: ran standby_draw, got 0, REFUSED the wrong tool number — explained
+  WHY it read zero (no iStandby declared on authored blocks), computed an honest itemized
+  manual floor (0.73 mA → 3 months), and offered to add the declarations so the engine tracks
+  it. Diagnosing the tool's own limitation is senior-engineer behavior. (Follow-up for US:
+  check why authored-block internals didn't give the solver a resistive floor — possible gap.)
+- T3: found the genuinely cheapest fix first — "is that declared 1.8 A real or padded?" (a
+  zero-cost declaration edit) — then bigger-buck, then split, correctly ranked.
+- T5: anchored the RS-485 class on BLOCK pins → si/termination-missing FIRED (refines F13:
+  the silent no-fire is specific to connector-pin anchoring). Then pushed back on the task's
+  own setup: "RS-485 on a comparator looks off — you need a transceiver." Correct.
+- T6: caught that the prompt says ADC but the fixture's downstream is a comparator, called it
+  out, and reasoned about phase lag for threshold timing. Best answer of the three models.
+- **Ladder verdict: the premium story EXISTS and is demo-able.** Haiku diagnoses; Sonnet
+  builds correctly; Opus exercises judgment — questions premises (including ours), diagnoses
+  tool limitations, ranks fixes by real cost. And at run-1 prices the premium tier's COGS
+  is ~parity with Sonnet. Tier shape supported: Pro = Sonnet-class $9/$15; Pro+ = Opus-class
+  ~$19-29 with "Sparky thinks like a senior engineer" as an honest, evidence-backed pitch.
 
 **Sonnet run-1 notes (transcripts in tools/bench/sonnet/):**
 - **T1 = 2 — the authoring gap is real.** Correct fixed-3.3 V handling (VFB→VOUT per the EVB

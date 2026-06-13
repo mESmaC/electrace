@@ -1,0 +1,67 @@
+{
+  "id": "proj-mqbn1o8b-q1pv",
+  "name": "Dual MCU carrier",
+  "visibility": "unlisted",
+  "blocks": [
+    {
+      "ref": "PWR1",
+      "block": "@electrace/power-entry@1.0.0",
+      "pos": [
+        40,
+        120
+      ]
+    },
+    {
+      "ref": "REG1",
+      "block": "@electrace/buck-converter@1.2.0",
+      "pos": [
+        320,
+        128
+      ]
+    },
+    {
+      "ref": "MCU1",
+      "block": "@electrace/mcu-load@1.0.0",
+      "pos": [
+        640,
+        40
+      ]
+    },
+    {
+      "ref": "MCU2",
+      "block": "@electrace/mcu-load@1.0.0",
+      "pos": [
+        640,
+        260
+      ]
+    }
+  ],
+  "connectors": [],
+  "connections": [
+    {
+      "from": "PWR1.vout",
+      "to": "REG1.vin"
+    },
+    {
+      "from": "PWR1.gnd",
+      "to": "REG1.gnd_in"
+    },
+    {
+      "from": "REG1.vout",
+      "to": "MCU1.vdd"
+    },
+    {
+      "from": "REG1.vout",
+      "to": "MCU2.vdd"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "MCU1.gnd"
+    },
+    {
+      "from": "REG1.gnd_out",
+      "to": "MCU2.gnd"
+    }
+  ],
+  "acks": []
+}

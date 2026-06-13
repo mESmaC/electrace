@@ -1,0 +1,26 @@
+Build me a battery-powered temperature alarm: Li-ion cell, charging from USB-C, an NTC sensing stage, a comparator that trips at the equivalent of 50 °C, and a buzzer output. Wire it completely and tell me the standby draw.
+
+The solver treats these blocks as opaque subcircuits (their internal resistors aren't exposed at the flattened top level), so it can't auto-compute the floor — that's why standby reads zero. That's an honest tool limitation here, not a real zero. The blocks declare no iStandby, so the engine has nothing to sum. I'll compute it from the actual BOM values I pulled, which is the ground truth.
+
+The design is complete and wired. Here's the summary.
+Done — battery temperature alarm, fully wired
+
+Signal chain: USB-C (J1) → TP4056 charger (CHG1) → Li-ion cell (J2/JST-PH) on the shared VBAT rail → NTC sensing stage (NTC1) → LM393 comparator @ 50 °C trip (CMP1) → buzzer driver (BUZ1) → piezo header (J3).
+
+    Charging: J1 VBUS/GND → CHG1; CHG1.batt + the cell share VBAT (standard single-cell charge-and-run — flagged, reviewed, acknowledged as intended). USB-C declared at 5 V / 1.5 A, JST at 4.2 V.
+    Trip point: NTC1 is a 10k/B3950 NTC with a 10k top resistor; at 50 °C it's ≈3.6 kΩ → SENSE ≈ 0.265·VBAT. CMP1's reference is R_TOP 27k / R_BOT 10k = 0.270·VBAT. SENSE falls through the reference as temperature rises, so it trips right around 50 °C, with R_HYS 1M adding hysteresis so it doesn't chatter.
+    Output: comparator OUT → buzzer driver gate; the piezo + 2N7002 + flyback diode live inside BUZ1, with BUZZ_OUT brought to header J3.
+
+Standby draw (alarm idle, not tripped, ~4.2 V cell):
+Always-on path 	Current
+NTC divider (10k + 10k NTC) 	~210 µA
+Comparator ref divider (27k + 10k) 	~114 µA
+LM393 quiescent 	~400 µA
+Output pull-up / buzzer / FET (off) 	~0
+TP4056 battery-side leakage 	~3 µA
+Total 	≈ 0.73 mA
+
+On a typical 2000 mAh 18650 that's ~3+ months of standby. The two dividers (~324 µA) are the biggest knob — if you want to cut it, I can bump the NTC top resistor and comparator divider to 100k-class values to drop the resistive floor to well under 100 µA. The LM393's ~0.4 mA is then the floor; a micropower comparator (e.g. TLV7011) would take the whole thing under 100 µA.
+
+One note: the built-in DC/standby solver couldn't auto-sum these because the resistors live inside opaque user blocks that declare no iStandby value — the numbers above are computed from each block's actual BOM. If you'd like the engine to track it automatically, I can add declared standby draws to those blocks. The CHG1 CHRG status pin is labeled CHRG_LED and left as a tap — want me to add an LED indicator on it?
+

@@ -1,0 +1,15 @@
+This regulator outputs 12 V right? Why is the LED so bright?
+
+Quick correction on that — let me check the actual nets.
+
+Looking at your design, the regulator is not outputting 12 V:
+
+    vout [power 9–18 V] is your input rail (PWR1 → REG1.vin) — that's the 9–18 V coming in.
+    vout#2 [rail 5 V] is the regulator's output (REG1.vout → LED1.vin) — that's 5 V, not 12 V.
+
+So REG1 is a buck converter stepping your 9–18 V input down to 5 V, and the LED is running off that 5 V rail.
+
+As for why the LED is bright — that's worth a look at LED1's internal schematic. A 5 V rail driving an LED indicator needs a series current-limit resistor sized for 5 V. If the resistor inside LED1 is missing or sized too small (or sized for a lower voltage), the LED draws too much current and runs hot/bright. The power budget shows only ~0.02 A on that rail, which is a sane indicator current, so the brightness might just be a high-efficiency LED at a normal 15–20 mA.
+
+Want me to open up LED1 and check its series resistor value? If it's missing or too small for the 5 V rail, I'll size it properly (e.g. ~165 Ω for ~20 mA on a red LED, higher for lower brightness). Just say the word and I'll fix it.
+

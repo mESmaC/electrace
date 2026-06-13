@@ -1,0 +1,31 @@
+Declare the barrel jack as a 12 V 2 A wall supply, set the RS-485 pair as a terminated bus class, and tell me every finding that changed as a result.
+
+Both declarations are in. Here's every finding that changed, before → after:
+
+New errors
+
+    ⛔ voltage/over-input @ V+, CMP1.vcc — new. Declaring 12 V at the barrel jack lit this up immediately: V+ can now reach 12 V, but the comparator's VCC only accepts 5.5 V max. This is a real over-voltage problem — the 12 V brick feeds the comparator directly with nothing in between.
+
+New warnings
+
+    ⚠️ si/termination-missing @ out, in — new. The RS-485 class now expects a ~120 Ω termination bridging the A/B pair, and there isn't one on-board.
+
+New recommendations
+
+    💡 current/under-utilized @ V+ — new. The jack is declared 2 A but the board draws ~0 A, so the checker notes a smaller supply would do.
+
+New info note
+
+    ℹ️ solve/nonlinear-open @ CMP1/U1 — appears now that there's a declared source to solve a DC operating point against.
+
+Unchanged
+
+    The test-point recommendation on V+ was already there and still stands.
+
+A couple of things worth your call, since both new flags point at genuine design gaps:
+
+    The 12 V → 5.5 V conflict is real. Either add a regulator between J1 and the comparator (e.g. 12 V → 5 V or 3.3 V), or the comparator will see 12 V on VCC and let the magic smoke out. Want me to drop in a regulator block?
+
+    RS-485 on a comparator looks off. RS-485 is a differential A/B bus and needs a transceiver (e.g. MAX3485/SP3485) — declaring the class on the comparator's single-ended in/out pair will keep flagging missing termination. If your termination resistor lives off-board at the cable end, I can mark it terminated_externally to clear the warning; otherwise I can add a 120 Ω terminator. But if you actually want a real RS-485 interface, the right move is a transceiver block. How do you want to handle it?
+
+

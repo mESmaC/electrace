@@ -1,0 +1,188 @@
+{
+  "id": "proj-mqbmz0ax-j1m2",
+  "name": "Untitled project",
+  "visibility": "unlisted",
+  "blocks": [
+    {
+      "ref": "CHG1",
+      "block": "@electrace/liion-charger@1.0.0",
+      "pos": [
+        40,
+        120
+      ]
+    },
+    {
+      "ref": "NTC1",
+      "block": "@user/ntc-sensing-stage@1.0.0",
+      "pos": [
+        300,
+        120
+      ]
+    },
+    {
+      "ref": "CMP1",
+      "block": "@user/temp-comparator-50-c-trip@1.0.0",
+      "pos": [
+        560,
+        120
+      ]
+    },
+    {
+      "ref": "BUZ1",
+      "block": "@user/buzzer-driver@1.0.0",
+      "pos": [
+        820,
+        120
+      ]
+    }
+  ],
+  "connectors": [
+    {
+      "ref": "J1",
+      "connector": "usb-c",
+      "pos": [
+        40,
+        600
+      ],
+      "pins": {
+        "VBUS": {
+          "name": "VBUS",
+          "type": "power",
+          "role": "out",
+          "v": {
+            "max": 5,
+            "unit": "V"
+          },
+          "i": {
+            "max": 1.5,
+            "unit": "A"
+          }
+        },
+        "GND": {
+          "name": "GND",
+          "type": "gnd"
+        }
+      }
+    },
+    {
+      "ref": "J2",
+      "connector": "jst-ph-2",
+      "pos": [
+        240,
+        600
+      ],
+      "pins": {
+        "1": {
+          "name": "VBAT",
+          "type": "power",
+          "role": "out",
+          "v": {
+            "max": 4.2,
+            "unit": "V"
+          },
+          "i": {
+            "max": 2,
+            "unit": "A"
+          }
+        },
+        "2": {
+          "name": "GND",
+          "type": "gnd"
+        }
+      }
+    },
+    {
+      "ref": "J3",
+      "connector": "hdr-2",
+      "pos": [
+        440,
+        600
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "J1.VBUS",
+      "to": "CHG1.vin"
+    },
+    {
+      "from": "J1.GND",
+      "to": "CHG1.gnd"
+    },
+    {
+      "from": "CHG1.batt",
+      "to": "J2.1"
+    },
+    {
+      "from": "J2.2",
+      "to": "CHG1.gnd"
+    },
+    {
+      "from": "NTC1.SENSE",
+      "to": "CMP1.IN_P"
+    },
+    {
+      "from": "CMP1.OUT",
+      "to": "BUZ1.CTRL"
+    },
+    {
+      "from": "BUZ1.BUZZ_OUT",
+      "to": "J3.1"
+    },
+    {
+      "from": "J3.2",
+      "to": "CHG1.gnd"
+    }
+  ],
+  "acks": [
+    {
+      "rule": "connectivity/multiple-drivers",
+      "at": [
+        "VBAT"
+      ],
+      "note": "Intended: the TP4056 charger output and the Li-ion cell (via J2) share the system VBAT node — standard single-cell charge-and-run topology."
+    }
+  ],
+  "labels": [
+    {
+      "node": "CHG1.batt",
+      "name": "VBAT"
+    },
+    {
+      "node": "CHG1.gnd",
+      "name": "GND"
+    },
+    {
+      "node": "NTC1.VCC",
+      "name": "VBAT"
+    },
+    {
+      "node": "CMP1.VCC",
+      "name": "VBAT"
+    },
+    {
+      "node": "CMP1.VREF_VCC",
+      "name": "VBAT"
+    },
+    {
+      "node": "BUZ1.VCC",
+      "name": "VBAT"
+    },
+    {
+      "node": "NTC1.GND",
+      "name": "GND"
+    },
+    {
+      "node": "CMP1.GND",
+      "name": "GND"
+    },
+    {
+      "node": "BUZ1.GND",
+      "name": "GND"
+    },
+    {
+      "node": "CHG1.chrg",
+      "name": "CHRG_LED"
+    }
+  ]
+}
