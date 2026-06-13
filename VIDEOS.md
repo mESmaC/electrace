@@ -71,6 +71,15 @@ mind-blower escalation: peeling Scotch tape in a vacuum emits actual X-RAYS (Nat
 — enough to image a finger bone). Pairs naturally with the haunted long-form's
 triboelectric coax note; ESD-safe-bench practices as the practical payoff.
 
+**MEMS — "this chip has moving parts"** (Cameron) — the most overlooked everyday marvel:
+your phone holds actual micron-scale MACHINES. The accelerometer is a proof mass on real
+silicon springs (capacitive fingers measure the wobble), the gyro is a vibrating tuning
+fork feeling Coriolis, the microphone is a drum skin etched in silicon, DLP projectors
+steer millions of hinged mirrors, and MEMS oscillators are replacing quartz. Rich enough
+for its own long-form ("the machines hiding in your phone") or a Short per device. Bonus
+resonance with the channel thesis: the one chip family where "what's inside" is literally
+mechanical — teardown content where the magic turns out to be springs.
+
 Glossary candidates from this list: dielectric-absorption, thermal-emf, microphonics,
 negative-resistance. Add when the videos near.
 
