@@ -92,6 +92,29 @@ circuit) keeps it on-brand if we do it.
 Glossary candidates from this list: dielectric-absorption, thermal-emf, microphonics,
 negative-resistance. Add when the videos near.
 
+## Series #3: "How computers actually work (from the bench up)" (Cameron, 2026-06-12)
+The embedded/architecture lane — concepts that are SIMPLE in principle and buried under
+whitepaper prose in practice. The structural gap we can own: EE channels stop at "it's a
+chip," CS content starts at "write some code" — nobody serves the bridge, and our
+expand-to-discrete thesis IS the bridge.
+1. **SRAM: memory is two inverters holding hands** — a 6T cell is just cross-coupled NOTs
+   + two access switches. BLOCK-FIRST: a discrete-sram-bit block (build a bit from real
+   transistors, watch it remember) — the most literal "no magic" statement possible.
+   Cousin short: DRAM is one transistor and a LEAKING cap — your RAM forgets thousands of
+   times a second and refresh is the apology.
+2. **"How does your CPU even know what to do?"** — power-on → reset vector → fetch/decode/
+   execute. The program counter is just a register that counts; the magic is that there is
+   no magic, only a loop. Pairs with: why the crystal is the heartbeat (crystal block ✓
+   exists), what the stack actually is (a pointer and a promise).
+3. **MMU: the lie every program believes** — every process thinks it owns all of memory;
+   the MMU is a lookup table making the lie true. Page tables as "just a tree of arrays."
+4. Supporting shorts: interrupts (the doorbell vs checking the door every second),
+   flash memory = electrons in a box with no door (tunneling!), watchdog timers (the
+   dead-man's switch — ties to supervisor/reset block planned for 1.0), brown-out
+   detection (check + glossary already exist!), JTAG ("the secret USB port in everything").
+Gateway block already on the 1.0 wave: 74HC00 NAND from four transistors — "logic itself,
+demystified" — the first rung of this whole ladder.
+
 ## Standing notes
 - Tags: both hashtag + keyword sets ship with every metadata block (since #9).
 - Fixture names must never leak the test (bench lesson — applies to demo designs too).
