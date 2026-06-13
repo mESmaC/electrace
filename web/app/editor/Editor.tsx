@@ -1158,7 +1158,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     setNewBlock(null); setUserV((v) => v + 1);
   };
   const removeUserBlock = async (key: string) => {
-    if (!(await confirmDialog({ title: "Remove this block?", message: "Removes the custom block from your palette and discards its saved schematic.", confirmText: "Remove", danger: true }))) return;
+    const b = allBlocks[key];
+    if (!b) return;
+    // type-to-confirm: deleting a custom block also discards its drawn internal schematic, so guard
+    // it behind the block's name (matches GitHub-style destructive-action confirmation).
+    const typed = await promptDialog({
+      title: `Delete “${b.name}”?`,
+      message: `This removes the custom block from your palette and permanently discards its saved schematic. Type the block's name to confirm.`,
+      placeholder: b.name, confirmText: "Delete block", danger: true,
+    });
+    if (typed == null) return;                       // cancelled
+    if (typed.trim() !== b.name.trim()) { await confirmDialog({ title: "Name didn't match", message: `Deletion cancelled — you typed “${typed.trim()}”, the block is “${b.name}”.`, confirmText: "OK" }); return; }
     deleteUserBlock(key); setUserV((v) => v + 1);
   };
 
@@ -1309,8 +1319,16 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const connEntries = Object.values(CONNECTOR_CATALOG).filter(
     (c) => !paletteQ.trim() || c.name.toLowerCase().includes(paletteQ.trim().toLowerCase()),
   );
+  const blockTileMenu = (key: string, b: Block) => isUserBlock(key)
+    ? [
+        { label: "Add to canvas", icon: "＋", onSelect: () => addBlock(key) },
+        { label: "Edit name & terminals", icon: "✎", onSelect: () => startEditBlock(key) },
+        { separator: true as const },
+        { label: "Delete block", icon: "🗑", danger: true, onSelect: () => removeUserBlock(key) },
+      ]
+    : [{ label: "Add to canvas", icon: "＋", onSelect: () => addBlock(key) }];
   const blockTile = (key: string, b: Block) => (
-    <div key={key} className="group relative">
+    <div key={key} className="group relative" onContextMenu={(e) => openContextMenu(e, blockTileMenu(key, b))}>
       <button onClick={() => addBlock(key)} draggable title={b.name}
         onDragStart={(e) => { e.dataTransfer.setData("application/electrace-block", key); e.dataTransfer.effectAllowed = "copy"; }}
         className="flex h-full w-full cursor-grab flex-col items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2 text-center hover:border-[#4c8dff] active:cursor-grabbing">
