@@ -10,4 +10,5 @@ export const BLOCK_VIDEOS: Record<string, { id: string; title: string; uploadDat
   "relay-driver": { id: "w28h3jI5lwA", title: "Why relays kill microcontrollers (one diode fixes it)", uploadDate: "2026-06-12" },
   "reverse-polarity-protection": { id: "f1qXXlDM8NY", title: "The transistor that survives backwards batteries", uploadDate: "2026-06-12" },
   "tl431-reference": { id: "YwOGLH_tuAY", title: "The most-made chip you've never heard of", uploadDate: "2026-06-12" },
+  "led-color-sensor": { id: "Z0pkPAW7_Yw", title: "Every LED is secretly a light sensor", uploadDate: "2026-06-13" },
 };
