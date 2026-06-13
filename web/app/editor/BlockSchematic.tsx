@@ -172,6 +172,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       if (raw) { const d = JSON.parse(raw); if (Array.isArray(d.syms) && d.syms.length) m = d; }
     } catch { /* ignore */ }
     m = seedPorts(m, terminals); // always expose the block's declared terminals
+    // auto-align on load: drops + drags already grid-snap, so snapping authored/legacy layouts
+    // here too makes the old manual "Align" button redundant — everything lands on grid by itself.
+    m = { ...m, syms: m.syms.map((s) => { const o = anchorOrigin(s, s.x, s.y, GRID); return { ...s, x: o.x, y: o.y }; }) };
     restoring.current = true;
     setModel(m);
     hist.current = [m];
@@ -923,9 +926,6 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
             className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[14px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">⟳</button>
           <button onClick={() => { if (size.w) { const f = computeFit(model, size); setZoom(f.zoom); setPan(f.pan); } }} title="Fit to view"
             className="grid h-8 w-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] text-[var(--color-text)] hover:border-[#4c8dff]">⤢</button>
-          <button onClick={() => setModel((m) => ({ ...m, syms: m.syms.map((s) => { const o = anchorOrigin(s, s.x, s.y, GRID); return { ...s, x: o.x, y: o.y }; }) }))}
-            title="Align — snap every part so its pins land on the grid (fixes wires not meeting pins)"
-            className="grid h-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[11px] text-[var(--color-text)] hover:border-[#4c8dff]">Align</button>
           <button onClick={resetBlock} title="Revert to the authored schematic (discard your edits)"
             className="grid h-8 place-items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[11px] text-[var(--color-text)] hover:border-[#4c8dff]">Reset</button>
           <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)"

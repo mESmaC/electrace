@@ -48,10 +48,14 @@ const PITCH = 20, STUB = 10, MARGIN = 20, GP = 20;
 
 /** Geometry for a package: body box + pin coordinates, numbered the standard way
  *  (CCW from pin 1 at top-left for dual/quad; row-major A1.. for BGA grids). */
-export function chipGeometry(profile: string, count: number): Dims {
+export function chipGeometry(profile: string, count: number, names?: Record<string, string>): Dims {
   const n = Math.max(1, Math.floor(count));
   const kind = profileKind(profile);
   const pins: Pin[] = [];
+  // longest pin NAME (not id) drives how much room inner labels need; ~5.4 px/char at fs 8.5,
+  // inset 11 px on each side. 0 when names are short/absent so default chips don't bloat.
+  const longest = names ? Math.max(0, ...Object.values(names).map((v) => (v ?? "").length)) : 0;
+  const labelRoom = longest > 2 ? Math.round(longest * 5.4) : 0; // extra inner span for quad sides
 
   if (kind === "grid") {
     const cols = Math.ceil(Math.sqrt(n));
@@ -68,7 +72,9 @@ export function chipGeometry(profile: string, count: number): Dims {
   if (kind === "quad") {
     const base = Math.floor(n / 4), extra = n % 4;
     const side = [0, 1, 2, 3].map((i) => base + (i < extra ? 1 : 0)); // left, bottom, right, top
-    const inner = (Math.max(...side, 1) - 1) * PITCH + 2 * MARGIN;
+    // grow the inner square so left/right + top/bottom name labels clear the centre MPN text.
+    // Both sides' labels meet in the middle, so add 2× the per-side room.
+    const inner = (Math.max(...side, 1) - 1) * PITCH + 2 * MARGIN + labelRoom * 2;
     const w = inner + 2 * STUB, h = inner + 2 * STUB, start = STUB + MARGIN;
     let id = 1;
     for (let i = 0; i < side[0]; i++) pins.push({ id: `${id++}`, x: 0, y: start + i * PITCH });
@@ -90,8 +96,8 @@ export function chipGeometry(profile: string, count: number): Dims {
 /** Resolved geometry for any symbol — chip geometry for chips, else its static symbol def. */
 export function symDims(s: Sym): Dims | null {
   if (s.chip) {
-    const g = chipGeometry(s.chip.profile, s.chip.pins);
     const names = s.chip.names ?? {};
+    const g = chipGeometry(s.chip.profile, s.chip.pins, names);
     return { ...g, pins: g.pins.map((p) => ({ ...p, label: names[p.id] || p.id })) };
   }
   const def = SYMBOLS[s.type];
