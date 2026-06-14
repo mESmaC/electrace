@@ -13,7 +13,7 @@ import { confirmDialog } from "@/app/ui/dialog";
 import { deriveSchematicNets, schematicInsights, discreteEquivalentFor, type InsightComponent, type SchematicLayout, type Terminal, type Block, type NetType } from "@electrace/core";
 import {
   WIRE_COLOR, type WireState, type Pt, type PinRef, type WireTap, type Endpoint, type Sym, type Wire, type Model,
-  isPin, isTap, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin, nearestWirePoint, wireAtPoint, pinAtCoord, orientPorts, placeLabels,
+  isPin, isTap, pinAbs, endAbs, toSchEndpoint, segmentsOf, ortho, layoutToModel, modelBounds, symBounds, symPoint, symDims, normRot, anchorOrigin, nearestPin, nearestWirePoint, wireAtPoint, pinAtCoord, orientPorts, placeLabels, SYMBOL_SCALES,
   PROFILES, type ChipSpec,
 } from "./schematic-model";
 
@@ -302,6 +302,24 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
     });
     track({ kind: "sym.rotate", block: blockId });
   }, [blockId]);
+
+  // Cycle the selected symbols through the grid-safe scale set (1 → 1.5 → 2 → 1). Pins stay on
+  // grid so wires keep meeting them; a scale that would overlap a neighbour is refused (like rotate).
+  const scaleSel = useCallback(() => {
+    const ids = new Set(idsOfKind(selRef.current, "sym"));
+    if (!ids.size) return;
+    setModel((m) => {
+      const next = m.syms.map((s) => {
+        if (!ids.has(s.id) || s.type === "port") return s; // ports are fixed-size anchors
+        const cur = s.scale && s.scale > 0 ? s.scale : 1;
+        const i = SYMBOL_SCALES.indexOf(cur as (typeof SYMBOL_SCALES)[number]);
+        const nextScale = SYMBOL_SCALES[(i + 1) % SYMBOL_SCALES.length];
+        const o = anchorOrigin({ ...s, scale: nextScale }, s.x, s.y, GRID); // re-anchor so the first pin stays on grid
+        return { ...s, scale: nextScale, x: o.x, y: o.y };
+      });
+      return symsCollide(next, ids) ? m : { ...m, syms: next };
+    });
+  }, []);
 
   const nudgeSel = useCallback((dx: number, dy: number) => {
     const ids = new Set(idsOfKind(selRef.current, "sym"));
@@ -1024,7 +1042,8 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                           <rect x={d.body.x + 0.75} y={d.body.y + 0.75} width={d.body.w - 1.5} height={d.body.h - 1.5} fill="none" stroke="#000" strokeOpacity={0.28} strokeWidth={1.5} rx={2} /></>
                       : d.w > 14 && d.h > 14 && <><rect x={5} y={5} width={d.w - 10} height={d.h - 10} fill="var(--color-bg)" />
                           <rect x={5.75} y={5.75} width={d.w - 11.5} height={d.h - 11.5} fill="none" stroke="#000" strokeOpacity={0.28} strokeWidth={1.5} rx={2} /></>}
-                    {glyph}
+                    {/* glyph draws at base size; scale it to match the (already-scaled) dims/pins */}
+                    {s.scale && s.scale !== 1 ? <g transform={`scale(${s.scale})`}>{glyph}</g> : glyph}
                   </g>
                   {selected && <rect x={-5} y={-5} width={d.w + 10} height={d.h + 10} fill="none" stroke="#4c8dff" strokeDasharray="4 3" rx="4" />}
                   {d.pins.map((p) => {
@@ -1199,6 +1218,8 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                 <div className="mt-2 grid grid-cols-3 gap-1.5">
                   <button onClick={() => rotateSel(90)} disabled={!selSymIdsArr.length}
                     className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] py-1 text-[11px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">Rotate</button>
+                  <button onClick={scaleSel} disabled={!selSymIdsArr.length} title="Cycle symbol size (1× · 1.5× · 2×)"
+                    className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] py-1 text-[11px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">Size</button>
                   <button onClick={duplicateSel} disabled={!selSymIdsArr.length}
                     className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] py-1 text-[11px] text-[var(--color-text)] disabled:opacity-40 enabled:hover:border-[#4c8dff]">Dup</button>
                   <button onClick={del}
@@ -1290,6 +1311,14 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                 <label className="mt-2 block text-[11px] text-[var(--color-text)]">Value
                   <input value={selSym.value ?? ""} onChange={(e) => updateSel({ value: e.target.value })}
                     className="mt-1 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 font-mono text-[12px] text-[var(--color-text)] outline-none focus:border-[#4c8dff]" /></label>
+                <div className="mt-2 text-[11px] text-[var(--color-text)]">Size
+                  <div className="mt-1 flex overflow-hidden rounded border border-[var(--color-border)]">
+                    {SYMBOL_SCALES.map((sc) => (
+                      <button key={sc} onClick={() => updateSel({ scale: sc, ...anchorOrigin({ ...selSym, scale: sc }, selSym.x, selSym.y, GRID) })}
+                        className={`flex-1 py-1 text-[11px] ${(selSym.scale ?? 1) === sc ? "bg-[#4c8dff] text-white" : "text-[var(--color-faint)] hover:text-[var(--color-text)]"}`}>{sc}×</button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
             {terminals.length > 0 && (

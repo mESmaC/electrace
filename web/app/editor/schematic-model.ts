@@ -14,7 +14,11 @@ export interface Pin { id: string; x: number; y: number; label?: string }
 export interface Dims { w: number; h: number; pins: Pin[]; body?: { x: number; y: number; w: number; h: number }; pin1?: Pt }
 /** A parametric chip: a package profile + pin count + (optionally AI/user-filled) pin names and MPN. */
 export interface ChipSpec { profile: string; pins: number; names?: Record<string, string>; mpn?: string }
-export interface Sym { id: string; type: string; ref?: string; value?: string; x: number; y: number; rot?: number; chip?: ChipSpec }
+export interface Sym { id: string; type: string; ref?: string; value?: string; x: number; y: number; rot?: number; chip?: ChipSpec; scale?: number }
+
+/** Grid-safe symbol scales: pin pitch is 20 (= 2·GRID), so these keep every scaled pitch a
+ *  multiple of the 10px grid (20→30→40), so wires keep meeting pins. */
+export const SYMBOL_SCALES = [1, 1.5, 2] as const;
 export interface Wire { id: string; a: Endpoint; b: Endpoint; mid: Pt[] }
 export interface Model { syms: Sym[]; wires: Wire[] }
 
@@ -95,13 +99,26 @@ export function chipGeometry(profile: string, count: number, names?: Record<stri
 
 /** Resolved geometry for any symbol — chip geometry for chips, else its static symbol def. */
 export function symDims(s: Sym): Dims | null {
-  if (s.chip) {
-    const names = s.chip.names ?? {};
-    const g = chipGeometry(s.chip.profile, s.chip.pins, names);
-    return { ...g, pins: g.pins.map((p) => ({ ...p, label: names[p.id] || p.id })) };
-  }
-  const def = SYMBOLS[s.type];
-  return def ? { w: def.w, h: def.h, pins: def.pins } : null;
+  const base = ((): Dims | null => {
+    if (s.chip) {
+      const names = s.chip.names ?? {};
+      const g = chipGeometry(s.chip.profile, s.chip.pins, names);
+      return { ...g, pins: g.pins.map((p) => ({ ...p, label: names[p.id] || p.id })) };
+    }
+    const def = SYMBOLS[s.type];
+    return def ? { w: def.w, h: def.h, pins: def.pins } : null;
+  })();
+  if (!base) return null;
+  const k = s.scale && s.scale > 0 ? s.scale : 1;
+  if (k === 1) return base;
+  // uniform scale: w/h, every pin offset, body box and pin1 marker all multiply by k. Wires that
+  // reference a pin (PinRef) re-derive their endpoint from these offsets, so they follow the scale.
+  return {
+    w: base.w * k, h: base.h * k,
+    pins: base.pins.map((p) => ({ ...p, x: p.x * k, y: p.y * k })),
+    ...(base.body ? { body: { x: base.body.x * k, y: base.body.y * k, w: base.body.w * k, h: base.body.h * k } } : {}),
+    ...(base.pin1 ? { pin1: { x: base.pin1.x * k, y: base.pin1.y * k } } : {}),
+  };
 }
 
 /** Map a local point of a symbol's box to absolute coords, honouring the symbol's rotation
@@ -282,7 +299,7 @@ export function ortho(points: Pt[]): string {
 export function layoutToModel(layout?: SchematicLayout): Model {
   if (!layout) return { syms: [], wires: [] };
   return {
-    syms: layout.symbols.map((s) => ({ id: s.id, type: s.type, ref: s.ref, value: s.value, x: s.x, y: s.y, rot: s.rot, chip: s.chip })),
+    syms: layout.symbols.map((s) => ({ id: s.id, type: s.type, ref: s.ref, value: s.value, x: s.x, y: s.y, rot: s.rot, chip: s.chip, scale: s.scale })),
     wires: layout.wires.map((w, i) => {
       const [as, ap] = w.from.split(".");
       const [bs, bp] = w.to.split(".");
@@ -402,7 +419,7 @@ export function junctionBridges(model: Model): { from: string; to: string }[] {
  *  add bridge connections so they're electrically joined. Floating ends carry no connectivity. */
 export function modelToLayout(model: Model): SchematicLayout {
   return {
-    symbols: model.syms.map((s) => ({ id: s.id, type: s.type, ref: s.ref, value: s.value, x: s.x, y: s.y, rot: s.rot, chip: s.chip })),
+    symbols: model.syms.map((s) => ({ id: s.id, type: s.type, ref: s.ref, value: s.value, x: s.x, y: s.y, rot: s.rot, chip: s.chip, ...(s.scale && s.scale !== 1 ? { scale: s.scale } : {}) })),
     wires: [
       ...model.wires
         .filter((w) => isPin(w.a) && isPin(w.b))

@@ -136,6 +136,7 @@ export interface PlacedSymbol {
   y: number;
   rot?: number;              // rotation in degrees (0 | 90 | 180 | 270), about the symbol centre
   chip?: ChipSpec;           // a parametric chip: package profile + pin count + pin-function names
+  scale?: number;            // optional symbol scale (grid-safe set; default 1) — UI-driven sizing
 }
 
 /** A parametric chip placed in a schematic: a package profile + pin count, with optional
