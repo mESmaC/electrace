@@ -101,13 +101,15 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
       return { ref: c.ref, name: part?.name ?? c.connector, pins, w, h: pins.length * 22 + 24, x: 0, y: 0 };
     });
     // simple flow layout: left→right, wrap; titles need headroom
-    let x = PAD, y = PAD + 30, rowH = 0;
+    let x = PAD, y = PAD + 30, rowH = 0, contentW = 0;
     for (const it of [...raw, ...conns]) {
       if (x + it.w + PAD > ROW_W && x > PAD) { x = PAD; y += rowH + PAD + 30; rowH = 0; }
       it.x = x; it.y = y;
       x += it.w + PAD; rowH = Math.max(rowH, it.h);
+      contentW = Math.max(contentW, x); // track the actual right extent so the sheet fits content…
     }
-    return { items: raw as Item[], connItems: conns, sheetW: Math.max(ROW_W, 400), sheetH: y + rowH + PAD };
+    // …instead of forcing the full ROW_W width (the empty band that read as a right-edge "shadow").
+    return { items: raw as Item[], connItems: conns, sheetW: Math.max(400, Math.min(ROW_W, contentW) + PAD), sheetH: y + rowH + PAD };
   }, [resolved, blockOf]);
 
   const downloadSvg = () => {
@@ -128,7 +130,7 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
         <button onClick={downloadSvg} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Download SVG</button>
       </div>
       <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" width={sheetW} height={sheetH} viewBox={`0 0 ${sheetW} ${sheetH}`}
-        style={{ color: "var(--color-text)", display: "block", minWidth: "100%" }} fontFamily="var(--font-mono)">
+        style={{ color: "var(--color-text)", display: "block" }} fontFamily="var(--font-mono)">
         {items.map((it) => <InstanceSheet key={it.ref} it={it} symStyle={symStyle} onOpen={onOpenBlock} />)}
         {connItems.map((c) => (
           <g key={c.ref} transform={`translate(${c.x},${c.y})`}>
@@ -161,12 +163,26 @@ function InstanceSheet({ it, symStyle, onOpen }: { it: Item; symStyle: SymStyle;
   const labels = useMemo(() => placeLabels(m, symStyle, [
     { x: it.bx - 18, y: it.by - 46, w: it.w + 36, h: 24 },
   ]), [m, symStyle, it]);
+  // The frame must enclose the LABELS too, not just symbols/wires (modelBounds ignores label text),
+  // or port flags + ref labels spill outside the dashed box. Union the model bounds with every
+  // placed label's box, then pad.
+  const frame = useMemo(() => {
+    let minX = it.bx, minY = it.by, maxX = it.bx + it.w, maxY = it.by + it.h;
+    for (const L of labels) {
+      const lineH = L.fontSize + 2.5;
+      const w = Math.max(...L.lines.map((s) => s.length)) * L.fontSize * 0.62;
+      const h = L.lines.length * lineH;
+      minX = Math.min(minX, L.x - w / 2); maxX = Math.max(maxX, L.x + w / 2);
+      minY = Math.min(minY, L.y - h / 2); maxY = Math.max(maxY, L.y + h / 2);
+    }
+    return { x: minX - 14, y: minY - 14, w: maxX - minX + 28, h: maxY - minY + 28 };
+  }, [labels, it]);
   const tx = it.x - it.bx, ty = it.y - it.by;
   return (
     <g transform={`translate(${tx},${ty})`} onDoubleClick={() => onOpen?.(it.ref)} style={onOpen ? { cursor: "pointer" } : undefined}>
-      {/* frame + title, like a sheet region on a traditional drawing */}
-      <rect x={it.bx - 18} y={it.by - 26} width={it.w + 36} height={it.h + 44} rx={6} fill="none" stroke="var(--color-border)" strokeDasharray="5 4" />
-      <text x={it.bx - 10} y={it.by - 32} fontSize={11.5} fontWeight={700} fill="var(--color-dim)">{it.ref} — {it.name}</text>
+      {/* frame + title, like a sheet region on a traditional drawing (encloses labels too) */}
+      <rect x={frame.x} y={frame.y - 18} width={frame.w} height={frame.h + 18} rx={6} fill="none" stroke="var(--color-border)" strokeDasharray="5 4" />
+      <text x={frame.x + 8} y={frame.y - 24} fontSize={11.5} fontWeight={700} fill="var(--color-dim)">{it.ref} — {it.name}</text>
       {m.wires.map((w) => {
         const pts = wireAbsPath(m.syms, w, m.wires);
         if (pts.length < 2) return null;
