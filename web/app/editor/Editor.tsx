@@ -255,7 +255,12 @@ function BlockNode(props: NodeProps) {
     const sides: Record<(typeof order)[number], typeof free> = { left: [], bottom: [], right: [], top: [] };
     const per = Math.ceil(free.length / 4);
     free.forEach((t, i) => sides[order[Math.min(3, Math.floor(i / per))]].push(t));
-    const dim = Math.max(sides.left.length, sides.right.length, sides.top.length, sides.bottom.length, 1) * 22 + 64;
+    // grow the chip so the longest pin name (read inward from each edge) clears the centre label.
+    // left+right names meet in the middle, so reserve ~2× the longest label's pixel width (~5px/char
+    // at the 8px mono font), on top of the centre block's footprint. Same for top/bottom via height.
+    const longestLabel = free.reduce((m, t) => Math.max(m, t.id.length), 0);
+    const labelRoom = longestLabel > 4 ? (longestLabel - 4) * 5 : 0;
+    const dim = Math.max(sides.left.length, sides.right.length, sides.top.length, sides.bottom.length, 1) * 22 + 64 + labelRoom * 2;
     const vertical = (s: string) => s === "left" || s === "right";
     const posOf = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
     return (
