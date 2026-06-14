@@ -610,12 +610,17 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
 
   const onPin = (e: RME, sym: string, pin: string) => {
     e.stopPropagation();
-    const ref = { sym, pin };
+    // dense symbols (relays: contacts 12px apart) have overlapping 18px hit-circles, so the circle
+    // whose DOM click fires isn't always the nearest pin — wiring NO2 could land on COM2/NC2,
+    // silently shorting a downstream part. Re-resolve to the geometrically NEAREST pin at the
+    // actual click point so the wire always goes where the cursor is.
+    const near = nearestPin(modelRef.current.syms, localPt(e).x, localPt(e).y, 11 / zoomRef.current);
+    const ref = near ? { sym: near.sym, pin: near.pin } : { sym, pin };
     if (!draw) setDraw({ a: ref, pts: [] });
     else {
-      if (!(draw.a.sym === sym && draw.a.pin === pin)) {
+      if (!(draw.a.sym === ref.sym && draw.a.pin === ref.pin)) {
         setModel((m) => ({ ...m, wires: [...m.wires, { id: `w-${uid()}`, a: draw.a, b: ref, mid: draw.pts }] }));
-        track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${sym}.${pin}` });
+        track({ kind: "wire.add", block: blockId, from: `${draw.a.sym}.${draw.a.pin}`, to: `${ref.sym}.${ref.pin}` });
       }
       setDraw(null);
     }
@@ -1026,6 +1031,14 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
             const rot = normRot(s.rot ?? 0);
             const bb = symBounds(s, d.w, d.h); // for upright label placement
             const glyph = s.chip ? renderChip(d, s.chip) : SYMBOLS[s.type]?.draw(symStyle);
+            // hit radius adapts to the closest pin pair so dense symbols (relays: 12px spacing)
+            // don't get overlapping hit-circles that mis-route a click to the wrong contact.
+            let minGap = Infinity;
+            for (let i = 0; i < d.pins.length; i++) for (let j = i + 1; j < d.pins.length; j++) {
+              const g = Math.hypot(d.pins[i].x - d.pins[j].x, d.pins[i].y - d.pins[j].y);
+              if (g > 0 && g < minGap) minGap = g;
+            }
+            const pinHitR = Math.max(4.5, Math.min(9, minGap / 2));
             return (
               <g key={s.id}>
                 {/* glyph, selection box and pins rotate together about the symbol centre */}
@@ -1055,8 +1068,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
                         {open
                           ? <rect x={p.x - 3.5} y={p.y - 3.5} width={7} height={7} fill="none" stroke="#f7b13c" strokeWidth="1.4" pointerEvents="none" />
                           : <rect x={p.x - 2.5} y={p.y - 2.5} width={5} height={5} fill="#4c8dff" pointerEvents="none" />}
-                        {/* generous invisible hit target so grabbing a pin isn't pixel-precise */}
-                        <circle cx={p.x} cy={p.y} r={9} fill="transparent"
+                        {/* invisible hit target — generous by default, shrunk for dense pins so it
+                            never overlaps a neighbour (relay contacts) */}
+                        <circle cx={p.x} cy={p.y} r={pinHitR} fill="transparent"
                           onClick={(e) => onPin(e, s.id, p.id)}
                           onPointerEnter={() => { const n = pinNet.get(`${s.id}.${p.id}`); if (n != null) setHoverNet(n); }}
                           onPointerLeave={() => setHoverNet(null)}
