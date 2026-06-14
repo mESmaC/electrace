@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, canonicalTerminal, solveDc, theveninAt, standbyDraw, frequencyResponse, logSweep, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
+import { analyze, canonicalTerminal, solveDc, theveninAt, standbyDraw, frequencyResponse, logSweep, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type Part, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
 import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -51,7 +51,7 @@ End with ONE short line: the block KEY you created (id@version) + what's in it (
 terminals), so Sparky can place and wire it. e.g. "Built @user/gate-driver@1.0.0 — DRV8323 + charge-pump/
 bypass caps; exposed VM, GND, INHx/INLx, GHx/GLx, SOx, nFAULT."`;
 // the building tools a spark gets — no placement/wiring/analysis/delegation (orchestrator-only)
-const SPARK_TOOL_NAMES = new Set(["list_blocks", "get_block", "create_block", "update_block", "author_block", "author_schematic", "expose_pins", "set_value", "electrace_help"]);
+const SPARK_TOOL_NAMES = new Set(["list_blocks", "get_block", "create_block", "update_block", "author_block", "author_schematic", "expose_pins", "set_value", "set_mpn", "electrace_help"]);
 
 const SYSTEM = `You are Sparky, the friendly assistant embedded in Electrace — a transparent, block-based
 EE IDE (schematic + PCB design). If asked your name, you're Sparky. Help the user reason about and BUILD
@@ -88,6 +88,16 @@ inspect one block (its terminals, whether it's authored, and the parts/values on
 author or edit a block, call get_block to CONFIRM the change landed rather than assuming it did; if a
 finding seems stale, get_block is the source of truth. If a block you created is an empty interface
 shell, populate it so it reaches the BOM; don't leave the design as hollow boxes.
+
+To make the BOM orderable (so the user can push it to a Digi-Key cart), give each part a real
+manufacturer part number with set_mpn(block, ref, mpn, footprint) — one ref at a time. A part with
+only a value ("10k", "1N4148") or a generic type ("bjt") can NOT go in the cart; an mpn can. Pick a
+single, in-stock, common part that matches the value/footprint (e.g. a 1k 0805 → RC0805FR-071KL, an
+NPN → 2N3904) and call set_mpn for it. The parts live inside their block (get_block to see refs), so
+set_mpn targets the block, not the connector. After setting them, call get_block to CONFIRM the part
+field landed before telling the user it's done — never claim a part number was set without verifying
+it. Note: library CONNECTORS (RJ45, USB-C, headers) have no mpn field yet — say so honestly and give
+the user a specific orderable MPN to add to their cart by hand rather than pretending you set it.
 
 The library is a STARTING POINT, not a ceiling. If the right part doesn't exist — a 5V regulator
 instead of the generic 3.3V one, an oscillator, a reset network — don't give up ("the library has no
@@ -361,6 +371,35 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const insts = design.blocks.filter((bi) => bi.block === key).length;
       const shared = insts > 1 ? ` ⚠ This block has ${insts} placed instances and they SHARE one definition — every one is now ${value}. If they need different values, give each its own subcircuit (fold the part into the functional block it serves via author_schematic) instead of reusing one shared block.` : "";
       return { text: `Set ${ref} = ${value} in ${b!.name}.${shared}`, changed: true };
+    }
+    case "set_mpn": {
+      // Set the orderable part number (and optional footprint) on an existing block part. The mpn is
+      // part METADATA (lives in schematic.parts, merged by ref in deriveBlockSchematic) — not a layout
+      // value — so this updates the authored-parts array and re-derives. This is what makes a row
+      // cart-eligible on the BOM; without it the only way to set an mpn was re-authoring the block.
+      const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
+      if (err) return { text: err, changed: false };
+      const ref = String(input.ref ?? "").trim();
+      const mpn = String(input.mpn ?? "").trim();
+      const footprint = input.footprint ? String(input.footprint).trim() : "";
+      if (!ref || !mpn) return { text: "set_mpn needs the part ref (e.g. Q1) and the mpn (e.g. 2N3904).", changed: false };
+      if (mpn.length > 32 || /[\s,;≥≤()]/.test(mpn)) return { text: `"${mpn.slice(0, 48)}" isn't a bare part number — an mpn is a single orderable PN (2N3904, RC0805FR-071KL). Selection criteria belong in why, not the mpn.`, changed: false };
+      if (!b!.layout) return { text: `${b!.name} has no authored schematic yet — use author_schematic/author_block first.`, changed: false };
+      const sym = b!.layout.symbols.find((s) => (s.ref ?? s.id) === ref);
+      if (!sym) return { text: `No part "${ref}" in ${b!.name}. Parts: ${b!.layout.symbols.filter((s) => s.type !== "port").map((s) => s.ref ?? s.id).join(", ") || "(none)"}.`, changed: false };
+      // upsert the authored-part entry for this ref, preserving its other metadata. Typed as the
+      // looser deriveBlockSchematic param (a fresh entry can omit `type` — it's filled from the symbol).
+      const authored: Array<Partial<Part> & { ref: string }> = [...(b!.schematic?.parts ?? [])];
+      const i = authored.findIndex((p) => p.ref === ref);
+      if (i >= 0) authored[i] = { ...authored[i], part: mpn, ...(footprint ? { footprint } : {}) };
+      // a fresh entry just needs ref + part; deriveBlockSchematic fills type from the symbol.
+      else authored.push({ ref, part: mpn, ...(footprint ? { footprint } : {}) });
+      const schematic = deriveBlockSchematic(b!.layout, authored);
+      const nb: Block = { ...b!, schematic };
+      blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, b!.layout);
+      const insts = design.blocks.filter((bi) => bi.block === key).length;
+      const shared = insts > 1 ? ` (${insts} placed instances share this definition — all now use ${mpn}.)` : "";
+      return { text: `Set ${ref} → ${mpn}${footprint ? ` (${footprint})` : ""} in ${b!.name} — it's now cart-orderable on the BOM.${shared}`, changed: true };
     }
     case "delete_block": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -838,6 +877,7 @@ const TOOLS = [
   { name: "author_schematic", description: "Build a custom block's INTERNAL SCHEMATIC as a real functional subcircuit: SEVERAL parts wired together, exposing only the pins the rest of the design connects to. This is how a block should be built — an oscillator block = crystal + 2 load caps; a power-supply block = regulator + input/output caps + diode; an MCU block = the chip + its decoupling caps + reset network. Do NOT make one block per component (a block holding a single cap is wrong). Pass all the parts and the nets that join them in one call. Endpoints are 'ref.pin'; for a chip part you can use the function name ('U1.VCC'). A net with `expose` becomes a block terminal of that name; nets without `expose` are internal nodes.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, parts: { type: "array", description: "the components in this block", items: { type: "object", properties: { ref: { type: "string", description: "reference designator, e.g. C1, R3, Y1, U1" }, type: { type: "string", description: "symbol type for a discrete: capacitor | cap-pol | resistor | inductor | ferrite | crystal | fuse | diode | schottky | zener | tvs | led | npn | pnp | nmos | pmos | regulator | battery | isource | thermistor | varistor — OR omit and give chip{} for an IC" }, value: { type: "string", description: "SHORT part value ONLY — '22pF', '10k', 'SMBJ18A', '16MHz' (≤12 chars). NEVER a description or spec sentence ('logic-level N-FET, 30V…' belongs nowhere on the drawing — long text overwhelms the schematic; ratings/justification go in the chat reply instead)" }, mpn: { type: "string", description: "manufacturer part number (optional)" }, chip: { type: "object", description: "for an IC part: its package + full pinout", properties: { profile: { type: "string", description: "soic | qfp | qfn | dip | sot" }, pins: { type: "number" }, mpn: { type: "string" }, names: { type: "object", description: 'pin map { "1":"PD3", "4":"VCC", ... }' } } } }, required: ["ref"] } }, nets: { type: "array", description: "the nets joining the parts; expose the ones the design connects to", items: { type: "object", properties: { connect: { type: "array", items: { type: "string" }, description: "endpoints 'ref.pin' (chip pins may use function names, e.g. 'U1.XTAL1')" }, expose: { type: "string", description: "if set, this net becomes a block terminal of this name" }, role: { type: "string", enum: ["in", "out"], description: "override the exposed terminal's role (else inferred)" }, type: { type: "string", enum: ["power", "rail", "signal", "gnd"], description: "override the exposed terminal's type (else inferred)" } }, required: ["connect"] } } }, required: ["block", "parts"] } },
   { name: "expose_pins", description: "Break out MORE of an already-authored chip's pins as block terminals, in bulk — e.g. expose D0–D13 and A0–A7 as a header in one call. Pass the chip function names. Unlike re-running author_block, this only ADDS terminals (it never renames existing ones or orphans wires), so it's the safe way to grow a block's exposed interface.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, pins: { type: "array", items: { type: "string" }, description: 'chip function names to expose, e.g. ["PD0","PD1","PD2","PC0","PC1","PB5"]' }, ref: { type: "string", description: "chip reference designator if the block has more than one (optional)" } }, required: ["block", "pins"] } },
   { name: "set_value", description: "Change one part's value inside a block you authored (e.g. C1 to 22pF, R3 to 10k) without re-authoring the whole block. Values are first-class — get_block and the BOM reflect them.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, ref: { type: "string", description: "the part's reference designator, e.g. C1, R3, Y1" }, value: { type: "string", description: "the new value, e.g. 22pF, 10k, 16MHz" } }, required: ["block", "ref", "value"] } },
+  { name: "set_mpn", description: "Set the orderable manufacturer part number (MPN) on one part inside a block you authored — e.g. Q1 → 2N3904, R3 → RC0805FR-0747KL. This is what makes a BOM row eligible for the one-click Digi-Key cart (a value alone like \"10k\" can't be ordered). The mpn must be a single bare part number, not selection criteria. Pass footprint too when you know it. Use this to fill in real part numbers for parts that only have a value/type.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" }, ref: { type: "string", description: "the part's reference designator, e.g. Q1, R3, U1" }, mpn: { type: "string", description: "a single orderable part number, e.g. 2N3904, 1N4148, RC0805FR-071KL" }, footprint: { type: "string", description: "optional package/footprint, e.g. SOT-23, 0805, DO-35" } }, required: ["block", "ref", "mpn"] } },
   { name: "delete_block", description: "Delete a custom block you created (also removes any placed instances). Library blocks can't be deleted.", input_schema: { type: "object", properties: { block: { type: "string", description: "block key (id@version)" } }, required: ["block"] } },
   { name: "list_instances", description: "List the blocks already placed in the current design.", input_schema: { type: "object", properties: {} } },
   { name: "add_block", description: "Place a block instance. Returns the new ref + its terminals.", input_schema: { type: "object", properties: { block: { type: "string", description: "exact block key (id@version) from list_blocks" }, ref: { type: "string", description: "optional instance ref; auto-generated if omitted" } }, required: ["block"] } },

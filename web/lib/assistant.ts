@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 const TOOL_LABELS: Record<string, string> = {
   list_blocks: "Browsing blocks", get_block: "Reading a block", create_block: "Creating a block",
   update_block: "Updating a block", author_block: "Authoring a block", author_schematic: "Drawing a schematic",
+  set_mpn: "Setting a part number",
   expose_pins: "Exposing pins", set_value: "Setting a value", delegate: "Dispatching sparks",
   delete_block: "Removing a block", list_instances: "Reading the design", add_block: "Placing a block",
   remove_block: "Removing a block", connect: "Wiring", disconnect: "Unwiring", analyze_design: "Running checks",
