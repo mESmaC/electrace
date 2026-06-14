@@ -804,7 +804,9 @@ export default function BlockSchematic({ blockId, initial, terminals = [], block
       ids.slice(1).map((id, i) => ({ id: `name:${ids[0]}:${id}:${i}`, a: { kind: "pin" as const, sym: ids[0], pin: "1" }, b: { kind: "pin" as const, sym: id, pin: "1" } })));
     const nets = deriveSchematicNets([...conns, ...tapConns, ...nameConns], twoPin);
     const wireState = (w: Wire): WireState => {
-      const ea = toSchEndpoint(model.syms, w.a, `${w.id}:a`), eb = toSchEndpoint(model.syms, w.b, `${w.id}:b`);
+      // pass model.wires so a TAP endpoint (a wire wired to another wire) resolves through its host
+      // instead of coming back "broken" — that false "broken" was painting every tapped wire red.
+      const ea = toSchEndpoint(model.syms, w.a, `${w.id}:a`, model.wires), eb = toSchEndpoint(model.syms, w.b, `${w.id}:b`, model.wires);
       if (ea.kind === "broken" || eb.kind === "broken") return "error";
       // a free end that taps another wire is connected, not floating
       if ((ea.kind === "free" && !tapped.has(`${w.id}:a`)) || (eb.kind === "free" && !tapped.has(`${w.id}:b`))) return "floating";
