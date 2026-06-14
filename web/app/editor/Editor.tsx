@@ -255,19 +255,25 @@ function BlockNode(props: NodeProps) {
     const sides: Record<(typeof order)[number], typeof free> = { left: [], bottom: [], right: [], top: [] };
     const per = Math.ceil(free.length / 4);
     free.forEach((t, i) => sides[order[Math.min(3, Math.floor(i / per))]].push(t));
-    // grow the chip so the longest pin name (read inward from each edge) clears the centre label.
-    // left+right names meet in the middle, so reserve ~2× the longest label's pixel width (~5px/char
-    // at the 8px mono font), on top of the centre block's footprint. Same for top/bottom via height.
+    // centre label box is a fixed 96px; the chip must be wide enough that each side's gutter
+    // ((dim-96)/2) holds the longest pin name (~5.2px/char at the 8px mono font, +8px padding).
     const longestLabel = free.reduce((m, t) => Math.max(m, t.id.length), 0);
-    const labelRoom = longestLabel > 4 ? (longestLabel - 4) * 5 : 0;
-    const dim = Math.max(sides.left.length, sides.right.length, sides.top.length, sides.bottom.length, 1) * 22 + 64 + labelRoom * 2;
+    const labelPx = Math.ceil(longestLabel * 5.2) + 8;
+    const CENTER = 96, GUTTER = Math.max(20, labelPx); // each side reserves at least 20px
+    const dim = Math.max(
+      Math.max(sides.left.length, sides.right.length, sides.top.length, sides.bottom.length, 1) * 22 + 28,
+      CENTER + GUTTER * 2,
+    );
     const vertical = (s: string) => s === "left" || s === "right";
     const posOf = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
     return (
       <div style={{ width: dim, height: dim, position: "relative", boxShadow: shadow, ...(statusColor ? { borderColor: statusColor } : {}) }} {...tipHandlers}
         className={`rounded-lg border-2 ${sel ? "border-[#4c8dff]" : "border-[var(--color-border-strong)]"} bg-[var(--color-surface)] text-[var(--color-text)]`}>
         {tip}
-        <div className="pointer-events-none absolute inset-7 flex flex-col items-center justify-center gap-0.5 text-center">
+        {/* centre label is a FIXED ~96px box (not an inset that grows with the chip) so enlarging
+            the chip for long pin names opens real gutters between the edge labels and the centre. */}
+        <div className="pointer-events-none absolute flex flex-col items-center justify-center gap-0.5 text-center"
+          style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 96 }}>
           <span className="text-base" style={block.glyphColor ? { color: block.glyphColor } : undefined}>{block.glyph ?? "▦"}</span>
           <span className="text-[11px] font-semibold leading-tight">{block.name}</span>
           <span className="text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{instanceRef}{blockKind(block) ? ` · ${blockKind(block)}` : ""}</span>
@@ -276,18 +282,18 @@ function BlockNode(props: NodeProps) {
         </div>
         {order.map((side) => sides[side].map((t, i, arr) => {
           const pct = `${((i + 1) / (arr.length + 1)) * 100}%`;
-          const half = dim / 2;
           // labels read INWARD and are clamped to half the block, so long pin names never spill off the
           // edges. Top/bottom use vertical writing-mode (flows down/up into the chip) instead of a rotate
           // that pushed text off the top.
           const lblBase = "pointer-events-none absolute overflow-hidden font-mono text-[8px] leading-none text-[var(--color-text)]";
+          const gutter = (dim - CENTER) / 2 - 4; // room from the edge to the centre box
           const lbl: CSSProperties = side === "left"
-            ? { left: 7, top: pct, transform: "translateY(-50%)", maxWidth: half - 8, whiteSpace: "nowrap" }
+            ? { left: 7, top: pct, transform: "translateY(-50%)", maxWidth: gutter, whiteSpace: "nowrap" }
             : side === "right"
-            ? { right: 7, top: pct, transform: "translateY(-50%)", maxWidth: half - 8, whiteSpace: "nowrap", textAlign: "right" }
+            ? { right: 7, top: pct, transform: "translateY(-50%)", maxWidth: gutter, whiteSpace: "nowrap", textAlign: "right" }
             : side === "top"
-            ? { top: 7, left: pct, transform: "translateX(-50%)", writingMode: "vertical-rl", maxHeight: half - 6 }
-            : { bottom: 7, left: pct, transform: "translateX(-50%)", writingMode: "vertical-rl", maxHeight: half - 6 };
+            ? { top: 7, left: pct, transform: "translateX(-50%)", writingMode: "vertical-rl", maxHeight: gutter }
+            : { bottom: 7, left: pct, transform: "translateX(-50%)", writingMode: "vertical-rl", maxHeight: gutter };
           return (
             <Fragment key={t.id}>
               <Handle id={t.id} type={t.role === "out" ? "source" : "target"} position={posOf[side]}
