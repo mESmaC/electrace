@@ -2017,7 +2017,8 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           </div>
           <div className="min-h-0 flex-1">
             <FlatSchematic resolved={analysis.resolved} blockOf={(ref) => (nodes.find((n) => n.id === ref)?.data as BlockNodeData | undefined)?.block}
-              onOpenBlock={(ref) => { setSchemView(false); setDrillRef(ref); }} />
+              onOpenBlock={(ref) => { setSchemView(false); setDrillRef(ref); }}
+              meta={{ title: designName, author: authProfile?.name || authProfile?.email, date: new Date().toISOString().slice(0, 10) }} />
           </div>
         </div>
       )}

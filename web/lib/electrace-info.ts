@@ -8,6 +8,12 @@ export interface ChangeEntry { date: string; title?: string; items: string[] }
  *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-06-13",
+    items: [
+      "**The full schematic prints like a real drawing.** The whole-design schematic sheet now reads the way an EDA tool prints one: a border around the page and a proper title block in the bottom-right — design name, author, date, revision, block count, sheet number. Each block's region sits on the page as a framed drawing with honest spacing between them, and every label and port flag stays inside its own frame instead of spilling past the edge. The view itself now presents the sheet as a page on a desk — so 'Download SVG' hands you something you'd actually put in a handoff package.",
+    ],
+  },
+  {
     date: "2026-06-12",
     items: [
       "**New block: LED Color Sensor.** Three ordinary LEDs mounted backwards on purpose \u2014 because every LED is secretly a wavelength-selective photodiode that sees its own color best. The block carries the whole Mims technique in its part explanations: reverse-charge the junction from a GPIO, time the photocurrent decay, no ADC needed. Red sees red, green sees green, blue sees blue \u2014 a real color fingerprint for pennies, with its honest limits stated. Paired glossary entry: photovoltaic mode.",

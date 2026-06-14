@@ -7,12 +7,17 @@ import { useMemo, useRef } from "react";
 import { CONNECTOR_CATALOG, solveDc, type Block, type ResolvedDesign } from "@electrace/core";
 import { SYMBOLS, renderChip, useSymbolStyle, type SymStyle } from "./symbols";
 import {
-  type Model, type Sym, ortho, wireAbsPath, pickModel, modelBounds, orientPorts, symDims, normRot, placeLabels,
+  type Model, type Sym, type PlacedLabel, ortho, wireAbsPath, pickModel, boundsWithLabels, orientPorts, symDims, normRot, placeLabels,
 } from "./schematic-model";
 
 const NET_COLOR: Record<string, string> = { power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff" };
-const PAD = 70;          // gap between block drawings
+const PAD = 70;          // gap between block CELLS (between dashed frames, not bounds)
 const ROW_W = 1500;      // wrap width of the sheet
+const FRAME_PAD = 16;    // dashed-region frame inset around each block's visual bounds
+const TITLE_H = 30;      // headroom above each frame for its "REF — name" title
+const MARGIN = 48;       // sheet border inset from the SVG edge
+const TB_W = 360, TB_H = 96; // EDA title block (bottom-right) dimensions
+const BORDER = "var(--color-border)";
 
 interface Glow { amps: number; color: string }
 interface Item {
@@ -23,8 +28,9 @@ interface Item {
   glow: Map<string, Glow>;              // symbol ref → SOLVED LED luminance (real mA, real color)
   netOfTerm: Map<string, string>;       // terminal id → design net id
   netTypeOfTerm: Map<string, string>;
+  labels: PlacedLabel[];                // computed ONCE here; the bounds + frame key off these
   x: number; y: number; w: number; h: number;
-  bx: number; by: number;               // model-space origin (bounds min)
+  bx: number; by: number;               // model-space origin (bounds min, labels included)
 }
 
 // LED luminance from the DC solve: output is ~proportional to forward current in the normal
@@ -40,10 +46,13 @@ function ledColor(value?: string): string {
   return "#ffd28a"; // warm default when only a Vf number is declared
 }
 
-export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
+export interface SheetMeta { title: string; rev?: string; author?: string; date?: string; }
+
+export default function FlatSchematic({ resolved, blockOf, onOpenBlock, meta }: {
   resolved: ResolvedDesign;
   blockOf: (instanceRef: string) => Block | undefined;
   onOpenBlock?: (instanceRef: string) => void;
+  meta?: SheetMeta;
 }) {
   const symStyle = useSymbolStyle();
   const svgRef = useRef<SVGSVGElement>(null);
@@ -86,8 +95,11 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
         const symVal = base.syms.find((sy) => sy.ref === p.ref)?.value;
         glow.set(p.ref, { amps, color: ledColor(symVal ?? (typeof p.value === "string" ? p.value : undefined)) });
       }
-      const b = modelBounds(model);
-      return [{ ref: inst.ref, name: def.name, model, why, glow, netOfTerm, netTypeOfTerm, bx: b.x, by: b.y, w: b.w, h: b.h, x: 0, y: 0 }];
+      // labels computed ONCE (title-bar region is an obstacle so labels don't park on it), then
+      // the visual bounds INCLUDE those labels — frame and packing share one honest extent.
+      const labels = placeLabels(model, symStyle, [{ x: -9999, y: -9999, w: 1, h: 1 }]);
+      const b = boundsWithLabels(model, labels);
+      return [{ ref: inst.ref, name: def.name, model, why, glow, netOfTerm, netTypeOfTerm, labels, bx: b.x, by: b.y, w: b.w, h: b.h, x: 0, y: 0 }];
     });
     // board I/O: every design-level connector is a region too — a schematic without its
     // headers/jacks is missing exactly the pins a reviewer checks first
@@ -100,17 +112,24 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
       const w = 90 + Math.max(60, ...pins.map((p) => (p.net ?? "open").length * 7));
       return { ref: c.ref, name: part?.name ?? c.connector, pins, w, h: pins.length * 22 + 24, x: 0, y: 0 };
     });
-    // simple flow layout: left→right, wrap; titles need headroom
-    let x = PAD, y = PAD + 30, rowH = 0, contentW = 0;
-    for (const it of [...raw, ...conns]) {
-      if (x + it.w + PAD > ROW_W && x > PAD) { x = PAD; y += rowH + PAD + 30; rowH = 0; }
+    // simple flow layout: left→right, wrap; the dashed region frame + its title need headroom,
+    // so each cell reserves FRAME_PAD around the (label-inclusive) bounds and TITLE_H on top.
+    const all = [...raw, ...conns];
+    let x = MARGIN, y = MARGIN + TITLE_H, rowH = 0, contentR = 0, contentB = 0;
+    for (const it of all) {
+      const cellW = it.w + FRAME_PAD * 2;
+      if (x + cellW + PAD > ROW_W && x > MARGIN) { x = MARGIN; y += rowH + PAD + TITLE_H; rowH = 0; }
       it.x = x; it.y = y;
-      x += it.w + PAD; rowH = Math.max(rowH, it.h);
-      contentW = Math.max(contentW, x); // track the actual right extent so the sheet fits content…
+      x += cellW + PAD; rowH = Math.max(rowH, it.h + FRAME_PAD * 2);
+      contentR = Math.max(contentR, it.x + cellW);
+      contentB = Math.max(contentB, it.y + it.h + FRAME_PAD);
     }
-    // …instead of forcing the full ROW_W width (the empty band that read as a right-edge "shadow").
-    return { items: raw as Item[], connItems: conns, sheetW: Math.max(400, Math.min(ROW_W, contentW) + PAD), sheetH: y + rowH + PAD };
-  }, [resolved, blockOf]);
+    // sheet fits content (no forced ROW_W band that read as a right-edge "shadow"), plus a margin
+    // and room at the bottom-right for the EDA title block.
+    const sheetW = Math.max(560, contentR + MARGIN);
+    const sheetH = contentB + MARGIN + TB_H + 10;
+    return { items: raw as Item[], connItems: conns, sheetW, sheetH };
+  }, [resolved, blockOf, symStyle]);
 
   const downloadSvg = () => {
     const el = svgRef.current;
@@ -124,18 +143,22 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
   };
 
   return (
-    <div className="relative h-full overflow-auto bg-[var(--color-bg)]">
+    // the "desk": a darker surround so the sheet reads as a page sitting on it (kills the old
+    // right-edge seam — the sheet now has an intentional, shadowed boundary).
+    <div className="relative h-full overflow-auto bg-[var(--color-surface-2)] p-6">
       <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
         <span className="text-[11px] text-[var(--color-faint)]">read-only · same-named flags are the same net · double-click a block to edit it</span>
         <button onClick={downloadSvg} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Download SVG</button>
       </div>
       <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" width={sheetW} height={sheetH} viewBox={`0 0 ${sheetW} ${sheetH}`}
-        style={{ color: "var(--color-text)", display: "block" }} fontFamily="var(--font-mono)">
+        style={{ color: "var(--color-text)", display: "block", boxShadow: "0 2px 16px rgba(0,0,0,0.35)", borderRadius: 2 }} fontFamily="var(--font-mono)">
+        {/* the sheet itself — an opaque page under everything (so the desk doesn't show through) */}
+        <rect x={0} y={0} width={sheetW} height={sheetH} fill="var(--color-bg)" />
         {items.map((it) => <InstanceSheet key={it.ref} it={it} symStyle={symStyle} onOpen={onOpenBlock} />)}
         {connItems.map((c) => (
-          <g key={c.ref} transform={`translate(${c.x},${c.y})`}>
-            <rect x={-14} y={-22} width={c.w + 28} height={c.h + 30} rx={6} fill="none" stroke="var(--color-border)" strokeDasharray="5 4" />
-            <text x={-6} y={-28} fontSize={11.5} fontWeight={700} fill="var(--color-dim)">{c.ref} — {c.name}</text>
+          <g key={c.ref} transform={`translate(${c.x + FRAME_PAD},${c.y})`}>
+            <rect x={-FRAME_PAD} y={-FRAME_PAD} width={c.w + FRAME_PAD * 2} height={c.h + FRAME_PAD * 2} rx={6} fill="none" stroke={BORDER} strokeDasharray="5 4" />
+            <text x={-FRAME_PAD + 8} y={-FRAME_PAD - 7} fontSize={11.5} fontWeight={700} fill="var(--color-dim)">{c.ref} — {c.name}</text>
             {/* the connector body + one row per pin, each flying its net flag */}
             <rect x={0} y={0} width={26} height={c.h - 10} rx={3} fill="var(--color-bg)" stroke="currentColor" strokeWidth={1.5} />
             {c.pins.map((p, i) => {
@@ -152,37 +175,50 @@ export default function FlatSchematic({ resolved, blockOf, onOpenBlock }: {
           </g>
         ))}
         {items.length === 0 && connItems.length === 0 && <text x={40} y={60} fontSize={13} fill="var(--color-faint)">Nothing placed yet — add blocks on the canvas first.</text>}
+        <TitleBlock sheetW={sheetW} sheetH={sheetH} meta={meta ?? { title: resolved.design.name || "Untitled" }} count={items.length + connItems.length} />
       </svg>
     </div>
   );
 }
 
+/** Sheet border + a bottom-right title block, the way any EDA tool prints a schematic for handoff. */
+function TitleBlock({ sheetW, sheetH, meta, count }: { sheetW: number; sheetH: number; meta: SheetMeta; count: number }) {
+  const bx = sheetW - MARGIN - TB_W, by = sheetH - MARGIN - TB_H; // top-left of the block
+  const row = TB_H / 3;
+  const cell = (x: number, y: number, w: number, h: number, label: string, value: string, big = false) => (
+    <g>
+      <rect x={x} y={y} width={w} height={h} fill="none" stroke={BORDER} strokeWidth={1} />
+      <text x={x + 6} y={y + 11} fontSize={7} fill="var(--color-faint)" letterSpacing="0.5">{label}</text>
+      <text x={x + 6} y={y + h - 7} fontSize={big ? 12 : 10} fontWeight={big ? 700 : 500} fill="var(--color-text)">{value}</text>
+    </g>
+  );
+  return (
+    <g pointerEvents="none">
+      {/* drawing border — the printable frame around the whole sheet */}
+      <rect x={MARGIN / 2} y={MARGIN / 2} width={sheetW - MARGIN} height={sheetH - MARGIN} fill="none" stroke={BORDER} strokeWidth={1.5} />
+      {/* title block */}
+      <rect x={bx} y={by} width={TB_W} height={TB_H} fill="var(--color-bg)" stroke={BORDER} strokeWidth={1.5} />
+      {cell(bx, by, TB_W, row, "TITLE", meta.title, true)}
+      {cell(bx, by + row, TB_W * 0.55, row, "AUTHOR", meta.author || "—")}
+      {cell(bx + TB_W * 0.55, by + row, TB_W * 0.45, row, "DATE", meta.date || "—")}
+      {cell(bx, by + row * 2, TB_W * 0.3, row, "REV", meta.rev || "A")}
+      {cell(bx + TB_W * 0.3, by + row * 2, TB_W * 0.4, row, "BLOCKS", String(count))}
+      {cell(bx + TB_W * 0.7, by + row * 2, TB_W * 0.3, row, "SHEET", "1 / 1")}
+    </g>
+  );
+}
+
 function InstanceSheet({ it, symStyle, onOpen }: { it: Item; symStyle: SymStyle; onOpen?: (ref: string) => void }) {
   const m = it.model;
-  // the sheet title + frame edge are obstacles too — labels were parking on top of them
-  const labels = useMemo(() => placeLabels(m, symStyle, [
-    { x: it.bx - 18, y: it.by - 46, w: it.w + 36, h: 24 },
-  ]), [m, symStyle, it]);
-  // The frame must enclose the LABELS too, not just symbols/wires (modelBounds ignores label text),
-  // or port flags + ref labels spill outside the dashed box. Union the model bounds with every
-  // placed label's box, then pad.
-  const frame = useMemo(() => {
-    let minX = it.bx, minY = it.by, maxX = it.bx + it.w, maxY = it.by + it.h;
-    for (const L of labels) {
-      const lineH = L.fontSize + 2.5;
-      const w = Math.max(...L.lines.map((s) => s.length)) * L.fontSize * 0.62;
-      const h = L.lines.length * lineH;
-      minX = Math.min(minX, L.x - w / 2); maxX = Math.max(maxX, L.x + w / 2);
-      minY = Math.min(minY, L.y - h / 2); maxY = Math.max(maxY, L.y + h / 2);
-    }
-    return { x: minX - 14, y: minY - 14, w: maxX - minX + 28, h: maxY - minY + 28 };
-  }, [labels, it]);
+  const labels = it.labels; // computed once in the layout pass; bounds already enclose them
+  // frame = the label-inclusive bounds, inset by FRAME_PAD (matches the cell the packer reserved)
+  const frame = { x: it.bx - FRAME_PAD, y: it.by - FRAME_PAD, w: it.w + FRAME_PAD * 2, h: it.h + FRAME_PAD * 2 };
   const tx = it.x - it.bx, ty = it.y - it.by;
   return (
     <g transform={`translate(${tx},${ty})`} onDoubleClick={() => onOpen?.(it.ref)} style={onOpen ? { cursor: "pointer" } : undefined}>
       {/* frame + title, like a sheet region on a traditional drawing (encloses labels too) */}
-      <rect x={frame.x} y={frame.y - 18} width={frame.w} height={frame.h + 18} rx={6} fill="none" stroke="var(--color-border)" strokeDasharray="5 4" />
-      <text x={frame.x + 8} y={frame.y - 24} fontSize={11.5} fontWeight={700} fill="var(--color-dim)">{it.ref} — {it.name}</text>
+      <rect x={frame.x} y={frame.y} width={frame.w} height={frame.h} rx={6} fill="none" stroke={BORDER} strokeDasharray="5 4" />
+      <text x={frame.x + 8} y={frame.y - 7} fontSize={11.5} fontWeight={700} fill="var(--color-dim)">{it.ref} — {it.name}</text>
       {m.wires.map((w) => {
         const pts = wireAbsPath(m.syms, w, m.wires);
         if (pts.length < 2) return null;

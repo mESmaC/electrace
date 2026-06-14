@@ -616,3 +616,23 @@ export function modelBounds(model: Model): { x: number; y: number; w: number; h:
   if (minX === Infinity) return { x: 0, y: 0, w: 1, h: 1 };
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
+
+/** modelBounds unioned with placed-label boxes — the TRUE visual extent (labels can sit outside
+ *  the symbols/wires). The flat-sheet frame AND the layout packing both key off this, so frames
+ *  never overlap and the gap between blocks is honest. */
+export function boundsWithLabels(model: Model, labels: PlacedLabel[]): { x: number; y: number; w: number; h: number } {
+  const b = modelBounds(model);
+  let minX = b.x, minY = b.y, maxX = b.x + b.w, maxY = b.y + b.h;
+  for (const L of labels) {
+    const lineH = L.fontSize + 2.5;
+    const lw = Math.max(1, ...L.lines.map((s) => s.length)) * L.fontSize * 0.62;
+    const lh = L.lines.length * lineH;
+    minX = Math.min(minX, L.x - lw / 2); maxX = Math.max(maxX, L.x + lw / 2);
+    minY = Math.min(minY, L.y - lh / 2); maxY = Math.max(maxY, L.y + lh / 2);
+    if (L.leader) { // a leader line can also poke past the label box
+      minX = Math.min(minX, L.leader.x1, L.leader.x2); maxX = Math.max(maxX, L.leader.x1, L.leader.x2);
+      minY = Math.min(minY, L.leader.y1, L.leader.y2); maxY = Math.max(maxY, L.leader.y1, L.leader.y2);
+    }
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
