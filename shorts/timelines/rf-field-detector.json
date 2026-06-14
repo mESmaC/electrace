@@ -1,0 +1,426 @@
+{
+ "duration": 52.36,
+ "tracks": [
+  {
+   "from": 0,
+   "to": 48.007,
+   "set": {
+    "title": "Your ADC is secretly a radio"
+   }
+  },
+  {
+   "from": 0.2,
+   "to": 1.8,
+   "tween": "symbolsShown",
+   "start": 0,
+   "end": 6
+  },
+  {
+   "from": 1,
+   "to": 19.18,
+   "tween": "wireProgress",
+   "start": 0,
+   "end": 6
+  },
+  {
+   "from": 19.18,
+   "to": 48.007,
+   "set": {
+    "wireProgress": 6,
+    "symbolsShown": 6
+   }
+  },
+  {
+   "from": 19.18,
+   "to": 48.007,
+   "set": {
+    "focus": "ANT1"
+   }
+  },
+  {
+   "from": 19.18,
+   "to": 19.56,
+   "tween": "camK",
+   "start": 1,
+   "end": 1.7
+  },
+  {
+   "from": 19.56,
+   "to": 48.007,
+   "set": {
+    "camK": 1.7
+   }
+  },
+  {
+   "from": 19.18,
+   "to": 19.56,
+   "tween": "camU",
+   "start": 0,
+   "end": 1
+  },
+  {
+   "from": 19.56,
+   "to": 48.007,
+   "set": {
+    "camU": 1
+   }
+  },
+  {
+   "from": 19.18,
+   "to": 25.437,
+   "set": {
+    "highlight": "ANT1"
+   }
+  },
+  {
+   "from": 25.437,
+   "to": 48.007,
+   "set": {
+    "focus": "D1"
+   }
+  },
+  {
+   "from": 25.437,
+   "to": 31.382,
+   "set": {
+    "highlight": "D1"
+   }
+  },
+  {
+   "from": 31.382,
+   "to": 48.007,
+   "set": {
+    "focus": "C1"
+   }
+  },
+  {
+   "from": 31.382,
+   "to": 34.145,
+   "set": {
+    "highlight": "C1"
+   }
+  },
+  {
+   "from": 34.145,
+   "to": 36.188,
+   "set": {
+    "highlight": "C1,R1"
+   }
+  },
+  {
+   "from": 36.188,
+   "to": 36.568000000000005,
+   "tween": "camK",
+   "start": 2.1,
+   "end": 1
+  },
+  {
+   "from": 36.188,
+   "to": 36.568000000000005,
+   "tween": "camU",
+   "start": 1,
+   "end": 0
+  },
+  {
+   "from": 36.568000000000005,
+   "to": 48.007,
+   "set": {
+    "camK": 1,
+    "camU": 0,
+    "focus": ""
+   }
+  },
+  {
+   "from": 36.188,
+   "to": 42.109,
+   "set": {
+    "highlight": ""
+   }
+  },
+  {
+   "from": 42.109,
+   "to": 48.007,
+   "set": {
+    "highlight": "ANT1,D1,C1,R1"
+   }
+  },
+  {
+   "from": 0,
+   "to": 2.326,
+   "set": {
+    "caption": "Your microcontroller's analog pin can't"
+   }
+  },
+  {
+   "from": 2.287,
+   "to": 3.394,
+   "set": {
+    "caption": "read WiFi —"
+   }
+  },
+  {
+   "from": 3.437,
+   "to": 4.973,
+   "set": {
+    "caption": "digitizing a two point four"
+   }
+  },
+  {
+   "from": 4.911,
+   "to": 7.144,
+   "set": {
+    "caption": "gigahertz wave needs five billion"
+   }
+  },
+  {
+   "from": 7.094,
+   "to": 8.629999999999999,
+   "set": {
+    "caption": "samples a second, and no"
+   }
+  },
+  {
+   "from": 8.603,
+   "to": 10.29,
+   "set": {
+    "caption": "A-D-C is that fast."
+   }
+  },
+  {
+   "from": 10.333,
+   "to": 11.962,
+   "set": {
+    "caption": "Yet three cheap parts let"
+   }
+  },
+  {
+   "from": 11.877,
+   "to": 13.193,
+   "set": {
+    "caption": "that same pin feel the"
+   }
+  },
+  {
+   "from": 13.143,
+   "to": 14.633,
+   "set": {
+    "caption": "WiFi in the room."
+   }
+  },
+  {
+   "from": 14.942,
+   "to": 15.689,
+   "set": {
+    "caption": "The trick:"
+   }
+  },
+  {
+   "from": 15.836,
+   "to": 17.001,
+   "set": {
+    "caption": "don't read the signal."
+   }
+  },
+  {
+   "from": 17.078,
+   "to": 18.162000000000003,
+   "set": {
+    "caption": "Just measure how much of"
+   }
+  },
+  {
+   "from": 18.088,
+   "to": 18.87,
+   "set": {
+    "caption": "it is there."
+   }
+  },
+  {
+   "from": 19.18,
+   "to": 20.414,
+   "set": {
+    "caption": "Start with a wire —"
+   }
+  },
+  {
+   "from": 20.376,
+   "to": 21.262,
+   "set": {
+    "caption": "an antenna."
+   }
+  },
+  {
+   "from": 21.339,
+   "to": 23.236,
+   "set": {
+    "caption": "Near any transmitter, a few"
+   }
+  },
+  {
+   "from": 23.197,
+   "to": 24.919,
+   "set": {
+    "caption": "millivolts of radio ride onto"
+   }
+  },
+  {
+   "from": 24.88,
+   "to": 25.244,
+   "set": {
+    "caption": "it."
+   }
+  },
+  {
+   "from": 25.437,
+   "to": 27.369,
+   "set": {
+    "caption": "Then a Schottky diode, fast"
+   }
+  },
+  {
+   "from": 27.295,
+   "to": 28.692,
+   "set": {
+    "caption": "enough to chop those gigahertz"
+   }
+  },
+  {
+   "from": 28.63,
+   "to": 29.807000000000002,
+   "set": {
+    "caption": "waves in half where a"
+   }
+  },
+  {
+   "from": 29.756,
+   "to": 31.072000000000003,
+   "set": {
+    "caption": "normal diode can't."
+   }
+  },
+  {
+   "from": 31.382,
+   "to": 33.022999999999996,
+   "set": {
+    "caption": "A capacitor catches the peaks"
+   }
+  },
+  {
+   "from": 32.949,
+   "to": 34.879999999999995,
+   "set": {
+    "caption": "and smooths them; a resistor"
+   }
+  },
+  {
+   "from": 34.842,
+   "to": 35.995,
+   "set": {
+    "caption": "bleeds it down."
+   }
+  },
+  {
+   "from": 36.188,
+   "to": 37.480999999999995,
+   "set": {
+    "caption": "What's left is a D-C"
+   }
+  },
+  {
+   "from": 37.5,
+   "to": 38.839,
+   "set": {
+    "caption": "level that tracks the field"
+   }
+  },
+  {
+   "from": 38.777,
+   "to": 39.443,
+   "set": {
+    "caption": "strength —"
+   }
+  },
+  {
+   "from": 39.59,
+   "to": 41.056999999999995,
+   "set": {
+    "caption": "and your A-D-C reads that"
+   }
+  },
+  {
+   "from": 40.995,
+   "to": 41.8,
+   "set": {
+    "caption": "all day."
+   }
+  },
+  {
+   "from": 42.109,
+   "to": 43.157999999999994,
+   "set": {
+    "caption": "Point a phone at it,"
+   }
+  },
+  {
+   "from": 43.073,
+   "to": 43.89,
+   "set": {
+    "caption": "hit send:"
+   }
+  },
+  {
+   "from": 43.932,
+   "to": 45.085,
+   "set": {
+    "caption": "the number jumps."
+   }
+  },
+  {
+   "from": 45.232,
+   "to": 46.421,
+   "set": {
+    "caption": "You built a radio from"
+   }
+  },
+  {
+   "from": 46.347,
+   "to": 47.814,
+   "set": {
+    "caption": "a wire and a diode."
+   }
+  },
+  {
+   "from": 48.007,
+   "to": 52.36,
+   "set": {
+    "cta": true
+   }
+  }
+ ],
+ "sfx": [
+  {
+   "t": 19.18,
+   "sound": "whoosh"
+  },
+  {
+   "t": 25.437,
+   "sound": "pop"
+  },
+  {
+   "t": 31.382,
+   "sound": "pop"
+  },
+  {
+   "t": 33.135,
+   "sound": "pop"
+  },
+  {
+   "t": 36.188,
+   "sound": "whoosh"
+  },
+  {
+   "t": 43.932,
+   "sound": "thud"
+  }
+ ]
+}
