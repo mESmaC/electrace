@@ -11,6 +11,7 @@ export const CHANGELOG: ChangeEntry[] = [
     date: "2026-06-13",
     items: [
       "**The full schematic prints like a real drawing.** The whole-design schematic sheet now reads the way an EDA tool prints one: a border around the page and a proper title block in the bottom-right — design name, author, date, revision, block count, sheet number. Each block's region sits on the page as a framed drawing with honest spacing between them, and every label and port flag stays inside its own frame instead of spilling past the edge. The view itself now presents the sheet as a page on a desk — so 'Download SVG' hands you something you'd actually put in a handoff package.",
+      "**'Send to Digi-Key' only sends what's actually orderable.** A connector (RJ45, USB-C, a header) or a generic placeholder part (a block that just says 'p-fet') has no single orderable part number — and sending one poisoned the whole list, so the cart failed for any design that had one. Now those rows are kept out of the one-click cart (they still carry a working 'buy ↗' search and stay in the CSV), and the button only lights up for the parts that declare a real part number. The cart push you get is one Digi-Key accepts.",
     ],
   },
   {

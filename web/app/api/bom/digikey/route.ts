@@ -23,12 +23,26 @@ export async function POST(req: Request) {
   try {
     const r = await fetch(`${ENDPOINT}?listName=${encodeURIComponent(name)}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      // a browser-like UA + Accept: this is the no-auth endpoint a browser hits, and the host sits
+      // behind bot-protection that can 403 a bare server fetch (separate from a bad part number).
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/plain, */*",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      },
       body: JSON.stringify(body),
     });
     if (!r.ok) {
-      console.error("[bom] digikey mylists:", r.status, (await r.text().catch(() => "")).slice(0, 200));
-      return Response.json({ error: "Digi-Key didn't accept the list — try again in a moment." }, { status: 502 });
+      const text = (await r.text().catch(() => "")).slice(0, 300);
+      console.error("[bom] digikey mylists:", r.status, text);
+      // a Cloudflare/bot challenge (403 + HTML interstitial) is a different failure than Digi-Key
+      // rejecting a part number — say so, so the message isn't misleading.
+      const challenged = r.status === 403 || /just a moment|cf-|cloudflare/i.test(text);
+      return Response.json({
+        error: challenged
+          ? "Digi-Key blocked the request right now — try again in a moment, or use the buy links."
+          : "Digi-Key didn't accept the list — one of the part numbers may not be orderable.",
+      }, { status: 502 });
     }
     // live behavior (verified 2026-06-09): the body is a bare JSON string with a short URL;
     // the forum docs describe { singleUseUrl } — accept either shape

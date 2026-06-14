@@ -37,7 +37,7 @@ export default function BomPanel({ rows, designName, pro }: { rows: BomRow[]; de
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: `${designName || "Electrace design"} — BOM`,
-          parts: cartRows.map((row) => ({ pn: row.part, ref: row.refs.join(" "), qty: row.qty, note: [row.value, row.footprint].filter(Boolean).join(" ") })),
+          parts: cartRows.map((row) => ({ pn: row.part, ref: row.refs.join(" "), qty: row.qty, note: [row.value, row.value === row.footprint ? null : row.footprint].filter(Boolean).join(" ") })),
         }),
       });
       const b = await r.json().catch(() => ({}));
