@@ -1,0 +1,49 @@
+id: "@electrace/rf-field-detector"
+name: RF Field Detector
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "📶"
+spec:
+  band: { note: "Wideband by design — it's a power detector, not a tuned receiver. Responds to whatever RF couples into the antenna stub: a phone's 2.4 GHz Wi-Fi/Bluetooth, an 800 MHz–2 GHz cell burst, a walkie-talkie, a microwave oven's leakage. The diode is the only frequency-limiting part." }
+  vout: { note: "A few millivolts to a few hundred mV of DC, proportional to field strength. Read it on an ADC pin (or a comparator for a simple go/no-go). Bias the diode near conduction with a high-value resistor for the best small-signal sensitivity." }
+limits:
+  - { field: physics.note, value: 0, note: "This is the crystal-radio envelope detector: the antenna's tiny RF voltage is rectified by the Schottky (its low forward drop and fast recovery are why a SIGNAL diode won't do at GHz), and the RC smooths the rectified pulses into a DC level that tracks the ENVELOPE — the signal's strength, not its content. Nyquist forbids an ADC from sampling 2.4 GHz directly; the diode does the down-conversion in hardware, for free." }
+  - { field: honesty.note, value: 0, note: "It measures field STRENGTH, not information — you get 'how much RF is here', not what's being transmitted. No tuning, no station selection. That's the honest scope: a $0.50 field-strength meter, not a radio receiver." }
+  - { field: sensitivity.note, value: 0, note: "Sensitivity hinges on the diode: a zero-bias Schottky (e.g. an HSMS-285x detector diode) reads weak fields a rectifier diode can't. A DC bias resistor that idles the diode just below conduction (a few hundred kΩ to a rail) linearizes the small-signal response. The antenna is just a wire — length near a quarter-wavelength of your band of interest helps, but even a stub picks up a nearby transmitter." }
+terminals:
+  - { id: adc,  role: out, type: signal }
+  - { id: gnd,  role: in,  type: gnd }
+schematic:
+  parts:
+    - { ref: ANT1, type: antenna, value: "stub", footprint: WIRE, why: "the pickup — even a short wire couples a few millivolts of RF in from a nearby transmitter. Near a quarter-wave of the band you care about works best, but it isn't tuned" }
+    - { ref: D1, type: schottky, value: BAT54, footprint: SOT-23, why: "the rectifier — a Schottky's low forward drop and fast recovery let it follow GHz signals where an ordinary diode just can't keep up. This is what turns RF the ADC could never sample into a DC level it can" }
+    - { ref: C1, type: cap, value: 100pF, footprint: C0402, why: "holds the rectified peaks and smooths them into a steady DC level — the RF envelope. With R1 it sets how fast the reading tracks a changing field" }
+    - { ref: R1, type: res, value: 1M, footprint: R0603, why: "bleeds C1 so the level falls when the field drops (sets the RC response), and idles the diode just under conduction so even tiny signals push it into rectifying" }
+  nets:
+    - { name: RF,    connect: [ANT1.1, D1.1] }
+    - { name: SENSE, connect: [D1.2, C1.1, R1.1, "@adc"] }
+    - { name: GND,   connect: [C1.2, R1.2, "@gnd"] }
+layout:
+  # left→right read: antenna picks up RF → Schottky rectifies → the SENSE bus (a clean horizontal
+  # rail) → ADC pin. C1 and R1 drop straight down from two distinct points on the bus to a shared
+  # ground rail — the detector's reservoir + bleed, drawn as an obvious parallel pair.
+  symbols:
+    - { id: ANT1, type: antenna, ref: ANT1, x: 90, y: 70 }
+    - { id: D1, type: schottky, ref: D1, value: BAT54, x: 150, y: 170 }
+    - { id: C1, type: capacitor, ref: C1, value: 100pF, x: 320, y: 280, rot: 90 }
+    - { id: R1, type: resistor, ref: R1, value: 1M, x: 470, y: 280, rot: 90 }
+    - { id: P_adc, type: port, ref: adc, x: 600, y: 170, rot: 0 }
+    - { id: P_gnd, type: port, ref: gnd, x: 360, y: 420, rot: 90 }
+  wires:
+    # RF in: antenna down to the diode anode
+    - { from: ANT1.1, to: D1.1, via: [[110, 170]] }
+    # SENSE bus: diode cathode straight across to the ADC pin
+    - { from: D1.2, to: P_adc.1 }
+    # C1 and R1 tap the bus at distinct x and drop to it
+    - { from: C1.1, to: D1.2, via: [[330, 180]] }
+    - { from: R1.1, to: D1.2, via: [[480, 180]] }
+    # ground rail: both bottoms to gnd
+    - { from: C1.2, to: P_gnd.1 }
+    - { from: R1.2, to: P_gnd.1, via: [[480, 390]] }

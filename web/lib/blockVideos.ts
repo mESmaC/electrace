@@ -11,4 +11,5 @@ export const BLOCK_VIDEOS: Record<string, { id: string; title: string; uploadDat
   "reverse-polarity-protection": { id: "f1qXXlDM8NY", title: "The transistor that survives backwards batteries", uploadDate: "2026-06-12" },
   "tl431-reference": { id: "YwOGLH_tuAY", title: "The most-made chip you've never heard of", uploadDate: "2026-06-12" },
   "led-color-sensor": { id: "Z0pkPAW7_Yw", title: "Every LED is secretly a light sensor", uploadDate: "2026-06-13" },
+  "rf-field-detector": { id: "IsL4rB66YfM", title: "Your ADC is secretly a radio", uploadDate: "2026-06-13" },
 };
