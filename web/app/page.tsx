@@ -19,7 +19,10 @@ export default function Home() {
   return (
     <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(appLd) }} />
-    <main className="overflow-x-hidden">
+    {/* overflow-x-CLIP, not hidden: `overflow-x:hidden` with the default `overflow-y:visible`
+        forces the y-axis to compute to `auto`, making <main> a second scroll container (double
+        scrollbar). `clip` clips the wide hero blur on the x-axis without scrolling either axis. */}
+    <main className="overflow-x-clip">
       {/* ===== HERO ===== */}
       <header className="relative px-7 pb-16 pt-[74px] text-center">
         <div className="pointer-events-none absolute left-1/2 top-[-160px] h-[560px] w-[1000px] -translate-x-1/2"
