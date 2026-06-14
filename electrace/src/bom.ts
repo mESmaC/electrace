@@ -1,4 +1,5 @@
 import type { BomRow, ResolvedDesign } from "./types.js";
+import { CONNECTOR_CATALOG } from "./connectors.js";
 
 /** Flatten every instance's parts and merge identical ones → a bill of materials. */
 export function bom(rd: ResolvedDesign): BomRow[] {
@@ -15,6 +16,16 @@ export function bom(rd: ResolvedDesign): BomRow[] {
         ...(p.polarized ? { polarized: true } : {}), refs: [ref],
       });
     }
+  }
+  // Connectors are real, orderable physical parts (the board edge) — they belong in the BOM too.
+  // Keyed by catalog id so identical connectors merge; value carries the human name + footprint.
+  for (const conn of rd.design.connectors ?? []) {
+    const part = CONNECTOR_CATALOG[conn.connector];
+    if (!part) continue;
+    const key = `connector|${conn.connector}`;
+    const row = map.get(key);
+    if (row) { row.qty++; row.refs.push(conn.ref); }
+    else map.set(key, { qty: 1, type: "connector", value: part.name, footprint: part.footprint, part: part.id, refs: [conn.ref] });
   }
   return [...map.values()];
 }
