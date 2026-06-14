@@ -550,9 +550,14 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     setMounted(true);
     const onSave = () => setDraftV((v) => v + 1);
     const onUserBlocks = () => setUserV((v) => v + 1); // a block's terminals changed (e.g. off-board flag)
+    // cross-device: when server hydration backfills user blocks / drafts on a fresh device, re-read
+    // them so the palette shows them without a manual reload (the bug: blocks only appeared on the
+    // browser they were authored in).
+    const onHyd = () => { setUserV((v) => v + 1); setDraftV((v) => v + 1); };
     window.addEventListener("electrace:blocksch", onSave);
     window.addEventListener("electrace:userblocks", onUserBlocks);
-    return () => { window.removeEventListener("electrace:blocksch", onSave); window.removeEventListener("electrace:userblocks", onUserBlocks); };
+    window.addEventListener("electrace:hydrated", onHyd);
+    return () => { window.removeEventListener("electrace:blocksch", onSave); window.removeEventListener("electrace:userblocks", onUserBlocks); window.removeEventListener("electrace:hydrated", onHyd); };
   }, []);
 
   // library blocks (build-time) + user blocks (localStorage); user blocks only exist after mount

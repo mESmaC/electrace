@@ -38,12 +38,16 @@ function send(key: string, value: string | null): void {
 /** Writes still sitting in the debounce window, so pagehide can flush them. */
 const pending = new Map<string, string | null>();
 
+// user-authored blocks + their schematic drafts: infrequent, important, and cross-device. Flush
+// them immediately (no debounce) so authoring a block and switching machines can't lose the write.
+const FLUSH_NOW = /^electrace:(userblocks|blocksch:)/;
+
 /** Push one key to the server, debounced per-key (autosave writes the same key repeatedly). */
 function push(key: string, value: string | null): void {
   clearTimeout(timers[key]);
-  // removals fire IMMEDIATELY — deletes are rare and destructive-intent; a debounced delete
-  // lost to a quick refresh was the project-resurrection bug
-  if (value === null || (typeof document !== "undefined" && document.visibilityState === "hidden")) {
+  // removals + user-block writes fire IMMEDIATELY — a debounced write lost to a quick refresh or
+  // device switch was the bug class (project resurrection; blocks not crossing systems).
+  if (value === null || FLUSH_NOW.test(key) || (typeof document !== "undefined" && document.visibilityState === "hidden")) {
     pending.delete(key);
     if (!syncDesignKey(key, value)) send(key, value);
     return;
