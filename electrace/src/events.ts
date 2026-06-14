@@ -23,7 +23,8 @@ export type ElectraceEvent =
   | { kind: "block.validate"; block: string; issues: string[] }            // validation issue codes
   // ── purchase intent (BOM → distributor) — strong corpus signal: this design got real enough to buy
   | { kind: "bom.buy"; q: string }                                         // one row's outbound query
-  | { kind: "bom.cart"; parts: number };                                   // whole-BOM cart push, line count
+  | { kind: "bom.cart"; parts: number }                                    // whole-BOM cart push, line count
+  | { kind: "bom.sparky_pns"; rows: number };                              // asked Sparky to fill missing part numbers
 
 /** A captured event: the structured event + when and which anonymous session. */
 export interface CapturedEvent {

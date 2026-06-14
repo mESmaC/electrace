@@ -71,14 +71,31 @@ export default function AssistantBubble() {
 
   useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); }, [messages, open, busy, typing]);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = input.trim();
+  const ask = (raw: string) => {
+    const text = raw.trim();
     if (!text || busy || running || pro === false) return;
     setInput("");
     setBusy(true);
     sendMessage(text).finally(() => setBusy(false));
   };
+  const submit = (e: React.FormEvent) => { e.preventDefault(); ask(input); };
+
+  // External "open Sparky and ask this" trigger (e.g. the BOM panel's "fill part numbers" button).
+  // Opens the pane; if a prompt rides along, send it (once Sparky is unlocked). If it's still
+  // Pro-locked, opening the pane shows the upgrade prompt — the right outcome.
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      setOpen(true);
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (text) {
+        if (pro === false) setInput(text); // locked: stage it so it's ready after upgrade
+        else ask(text);
+      }
+    };
+    window.addEventListener("electrace:sparky-ask", onAsk as EventListener);
+    return () => window.removeEventListener("electrace:sparky-ask", onAsk as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pro, busy, running]);
 
   const iconBtn = "grid h-7 w-7 place-items-center rounded-md text-[var(--color-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]";
 

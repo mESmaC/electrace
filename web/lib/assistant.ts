@@ -164,6 +164,12 @@ export function registerAgentSession(s: AgentSession): () => void {
 
 /** Send a user message: append it, call the server route (which holds the API key + tools), append
  *  the model's reply, and apply any design changes it made. Resolves when the turn is complete. */
+/** Open the Sparky pane and (optionally) ask it something, from anywhere in the editor. The bubble
+ *  listens for this event — it handles the Pro gate, so callers don't have to. */
+export function askSparky(text: string): void {
+  try { window.dispatchEvent(new CustomEvent("electrace:sparky-ask", { detail: { text } })); } catch { /* SSR / no window */ }
+}
+
 export async function sendMessage(text: string): Promise<void> {
   const t = text.trim();
   if (!t) return;
