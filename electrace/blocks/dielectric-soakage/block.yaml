@@ -1,0 +1,47 @@
+id: "@electrace/dielectric-soakage"
+name: Dielectric Soakage Demo
+version: 1.0.0
+category: interface
+author: electrace
+license: CC-BY-4.0
+glyph: "🔋"
+spec:
+  effect: { note: "Dielectric absorption (a.k.a. soakage): charge a capacitor, short it dead, open the short — and the voltage climbs back on its own. The dielectric soaked up charge that the quick discharge couldn't reach; minutes later it leaks back out." }
+  worst_in: { note: "Worst in electrolytic, tantalum, and high-K ceramics (X5R/X7R); least in film (polypropylene/polystyrene) and C0G/NP0 ceramic. A big electrolytic can recover several percent of its original voltage." }
+  recovery: { min: 0.5, max: 10, unit: "%" }
+limits:
+  - { field: physics.note, value: 0, note: "A real dielectric isn't one capacitance — it's a fast bulk capacitance in parallel with slow, deep dipole states that charge and discharge over seconds to minutes (a Maxwell-Wagner / dielectric-relaxation network). A quick short empties the fast part; the slow part keeps its charge, then bleeds it back onto the plates. The recovered voltage is real stored energy, not a measurement error." }
+  - { field: danger.note, value: 0, note: "This is why big capacitors ship with a SHORTING STRAP and why a 'discharged' high-voltage cap can bite you minutes later — a microwave-oven or PSU bulk cap can recover to a dangerous voltage after you thought it was safe. Always short HV caps through a resistor and leave the strap on." }
+  - { field: design.note, value: 0, note: "Why sample-and-hold and integrator circuits avoid electrolytics and X7R: the soaked charge bleeds back and corrupts the held value (a 'memory' of the previous sample). Precision analog uses film or C0G for exactly this reason. Soakage also skews fast-settling references and slows true RESET of a charge node." }
+terminals:
+  - { id: charge, role: in,  type: signal }
+  - { id: meas,   role: out, type: signal }
+  - { id: gnd,    role: in,  type: gnd }
+schematic:
+  parts:
+    - { ref: R1, type: res, value: 1k, footprint: R0603, why: "charge/bleed resistor — limits inrush while charging C1 and gives a defined, gentle path; the soakage recovery happens AFTER this is disconnected, from inside the cap itself" }
+    - { ref: C1, type: cap-pol, value: 4700uF, footprint: RADIAL-10mm, polarized: true, why: "the star: a big electrolytic. Its dielectric stores charge in slow dipole states a quick short can't empty — so it 'remembers' and recovers. The bigger and more electrolytic, the stronger the effect" }
+    - { ref: SW1, type: button, value: "short", footprint: TACT, why: "the shorting strap. Press it to dump C1 to zero — but it only empties the fast bulk charge. Release it and the slow dielectric charge leaks back onto the plates: the voltage climbs from zero on its own" }
+  nets:
+    - { name: CHG,   connect: [R1.1, "@charge"] }
+    - { name: TOP,   connect: [R1.2, C1.1, SW1.1, "@meas"] }
+    - { name: GND,   connect: [C1.2, SW1.2, "@gnd"] }
+layout:
+  # charge in (left) → R1 → the cap's TOP node. SW1 is the shorting strap straight across C1.
+  # the meas port taps TOP (the voltmeter that watches the voltage climb back).
+  symbols:
+    - { id: P_chg, type: port, ref: charge, x: 70, y: 110, rot: 180 }
+    - { id: R1, type: resistor, ref: R1, value: 1k, x: 110, y: 100 }
+    - { id: C1, type: cap-pol, ref: C1, value: 4700uF, x: 290, y: 200, rot: 90 }
+    - { id: SW1, type: button, ref: SW1, value: short, x: 470, y: 190, rot: 90 }
+    - { id: P_meas, type: port, ref: meas, x: 600, y: 110, rot: 0 }
+    - { id: P_gnd, type: port, ref: gnd, x: 290, y: 340, rot: 90 }
+  wires:
+    - { from: P_chg.1, to: R1.1 }
+    # TOP bus: R1 out runs across to the meas port; C1 and SW1 drop straight from it
+    - { from: R1.2, to: P_meas.1 }
+    - { from: C1.1, to: R1.2, via: [[290, 110]] }
+    - { from: SW1.1, to: R1.2, via: [[470, 110]] }
+    # GND bus: C1 bottom and SW1 bottom to ground
+    - { from: C1.2, to: P_gnd.1 }
+    - { from: SW1.2, to: P_gnd.1, via: [[470, 310]] }

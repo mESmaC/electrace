@@ -1,0 +1,455 @@
+{
+ "duration": 48.97,
+ "tracks": [
+  {
+   "from": 0,
+   "to": 44.513,
+   "set": {
+    "title": "This capacitor recharges itself"
+   }
+  },
+  {
+   "from": 0.2,
+   "to": 1.6,
+   "tween": "symbolsShown",
+   "start": 0,
+   "end": 6
+  },
+  {
+   "from": 0.8,
+   "to": 1.625,
+   "tween": "wireProgress",
+   "start": 0,
+   "end": 6
+  },
+  {
+   "from": 1.625,
+   "to": 44.513,
+   "set": {
+    "wireProgress": 6,
+    "symbolsShown": 6
+   }
+  },
+  {
+   "from": 0,
+   "to": 44.513,
+   "set": {
+    "focus": "C1"
+   }
+  },
+  {
+   "from": 0,
+   "to": 0.38,
+   "tween": "camK",
+   "start": 1,
+   "end": 1.6
+  },
+  {
+   "from": 0.38,
+   "to": 44.513,
+   "set": {
+    "camK": 1.6
+   }
+  },
+  {
+   "from": 0,
+   "to": 0.38,
+   "tween": "camU",
+   "start": 0,
+   "end": 1
+  },
+  {
+   "from": 0.38,
+   "to": 44.513,
+   "set": {
+    "camU": 1
+   }
+  },
+  {
+   "from": 0,
+   "to": 1.625,
+   "set": {
+    "highlight": "C1"
+   }
+  },
+  {
+   "from": 1.625,
+   "to": 44.513,
+   "set": {
+    "focus": "SW1"
+   }
+  },
+  {
+   "from": 1.625,
+   "to": 6.664,
+   "set": {
+    "highlight": "SW1"
+   }
+  },
+  {
+   "from": 6.664,
+   "to": 44.513,
+   "set": {
+    "focus": "C1"
+   }
+  },
+  {
+   "from": 6.664,
+   "to": 14.571,
+   "set": {
+    "highlight": "C1"
+   }
+  },
+  {
+   "from": 14.571,
+   "to": 14.951,
+   "tween": "camK",
+   "start": 2.1,
+   "end": 1
+  },
+  {
+   "from": 14.571,
+   "to": 14.951,
+   "tween": "camU",
+   "start": 1,
+   "end": 0
+  },
+  {
+   "from": 14.951,
+   "to": 44.513,
+   "set": {
+    "camK": 1,
+    "camU": 0,
+    "focus": ""
+   }
+  },
+  {
+   "from": 14.571,
+   "to": 28.828,
+   "set": {
+    "highlight": ""
+   }
+  },
+  {
+   "from": 28.828,
+   "to": 31.951,
+   "set": {
+    "highlight": "SW1,C1"
+   }
+  },
+  {
+   "from": 31.951,
+   "to": 44.513,
+   "set": {
+    "focus": "C1"
+   }
+  },
+  {
+   "from": 31.951,
+   "to": 32.331,
+   "tween": "camK",
+   "start": 1,
+   "end": 1.5
+  },
+  {
+   "from": 32.331,
+   "to": 44.513,
+   "set": {
+    "camK": 1.5
+   }
+  },
+  {
+   "from": 31.951,
+   "to": 32.331,
+   "tween": "camU",
+   "start": 0,
+   "end": 1
+  },
+  {
+   "from": 32.331,
+   "to": 44.513,
+   "set": {
+    "camU": 1
+   }
+  },
+  {
+   "from": 31.951,
+   "to": 44.513,
+   "set": {
+    "highlight": "C1"
+   }
+  },
+  {
+   "from": 0,
+   "to": 1.513,
+   "set": {
+    "caption": "Charge up a big capacitor."
+   }
+  },
+  {
+   "from": 1.625,
+   "to": 2.628,
+   "set": {
+    "caption": "Now short it out —"
+   }
+  },
+  {
+   "from": 2.577,
+   "to": 4.0089999999999995,
+   "set": {
+    "caption": "a wire straight across it."
+   }
+  },
+  {
+   "from": 4.122,
+   "to": 5.855,
+   "set": {
+    "caption": "The voltmeter drops to zero."
+   }
+  },
+  {
+   "from": 5.898,
+   "to": 6.587,
+   "set": {
+    "caption": "It's dead."
+   }
+  },
+  {
+   "from": 6.664,
+   "to": 8.038,
+   "set": {
+    "caption": "Take the wire off, walk"
+   }
+  },
+  {
+   "from": 7.976,
+   "to": 9.013,
+   "set": {
+    "caption": "away, come back:"
+   }
+  },
+  {
+   "from": 9.091,
+   "to": 10.383,
+   "set": {
+    "caption": "the voltage has climbed back"
+   }
+  },
+  {
+   "from": 10.333,
+   "to": 11.103,
+   "set": {
+    "caption": "on its own."
+   }
+  },
+  {
+   "from": 11.297,
+   "to": 12.437999999999999,
+   "set": {
+    "caption": "Nothing's connected."
+   }
+  },
+  {
+   "from": 12.585,
+   "to": 14.318999999999999,
+   "set": {
+    "caption": "It charged itself from nothing."
+   }
+  },
+  {
+   "from": 14.571,
+   "to": 15.712,
+   "set": {
+    "caption": "This isn't a trick —"
+   }
+  },
+  {
+   "from": 15.755,
+   "to": 17.57,
+   "set": {
+    "caption": "it's dielectric soakage."
+   }
+  },
+  {
+   "from": 17.763,
+   "to": 20.043,
+   "set": {
+    "caption": "A capacitor's insulator isn't perfect."
+   }
+  },
+  {
+   "from": 20.352,
+   "to": 21.448,
+   "set": {
+    "caption": "Most of the charge sits"
+   }
+  },
+  {
+   "from": 21.351,
+   "to": 22.365000000000002,
+   "set": {
+    "caption": "on the plates and dumps"
+   }
+  },
+  {
+   "from": 22.28,
+   "to": 23.422,
+   "set": {
+    "caption": "the instant you short it."
+   }
+  },
+  {
+   "from": 23.534,
+   "to": 25.082,
+   "set": {
+    "caption": "But some soaks deep into"
+   }
+  },
+  {
+   "from": 25.008,
+   "to": 27.09,
+   "set": {
+    "caption": "the material, into slow molecules"
+   }
+  },
+  {
+   "from": 27.005,
+   "to": 28.228,
+   "set": {
+    "caption": "that take minutes to let"
+   }
+  },
+  {
+   "from": 28.155,
+   "to": 28.716,
+   "set": {
+    "caption": "go."
+   }
+  },
+  {
+   "from": 28.828,
+   "to": 30.295,
+   "set": {
+    "caption": "The short empties the plates"
+   }
+  },
+  {
+   "from": 30.337,
+   "to": 30.504,
+   "set": {
+    "caption": "—"
+   }
+  },
+  {
+   "from": 30.465,
+   "to": 31.490000000000002,
+   "set": {
+    "caption": "not the soak."
+   }
+  },
+  {
+   "from": 31.951,
+   "to": 33.788999999999994,
+   "set": {
+    "caption": "Seconds later that hidden charge"
+   }
+  },
+  {
+   "from": 33.751,
+   "to": 35.251999999999995,
+   "set": {
+    "caption": "leaks back out, and the"
+   }
+  },
+  {
+   "from": 35.179,
+   "to": 36.425,
+   "set": {
+    "caption": "voltage returns."
+   }
+  },
+  {
+   "from": 36.734,
+   "to": 38.12,
+   "set": {
+    "caption": "It's real energy you couldn't"
+   }
+  },
+  {
+   "from": 38.058,
+   "to": 38.619,
+   "set": {
+    "caption": "reach."
+   }
+  },
+  {
+   "from": 38.731,
+   "to": 40.36,
+   "set": {
+    "caption": "It's why big capacitors ship"
+   }
+  },
+  {
+   "from": 40.287,
+   "to": 41.568,
+   "set": {
+    "caption": "with a shorting strap —"
+   }
+  },
+  {
+   "from": 41.564,
+   "to": 43.159,
+   "set": {
+    "caption": "and why a powered-off microwave"
+   }
+  },
+  {
+   "from": 43.073,
+   "to": 44.32,
+   "set": {
+    "caption": "can still bite you."
+   }
+  },
+  {
+   "from": 44.513,
+   "to": 48.97,
+   "set": {
+    "cta": true
+   }
+  }
+ ],
+ "sfx": [
+  {
+   "t": 0,
+   "sound": "whoosh"
+  },
+  {
+   "t": 1.625,
+   "sound": "pop"
+  },
+  {
+   "t": 5.898,
+   "sound": "thud"
+  },
+  {
+   "t": 6.664,
+   "sound": "pop"
+  },
+  {
+   "t": 10.333,
+   "sound": "pop"
+  },
+  {
+   "t": 14.571,
+   "sound": "whoosh"
+  },
+  {
+   "t": 31.951,
+   "sound": "whoosh"
+  },
+  {
+   "t": 35.062,
+   "sound": "thud"
+  }
+ ]
+}

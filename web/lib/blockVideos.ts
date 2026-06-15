@@ -12,4 +12,5 @@ export const BLOCK_VIDEOS: Record<string, { id: string; title: string; uploadDat
   "tl431-reference": { id: "YwOGLH_tuAY", title: "The most-made chip you've never heard of", uploadDate: "2026-06-12" },
   "led-color-sensor": { id: "Z0pkPAW7_Yw", title: "Every LED is secretly a light sensor", uploadDate: "2026-06-13" },
   "rf-field-detector": { id: "IsL4rB66YfM", title: "Your ADC is secretly a radio", uploadDate: "2026-06-13" },
+  "dielectric-soakage": { id: "ByLYKvMCsxA", title: "This capacitor recharges itself", uploadDate: "2026-06-14" },
 };
