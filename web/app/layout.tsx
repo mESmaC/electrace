@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import { SITE } from "@/lib/site";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
@@ -7,6 +8,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import ServerSync from "./ServerSync";
 import ErrorMonitor from "./ErrorMonitor";
+import SignupConversion from "./SignupConversion";
 import ThemeToggle from "./ThemeToggle";
 import SiteBackdrop from "./SiteBackdrop";
 import { DialogHost } from "./ui/dialog";
@@ -22,6 +24,10 @@ const jbMono = JetBrains_Mono({ subsets: ["latin"], weight: ["500", "700"], vari
 
 // Set the theme + accent before first paint so there's no flash on load. Theme defaults to Mid.
 const NO_FLASH = `try{var d=document.documentElement;var t=localStorage.getItem('electrace:theme');d.setAttribute('data-theme',(t==='light'||t==='dark'||t==='mid')?t:'mid');var a=localStorage.getItem('electrace:accent');if(a){d.style.setProperty('--color-accent',a);d.style.setProperty('--color-accent-hi',a);}}catch(e){}`;
+
+// Google Ads global site tag (gtag.js). Loaded once for all routes via next/script; the signup
+// conversion event fires from lib/gtag.ts at the actual account-creation moment.
+const GADS_ID = "AW-18168363239";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
@@ -46,7 +52,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`h-full antialiased ${inter.variable} ${jbMono.variable}`} data-theme="mid" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: NO_FLASH }} /></head>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
+        {/* Google Ads tag — loads once across all routes (next/script dedupes on navigation) */}
+        <Script id="gads-loader" src={`https://www.googletagmanager.com/gtag/js?id=${GADS_ID}`} strategy="afterInteractive" />
+        <Script id="gads-init" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html:
+          `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GADS_ID}');` }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           "@context": "https://schema.org",
@@ -58,6 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SiteBackdrop />
         <ErrorMonitor />
         <ServerSync />
+        <SignupConversion />
         <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
           <div className="flex h-14 items-center gap-4 px-4 sm:gap-6 sm:px-7 lg:px-9">
             <Link href="/" aria-label="Electrace home" className="shrink-0"><Logo className="text-[17px]" /></Link>
