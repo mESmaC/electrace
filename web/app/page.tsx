@@ -139,6 +139,34 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ===== THE HONESTY MOMENT (centerpiece) ===== */}
+      {/* Built around a REAL captured Sparky run (2026-06-15): asked for standby on a design whose
+          sleep current wasn't declared, it refused to invent a number and explained why. The quote
+          below is verbatim from that run — do not embellish it. */}
+      <section className="ec-reveal px-7 py-[92px]">
+        <div className="mx-auto max-w-[760px] text-center">
+          <Eyebrow>Why you can trust it</Eyebrow>
+          <h2 className="text-[34px] font-extrabold leading-tight tracking-tight sm:text-[40px]">The most useful thing a tool can do is tell you when it can&apos;t trust its own answer.</h2>
+          <p className="mx-auto mt-5 max-w-[620px] text-[17px] leading-relaxed text-dim">
+            We asked Sparky for the standby draw on a battery design — but the design hadn&apos;t declared its sleep-state current, so the solver had nothing to measure. A lesser tool would have reported &ldquo;0 mA&rdquo; and called it a win. A chatbot would have invented a plausible figure. Sparky did neither.
+          </p>
+          {/* the real transcript, verbatim */}
+          <div className="mx-auto mt-8 max-w-[640px] rounded-2xl border border-border bg-surface p-6 text-left shadow-xl">
+            <div className="mb-3 flex items-center gap-2 text-[12px] font-semibold text-accent">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-[#8b6cff] to-[#4c8dff] text-[13px] text-white">✦</span>
+              Sparky
+            </div>
+            <p className="text-[14.5px] leading-relaxed text-[var(--color-text)]">
+              The standby analysis found <b>no computable always-on draw</b> — meaning either the design truly has no always-on leakage, dividers, or pull-ups, <b>or</b> the sleep-current declarations aren&apos;t detailed enough to calculate it. So the tool can&apos;t produce a meaningful battery-life estimate yet. If your MCU sleep current is known, declare it in the block — then standby draw can compute it.
+            </p>
+          </div>
+          <p className="mx-auto mt-8 max-w-[620px] text-[17px] leading-relaxed text-dim">
+            It would rather be honest than impressive — which is exactly why you can believe it when it <span className="italic text-[var(--color-text)]">is</span> impressive.
+          </p>
+          <Link href="/editor" className="mt-8 inline-block rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Build a design and watch it check itself →</Link>
+        </div>
+      </section>
+
       {/* ===== HOW IT WORKS ===== */}
       <section id="how" className="ec-reveal border-y border-border bg-bg2 px-7 py-[92px]">
         <div className="mx-auto max-w-[1140px] text-center">
