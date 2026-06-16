@@ -7,7 +7,7 @@ import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/supabase/config";
-import { canUseSparky } from "@/lib/entitlements";
+import { canUseSparky, sparkyBudgetUsd, sparkyModel, type Plan } from "@/lib/entitlements";
 
 // Provider switch — flip Sparky between Anthropic (default) and OpenAI for A/B comparison. Set
 // ASSISTANT_PROVIDER=openai to use OpenAI; OPENAI_API_KEY + OPENAI_MODEL drive that path.
@@ -30,9 +30,8 @@ const PRICE_CARDS: Record<string, { inp: number; out: number; cached: number; wr
   "claude-haiku-4-5": { inp: 1, out: 5, cached: 0.1, write: 1.25 },
 };
 const FALLBACK_CARD = { inp: 5, out: 30, cached: 0.5, write: 5 }; // unknown model → price like the flagship
-// Monthly fair-use budget per user in USD. Unset/0 = unlimited (the early-adopter default) —
-// metering records regardless, so flipping this on later is just an env change.
-const MONTHLY_BUDGET = Number(process.env.SPARKY_MONTHLY_BUDGET_USD || 0);
+// Per-plan monthly fair-use budgets live in lib/entitlements (sparkyBudgetUsd) so the gate + /api/me
+// agree; metering records every run regardless, so changing a cap is just an env change.
 const MAX_TURNS = 24; // big ports (e.g. an Arduino Nano: many blocks + wires) need more tool turns
 const SPARK_MAX_TURNS = 12; // a spark builds ONE block — fewer steps than the orchestrator
 
@@ -913,6 +912,8 @@ export async function POST(req: Request) {
   // Sparky is a paid (Pro) feature, and every call costs real Claude API spend — enforce the gate
   // HERE so it can't be bypassed by hitting the endpoint directly (a hidden UI button isn't enough).
   let meterCtx: { sb: Awaited<ReturnType<typeof supabaseServer>>; userId: string } | null = null;
+  // The model this run uses, by plan: free → cheap (Haiku), pro → the route default (undefined).
+  let runModel: string | undefined = undefined;
   if (supabaseConfigured) {
     const sb = await supabaseServer();
     const { data: { user } } = await sb.auth.getUser();
@@ -924,17 +925,25 @@ export async function POST(req: Request) {
       const { data } = await sb.from("users").select("plan").eq("id", user.id).maybeSingle();
       pro = data?.plan === "pro";
     }
-    if (!pro) return Response.json({ error: "Sparky is a Pro feature — upgrade to let it build and explain your designs.", code: "upgrade" }, { status: 403 });
+    // Sparky now has a FREE tier: signed-in non-pro users get a small monthly allowance on a cheap
+    // model (the "taste" that converts). Anonymous is still 401 above. No 403 wall anymore — the
+    // budget gate below is the only limit, per plan.
+    const plan: Plan = pro ? "pro" : "hobby";
+    runModel = allowlisted ? undefined : sparkyModel(plan); // allowlist always rides the flagship
     meterCtx = { sb, userId: user.id };
-    if (MONTHLY_BUDGET > 0 && !allowlisted) {
+    const budget = sparkyBudgetUsd(plan);
+    if (budget > 0 && !allowlisted) {
       // month-to-date spend (RLS scopes the query to this user; one row per run, so this stays tiny)
       const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
       const { data: rows } = await sb.from("sparky_usage").select("cost_usd").gte("created_at", monthStart.toISOString());
       const spent = (rows ?? []).reduce((a, r) => a + Number(r.cost_usd ?? 0), 0);
-      if (spent >= MONTHLY_BUDGET) {
-        return Response.json({
+      if (spent >= budget) {
+        return Response.json(pro ? {
           error: "You've used this month's included Sparky capacity — it resets on the 1st. Your designs and checks are unaffected.",
           code: "capacity",
+        } : {
+          error: "You've used this month's free Sparky preview. Upgrade to Pro for the full assistant — your designs and checks stay free.",
+          code: "upgrade",
         }, { status: 429 });
       }
     }
@@ -1093,7 +1102,8 @@ export async function POST(req: Request) {
   };
   const recordUsage = async () => {
     if (!meterCtx || (meter.full + meter.cached + meter.write + meter.out) === 0) return;
-    const modelId = PROVIDER === "openai" ? OPENAI_MODEL : MODEL;
+    // price at the model this run actually used (free tier rides runModel → Haiku card, not flagship)
+    const modelId = PROVIDER === "openai" ? OPENAI_MODEL : (runModel || MODEL);
     const card = PRICE_CARDS[modelId] ?? FALLBACK_CARD;
     const cost = (meter.full * card.inp + meter.cached * card.cached + meter.write * card.write + meter.out * card.out) / 1_000_000;
     try {
@@ -1189,7 +1199,7 @@ export async function POST(req: Request) {
         for (let turn = 0; turn < (agentic ? MAX_TURNS : 1); turn++) {
           if (req.signal.aborted) return; // client disconnected — stop the loop (and stop billing model calls)
           emit({ type: "status", text: turn === 0 ? "Thinking…" : "Working…" });
-          const data = await callModel(system, messages, baseTools);
+          const data = await callModel(system, messages, baseTools, 4096, runModel);
           const u = data.usage ?? {};
           totalIn += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
           totalOut += u.output_tokens ?? 0;

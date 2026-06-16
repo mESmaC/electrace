@@ -8,6 +8,12 @@ export interface ChangeEntry { date: string; title?: string; items: string[] }
  *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-06-15",
+    items: [
+      "**Try Sparky free.** The AI engineer is no longer Pro-only — every signed-in account now gets a monthly free preview of Sparky. Ask it to read your design, run the checks, explain a net, or rough out a block, and watch it reason about your actual circuit (not a guess) before you decide to upgrade. Pro unlocks the full assistant; the preview is there so you can feel what it does first. Your designs and the whole checking engine stay free, as always.",
+    ],
+  },
+  {
     date: "2026-06-13",
     items: [
       "**The full schematic prints like a real drawing.** The whole-design schematic sheet now reads the way an EDA tool prints one: a border around the page and a proper title block in the bottom-right — design name, author, date, revision, block count, sheet number. Each block's region sits on the page as a framed drawing with honest spacing between them, and every label and port flag stays inside its own frame instead of spilling past the edge. The view itself now presents the sheet as a page on a desk — so 'Download SVG' hands you something you'd actually put in a handoff package.",

@@ -28,14 +28,21 @@ export default function AssistantBubble() {
   const [histOpen, setHistOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  // Sparky is a Pro feature. null = still checking; false = locked (show upgrade prompt). The server
-  // enforces it regardless — this only drives the UI. On error we stay permissive (server still gates).
-  const [pro, setPro] = useState<boolean | null>(null);
+  // Sparky access tier. "checking" until /api/me answers; "anon" = not signed in (must sign in);
+  // "free" = signed-in non-pro on the metered preview; "pro" = full. The server enforces regardless —
+  // this only drives the UI. On error we stay permissive (server still gates).
+  const [access, setAccess] = useState<"checking" | "anon" | "free" | "pro">("checking");
   useEffect(() => {
     let alive = true;
-    fetch("/api/me").then((r) => r.json()).then((d) => { if (alive) setPro(!!d.pro); }).catch(() => { if (alive) setPro(true); });
+    fetch("/api/me").then((r) => r.json()).then((d) => {
+      if (!alive) return;
+      if (d.pro) setAccess("pro");
+      else if (d.sparky) setAccess("free"); // signed-in, has a (possibly used-up) free allowance
+      else setAccess("anon");
+    }).catch(() => { if (alive) setAccess("pro"); });
     return () => { alive = false; };
   }, []);
+  const canChat = access === "free" || access === "pro";
   const { messages, conversations, activeId, progress } = useAssistant();
   // a run in flight anywhere (module-level — survives bubble remounts, unlike local state)
   const running = !!progress;
@@ -73,7 +80,7 @@ export default function AssistantBubble() {
 
   const ask = (raw: string) => {
     const text = raw.trim();
-    if (!text || busy || running || pro === false) return;
+    if (!text || busy || running || access === "anon") return;
     setInput("");
     setBusy(true);
     sendMessage(text).finally(() => setBusy(false));
@@ -81,21 +88,21 @@ export default function AssistantBubble() {
   const submit = (e: React.FormEvent) => { e.preventDefault(); ask(input); };
 
   // External "open Sparky and ask this" trigger (e.g. the BOM panel's "fill part numbers" button).
-  // Opens the pane; if a prompt rides along, send it (once Sparky is unlocked). If it's still
-  // Pro-locked, opening the pane shows the upgrade prompt — the right outcome.
+  // Opens the pane; if a prompt rides along, send it (once Sparky is usable). If the user isn't
+  // signed in, stage it so it's ready after they sign in.
   useEffect(() => {
     const onAsk = (e: Event) => {
       setOpen(true);
       const text = (e as CustomEvent<{ text?: string }>).detail?.text;
       if (text) {
-        if (pro === false) setInput(text); // locked: stage it so it's ready after upgrade
+        if (access === "anon") setInput(text); // not signed in: stage it for after sign-in
         else ask(text);
       }
     };
     window.addEventListener("electrace:sparky-ask", onAsk as EventListener);
     return () => window.removeEventListener("electrace:sparky-ask", onAsk as EventListener);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pro, busy, running]);
+  }, [access, busy, running]);
 
   const iconBtn = "grid h-7 w-7 place-items-center rounded-md text-[var(--color-faint)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]";
 
@@ -182,19 +189,26 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
           )}
         </div>
 
-        {pro === false ? (
+        {access === "anon" ? (
           <div className="border-t border-[var(--color-border)] p-3 text-center">
-            <div className="text-[12px] font-semibold text-[var(--color-text)]">✨ Sparky is a Pro feature</div>
-            <p className="mx-auto mt-1 max-w-[280px] text-[11px] leading-relaxed text-[var(--color-dim)]">Upgrade to let Sparky build, wire, and explain your designs.</p>
-            <a href="/pricing" className="mt-2 inline-block rounded-md bg-[#4c8dff] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:brightness-110">See plans →</a>
+            <div className="text-[12px] font-semibold text-[var(--color-text)]">✨ Sign in to try Sparky free</div>
+            <p className="mx-auto mt-1 max-w-[280px] text-[11px] leading-relaxed text-[var(--color-dim)]">Create a free account and Sparky will read, check, and explain your design — no card.</p>
+            <a href="/signup" className="mt-2 inline-block rounded-md bg-[#4c8dff] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:brightness-110">Sign up free →</a>
           </div>
         ) : (
-          <form onSubmit={submit} className="flex items-center gap-1.5 border-t border-[var(--color-border)] p-2">
+          <form onSubmit={submit} className="border-t border-[var(--color-border)]">
+            {access === "free" && (
+              <div className="px-2.5 pt-1.5 text-center text-[10px] text-[var(--color-faint)]">
+                Free preview · <a href="/pricing" className="text-[var(--color-link)] hover:underline">upgrade to Pro</a> for the full assistant
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 p-2">
             {messages.length > 0 && <button type="button" onClick={clearChat} className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--color-faint)] hover:text-[var(--color-text)]" title="Clear this chat">clear</button>}
             <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={running && !runningHere ? "Sparky is working in another chat…" : "Ask about your design…"} disabled={busy || running}
               className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-2 text-[12px] text-[var(--color-text)] outline-none placeholder:text-[var(--color-border-strong)] focus:border-[#4c8dff] disabled:opacity-60" />
             <button type="submit" disabled={!input.trim() || busy || running} title="Send"
               className="grid w-9 place-items-center rounded-md bg-[#4c8dff] py-2 text-white disabled:opacity-40">→</button>
+            </div>
           </form>
         )}
       </div>
