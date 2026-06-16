@@ -5,7 +5,7 @@ Written cleanly enough to share selectively. This is the **synthesis layer** —
 per-area depth and the rationale behind decisions, see the companion docs:
 
 - **[FEATURES.md](FEATURES.md)** — the feature inventory by tier (the authoritative checklist)
-- **[VERIFICATION.md](VERIFICATION.md)** — the alpha→beta gate + the open findings table (F1–F13)
+- **[VERIFICATION.md](VERIFICATION.md)** — the alpha→beta gate + the open findings table (F1–F14)
 - **[ROADMAP.md](ROADMAP.md)** — what's next + the beta exit criteria
 - **[DECISIONS.md](DECISIONS.md)** — architectural calls and their trade-offs
 - **[MODEL-BENCH.md](MODEL-BENCH.md)** — Sparky model benchmark (Haiku/Sonnet/Opus)
@@ -110,9 +110,12 @@ KiCad export, footprints, value parsing.
 **Engine gaps / honesty boundaries** (deliberate, stated in copy):
 - No transient/time-domain simulation, no thermal sim, no parasitics, no nonlinear modeling, no SPICE.
 - Worst-case sink model — a regulator's input doesn't load its source.
-- **F13 (open, P2):** `si/termination-missing` silently no-fires for an RS-485 class declared on
-  **connector-pin** pairs — suspected pin→net resolution bug in the SI rules. Trust-damaging; the
-  one known engine no-fire.
+- **F13 (FIXED 2026-06-15):** `si/termination-missing` silently no-fired for an RS-485 class declared
+  on **connector-pin** pairs — `netOf` matched `net.members` only, but unspec'd connector pins live in
+  `net.connectorPins`. Fixed (also match connectorPins); 3-case adversarially verified + regression test.
+- **F14 (open, P2):** `i2cRiseTime` has the same connector-pin blindness AND derives device count from
+  `net.members.length` — needs the lookup + the count fixed together (a naive lookup-only fix would
+  undercount → wrong rise-time math). The remaining known engine no-fire.
 
 ---
 
@@ -292,7 +295,10 @@ using the app → edited into a short** (not the schematic-stage format).
 ## 10. Honest gaps & open risks (consolidated)
 
 **Engine/trust:**
-- **F13 (P2, open):** SI termination rule silent no-fire on connector-pin-anchored RS-485.
+- **F13 (FIXED 2026-06-15):** SI termination rule silent no-fire on connector-pin-anchored RS-485 —
+  `netOf` now also matches `net.connectorPins`. Adversarially verified + regression test.
+- **F14 (P2, open):** `i2cRiseTime` has the same connector-pin blindness (+ a coupled device-count
+  issue) — the remaining known engine no-fire.
 - DC solver leaves all nonlinear parts open (by design) — bias networks solve, active devices don't.
 
 **Editor/PCB:**
@@ -317,5 +323,5 @@ using the app → edited into a short** (not the schematic-stage format).
 
 ## 11. Beta exit (from ROADMAP/VERIFICATION)
 
-Every VERIFICATION area dated as passed · all P1+P2 findings closed (F7, F13 are the open P2s) ·
+Every VERIFICATION area dated as passed · all P1+P2 findings closed (F7, F14 are the open P2s; F13 fixed) ·
 P3s triaged with explicit defer/fix calls · automation added for any check that regressed twice.

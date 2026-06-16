@@ -240,6 +240,32 @@ test("SI: unterminated RS-485 pair warns; adding the 120R termination clears it"
     "termination present should clear it; got " + a2.findings.filter((f) => f.rule.startsWith("si/")).map((f) => f.message).join("|"));
 });
 
+test("SI: RS-485 declared on CONNECTOR pins still warns; terminating it clears it (F13)", () => {
+  // F13 regression: an unspec'd connector pin (bare hdr-2 contact) lives only in net.connectorPins,
+  // not net.members, so the rule's netOf used to miss it → silent no-fire on a real off-board bus.
+  const blocks7 = new Map<string, Block>([["@t/485@1", XCVR], ["@t/term@1", TERM]]);
+  const bare: Design = {
+    id: "f13a", name: "f13a",
+    blocks: [{ ref: "X1", block: "@t/485@1" }],
+    connectors: [{ ref: "J2", connector: "hdr-2" }, { ref: "J3", connector: "hdr-2" }],
+    connections: [{ from: "J2.1", to: "X1.a" }, { from: "J3.1", to: "X1.b" }],
+    signals: [{ pin: "J2.1", pairPin: "J3.1", cls: "rs485" }], // class anchored ON the connector pins
+  };
+  const a1 = analyze(bare, blocks7);
+  assert.ok(a1.findings.some((f) => f.rule === "si/termination-missing"),
+    "connector-anchored RS-485 with no termination must warn (F13 silent no-fire)");
+  // adding the 120R terminator across the same connector pins must clear it — guards against trading
+  // the no-fire for a false-fire (the worse sin)
+  const terminated: Design = {
+    ...bare, id: "f13b",
+    blocks: [...bare.blocks, { ref: "T1", block: "@t/term@1" }],
+    connections: [...bare.connections, { from: "J2.1", to: "T1.a" }, { from: "J3.1", to: "T1.b" }],
+  };
+  const a2 = analyze(terminated, blocks7);
+  assert.ok(!a2.findings.some((f) => f.rule === "si/termination-missing"),
+    "termination across the connector pair must stay silent; got " + a2.findings.filter((f) => f.rule.startsWith("si/")).map((f) => f.message).join("|"));
+});
+
 test("SI: I2C 400k with weak pull-ups warns with the fix in the message", () => {
   const d: Design = {
     id: "s3", name: "s3",

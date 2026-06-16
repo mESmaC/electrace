@@ -614,7 +614,13 @@ const busTermination: Rule = (rd) => {
     return cls?.kind === "buspair" && cls.termOhms != null && a.terminated !== "external" && a.pairPin;
   });
   if (!assigns.length) return [];
-  const netOf = (pin: string) => rd.nets.find((n) => n.members.some((m) => m.node === pin));
+  // F13: a net's connector pins live in net.connectorPins (string[]), NOT in net.members — an
+  // unspec'd connector pin (e.g. a bare hdr-2 contact) never enters pinOf/members. Matching members
+  // alone made an RS-485 class declared ON connector pins resolve to no net → silent no-fire. Also
+  // match connectorPins so connector-anchored bus pairs are seen. (reaches/hasTerm route through this
+  // same helper and compare on net.id, so the termination-FOUND path self-heals — a terminated pair
+  // stays silent; no false-fire.)
+  const netOf = (pin: string) => rd.nets.find((n) => n.members.some((m) => m.node === pin) || (n.connectorPins?.includes(pin) ?? false));
   return assigns.flatMap((a) => {
     const cls = NET_CLASSES[a.cls];
     const netA = netOf(a.pin), netB = netOf(a.pairPin!);
