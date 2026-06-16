@@ -28,14 +28,14 @@ export default function Home() {
         <div className="pointer-events-none absolute left-1/2 top-[-160px] h-[560px] w-[1000px] -translate-x-1/2"
           style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent)" }} />
         <div className="relative mx-auto max-w-[1140px]">
-          <span className="mb-6 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold text-accent" style={{ background: "color-mix(in srgb, var(--color-accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>⚡ The electrical engineer&apos;s IDE</span>
-          <h1 className="text-[54px] font-black leading-[0.98] tracking-[-2px] sm:text-[74px] sm:tracking-[-2.5px]">See inside<br />every circuit.<span className="ec-blink ml-1.5 inline-block h-9 w-2 translate-y-1 rounded-[1px] bg-accent align-middle sm:h-14" /></h1>
-          <p className="mx-auto mt-5 max-w-[560px] text-[20px] text-dim">Blocks that explain themselves — and catch what doesn&apos;t add up.</p>
+          <span className="mb-6 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold text-accent" style={{ background: "color-mix(in srgb, var(--color-accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)" }}>⚡ A linter for hardware design</span>
+          <h1 className="text-[44px] font-black leading-[1.02] tracking-[-1.5px] sm:text-[60px] sm:tracking-[-2px]">Your schematic looks fine.<br />Electrace tells you if it actually is.<span className="ec-blink ml-1.5 inline-block h-7 w-1.5 translate-y-1 rounded-[1px] bg-accent align-middle sm:h-12" /></h1>
+          <p className="mx-auto mt-5 max-w-[620px] text-[19px] text-dim">Assemble your design from functional blocks. Electrace runs deterministic checks on every edit — and every finding names the exact part and shows the arithmetic behind it. No simulation. No black box. Nothing guessed.</p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Link href="/signup" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Start free</Link>
-            <Link href="/editor" className="rounded-xl border border-border-strong px-6 py-3 font-semibold transition hover:border-accent hover:text-accent">Try it — no account</Link>
+            <Link href="/editor" className="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accent-hi">Open the editor →</Link>
+            <Link href="/signup" className="rounded-xl border border-border-strong px-6 py-3 font-semibold transition hover:border-accent hover:text-accent">Start free</Link>
           </div>
-          <div className="mt-4 text-[13px] text-faint">No simulation · no guessing · vendor-neutral</div>
+          <div className="mt-4 text-[13px] text-faint">Free, no account, no card. Export to KiCad when you&apos;re done.</div>
 
           {/* product window */}
           <div className="ec-float mx-auto mt-14 max-w-[940px] overflow-hidden rounded-2xl border border-border-strong bg-surface text-left shadow-2xl">

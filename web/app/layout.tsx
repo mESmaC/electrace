@@ -31,21 +31,21 @@ const GADS_ID = "AW-18168363239";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
-  title: "Electrace — see inside every circuit",
-  description: "Free online circuit & PCB design tool where every block explains itself — live electrical checks, automatic BOM, KiCad export. No SPICE, no install.",
+  title: "Electrace — a linter for hardware design",
+  description: "Catch over-voltage, bad part ratings, and broken nets before you build. Electrace runs deterministic electrical checks on every edit — every finding names the part and shows the arithmetic. Free, in your browser, exports to KiCad. No simulation.",
   applicationName: "Electrace",
-  keywords: ["schematic editor", "circuit design online", "PCB design tool", "EDA", "electrical engineering", "block-based design", "BOM generator", "KiCad export", "learn electronics", "circuit checker"],
+  keywords: ["hardware linter", "electrical rule check", "ERC", "circuit checker", "schematic editor", "circuit design online", "PCB design tool", "EDA", "electrical engineering", "design review", "KiCad export"],
   openGraph: {
     type: "website",
     siteName: "Electrace",
     url: "/",
-    title: "Electrace — see inside every circuit",
-    description: "Free online circuit & PCB design tool where every block explains itself — live electrical checks, automatic BOM, KiCad export. No SPICE, no install.",
+    title: "Electrace — a linter for hardware design",
+    description: "Catch over-voltage, bad part ratings, and broken nets before you build — deterministic checks on every edit, each one naming the part and the arithmetic. Free, exports to KiCad. No simulation.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Electrace — see inside every circuit",
-    description: "The electrical engineer's IDE — block-based schematics that explain themselves.",
+    title: "Electrace — a linter for hardware design",
+    description: "Your schematic looks fine. Electrace tells you if it actually is — deterministic checks, no simulation, nothing guessed.",
   },
 };
 

@@ -12,7 +12,7 @@ export default function VsIndex() {
   return (
     <main className="mx-auto max-w-4xl px-7 py-14">
       <h1 className="text-3xl font-extrabold tracking-tight">Honest comparisons</h1>
-      <p className="mt-2 max-w-xl text-dim">Every page below names what the other tool does better, too — pick the right tool, even if it isn&apos;t us.</p>
+      <p className="mt-2 max-w-2xl text-dim">Electrace isn&apos;t here to replace your schematic editor. It&apos;s the checking layer that runs first — catch the power-tree, isolation, and signal-integrity mistakes at the block stage, then export to KiCad to lay it out. Here&apos;s the honest comparison, including when you&apos;d still reach for the other tool.</p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {COMPARISONS.map((c) => (
           <Link key={c.slug} href={`/vs/${c.slug}`} className="rounded-2xl border border-border bg-surface p-5 transition-colors hover:border-accent">
