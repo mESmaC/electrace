@@ -93,6 +93,18 @@ export default function Home() {
         </div>
       </header>
 
+      {/* ===== PROOF STRIP ===== */}
+      {/* No fake logos/testimonials with one organic signup — prove the MECHANISM (the proof a pro
+          actually weighs). Real names go here later. */}
+      <section className="border-y border-border bg-bg2 px-7 py-5">
+        <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-center gap-x-7 gap-y-2.5 text-center font-mono text-[12.5px] text-dim">
+          <span>Runs in your browser</span><span className="text-border-strong">·</span>
+          <span>No simulation, no SPICE</span><span className="text-border-strong">·</span>
+          <span>Checks every edit in milliseconds</span><span className="text-border-strong">·</span>
+          <span>Every finding shows its math</span>
+        </div>
+      </section>
+
       {/* ===== PROBLEM ===== */}
       <section className="ec-reveal px-7 py-[70px] text-center">
         <div className="mx-auto max-w-[1140px]">
@@ -101,10 +113,36 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ===== WHAT IT CATCHES ===== */}
+      {/* Show the findings, don't describe them — each in the product's own voice, with the arithmetic
+          right there. Ranged obvious → subtle so every visitor sees one they'd have missed. All four
+          verified against the engine's real formulas ((Vin−Vout)·I, τ=0.847·R·C, budget ratio). */}
+      <section className="ec-reveal border-y border-border bg-bg2 px-7 py-[92px]">
+        <div className="mx-auto max-w-[1140px] text-center">
+          <Eyebrow>What it catches</Eyebrow>
+          <h2 className="text-[42px] font-extrabold tracking-tight">It names the part. It shows the math. It tells you the fix.</h2>
+        </div>
+        <div className="mx-auto mt-11 grid max-w-[1140px] gap-[18px] sm:grid-cols-2">
+          {[
+            { tag: "Thermal", c: "#f87171", t: "This LDO drops 12 V → 3.3 V at 500 mA. That's 4.35 W burning inside a SOT-223 rated for ~2 — it'll cook. Switch to a buck, or budget a heatsink." },
+            { tag: "Power budget", c: "#f87171", t: "Your VBUS loads add up to 2.4 A on a rail you've budgeted for 2. That's 120% — something's browning out or getting hot." },
+            { tag: "Signal integrity", c: "#febc2e", t: "I²C rise time τ ≈ 850 ns — too slow for 400 kHz (the limit is 300). Drop the pull-ups to 2.2 kΩ and you're at ~190 ns." },
+            { tag: "Polarity", c: "#f87171", t: "C4 is in backwards — its + pin is sitting on ground." },
+          ].map((f) => (
+            <div key={f.tag} className="rounded-2xl border border-border bg-surface p-6 text-left">
+              <div className="mb-3 inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wide" style={{ color: f.c }}>
+                <span>⬣</span>{f.tag}
+              </div>
+              <p className="text-[15px] leading-relaxed text-[var(--color-text)]">{f.t}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ===== HOW IT WORKS ===== */}
       <section id="how" className="ec-reveal border-y border-border bg-bg2 px-7 py-[92px]">
         <div className="mx-auto max-w-[1140px] text-center">
-          <Eyebrow>How it works</Eyebrow><h2 className="text-[42px] font-extrabold tracking-tight">An IDE — for circuits.</h2>
+          <Eyebrow>How it works</Eyebrow><h2 className="text-[42px] font-extrabold tracking-tight">Build it. Watch it check itself.</h2>
         </div>
         <div className="mx-auto mt-11 grid max-w-[1140px] gap-[18px] sm:grid-cols-3">
           {[
