@@ -8,7 +8,7 @@ import { useState } from "react";
 import { bomCsv, type BomRow } from "@electrace/core";
 import { digikeyUrl, orderable, partQuery } from "@/lib/partLinks";
 import { askSparky } from "@/lib/assistant";
-import { track } from "@/lib/telemetry";
+import { track, logUsage } from "@/lib/telemetry";
 
 export default function BomPanel({ rows, designName, pro }: { rows: BomRow[]; designName: string; pro?: boolean | null }) {
   const [busy, setBusy] = useState(false);
@@ -46,6 +46,7 @@ export default function BomPanel({ rows, designName, pro }: { rows: BomRow[]; de
     if (busy || !cartRows.length) return;
     setBusy(true); setNote(null);
     track({ kind: "bom.cart", parts: cartRows.length });
+    logUsage("bom.cart", { parts: cartRows.length }); // ordering intent — strong "real project" signal
     try {
       const r = await fetch("/api/bom/digikey", {
         method: "POST",

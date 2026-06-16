@@ -45,3 +45,36 @@ export function getEvents(): CapturedEvent[] {
 export function clearEvents(): void {
   try { localStorage.removeItem(STORE_KEY); window.dispatchEvent(new CustomEvent("electrace:telemetry")); } catch { /* ignore */ }
 }
+
+// ── product-usage beacon (separate from the local Shadowplay buffer above) ───────────────────────
+// Anonymous, aggregate "which feature got used" signal → /api/usage (service-role, RLS-locked). NOT
+// consent-gated because it carries no PII and no design contents — only an event name + session id;
+// the plan tag is resolved server-side. Buffered and flushed in batches (on idle + page-hide via
+// sendBeacon) so it never blocks an interaction. This is the audience/feature data; track() above
+// stays the local, consent-gated bug-report buffer.
+let usageBuf: { event: string; url?: string; session: string; meta?: unknown }[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushUsage(): void {
+  if (typeof window === "undefined" || !usageBuf.length) return;
+  const events = usageBuf; usageBuf = [];
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  const payload = JSON.stringify({ events });
+  try {
+    if (navigator.sendBeacon?.("/api/usage", new Blob([payload], { type: "application/json" }))) return;
+  } catch { /* fall through */ }
+  fetch("/api/usage", { method: "POST", headers: { "content-type": "application/json" }, body: payload, keepalive: true }).catch(() => { /* telemetry never errors the app */ });
+}
+
+/** Record an anonymous product-usage event (a feature reached for). Batched + debounced. */
+export function logUsage(event: string, meta?: unknown): void {
+  if (typeof window === "undefined") return;
+  usageBuf.push({ event, url: location.pathname, session: sessionId(), ...(meta !== undefined ? { meta } : {}) });
+  if (usageBuf.length >= 20) { flushUsage(); return; }
+  if (!flushTimer) flushTimer = setTimeout(flushUsage, 5000);
+}
+
+if (typeof window !== "undefined") {
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushUsage(); });
+  window.addEventListener("pagehide", flushUsage);
+}

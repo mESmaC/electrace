@@ -17,7 +17,7 @@ import { setContextItem, registerAgentSession } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
 import { modelToLayout, layoutToModel } from "./schematic-model";
-import { track } from "@/lib/telemetry";
+import { track, logUsage } from "@/lib/telemetry";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
 import ReportBug from "./ReportBug";
@@ -559,6 +559,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [userV, setUserV] = useState(0); // bumps when user blocks are created/deleted
   useEffect(() => {
     setMounted(true);
+    logUsage("editor.open", { blocks: design.blocks.length }); // funnel entry: someone opened the editor
     const onSave = () => setDraftV((v) => v + 1);
     const onUserBlocks = () => setUserV((v) => v + 1); // a block's terminals changed (e.g. off-board flag)
     // cross-device: when server hydration backfills user blocks / drafts on a fresh device, re-read

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { marked } from "marked";
 import { useAssistant, sendMessage, clearChat, newConversation, switchConversation, deleteConversation } from "@/lib/assistant";
+import { logUsage } from "@/lib/telemetry";
 
 // Markdown styling for assistant replies (tables, lists, code, etc.), scoped to the chat bubble via
 // arbitrary child variants — no global stylesheet or typography plugin needed.
@@ -43,6 +44,8 @@ export default function AssistantBubble() {
     return () => { alive = false; };
   }, []);
   const canChat = access === "free" || access === "pro";
+  // milestone: the assistant pane was opened (high-signal feature reach — tagged with access tier)
+  useEffect(() => { if (open) logUsage("sparky.open", { access }); }, [open, access]);
   const { messages, conversations, activeId, progress } = useAssistant();
   // a run in flight anywhere (module-level — survives bubble remounts, unlike local state)
   const running = !!progress;

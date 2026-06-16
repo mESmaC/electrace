@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { trackSignup } from "@/lib/gtag";
+import { logUsage } from "@/lib/telemetry";
 
 const FIRED_KEY = "electrace:signup_conversion_fired";
 const NEW_WINDOW_MS = 60_000; // created within the last minute ⇒ this auth event IS the signup
@@ -31,6 +32,7 @@ export default function SignupConversion() {
         localStorage.setItem(FIRED_KEY, JSON.stringify(fired.slice(-20)));
       } catch { /* if storage is unavailable, fire anyway — better to slightly over- than under-count */ }
       trackSignup(user.app_metadata?.provider ?? "email");
+      logUsage("signup", { provider: user.app_metadata?.provider ?? "email" }); // activation-funnel anchor
     };
 
     // catch a signup that completed before this listener mounted (the /auth/callback redirect case)
