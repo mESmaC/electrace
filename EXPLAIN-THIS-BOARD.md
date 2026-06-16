@@ -1,7 +1,27 @@
 # "Explain this board" — KiCad import → findings (build plan)
 
-Status: **scoped + de-risked, building** (2026-06-15). The one heavier build from the digest's
-six-item list (#5). Items #1–#4 shipped; #6 (pricing) genuinely waits on usage telemetry.
+Status: **Phase 1 (parser) shipped (5d0f255); 5c/5d/5e remain.** The one heavier build from the
+digest's six-item list (#5). Items #1–#4 shipped; #6 (pricing) genuinely waits on usage telemetry.
+
+> **READ BEFORE RESUMING — two things that only live here, not in code:**
+>
+> **1. Don't auto-resume at 5c. Read the telemetry first.** Usage events (`usage_events`, live since
+> 2026-06-15) were shipped *before* this build specifically so a surprising read could REORDER what's
+> worth building. 5c/5d/5e are scoped, adjacent, and satisfying to build — which makes them the path
+> of least resistance regardless of what the data says. That's the trap. The instrument was built to
+> be read: before declaring 5c next, check whether import-seekers / pros are actually showing up
+> (query `usage_events` by plan + feature). If the data says the funnel's problem is elsewhere, build
+> that instead. "Continue at 5c" is the lazy default; "look, then decide" is the commitment.
+>
+> **2. The three-beat arc below IS the feature. Rebuild THAT, not a generic import-with-a-form.**
+> The single most valuable idea from this work exists only as prose right now: the `.net` format's
+> missing pin-roles is not a limitation to paper over with a form — it's turned into a *reveal*. The
+> user pastes a netlist and watches **uncertainty resolve into certainty** as they give 10 seconds of
+> input: first the things we know FOR SURE (unhedged), then what we SUSPECT (labeled "inferred — may
+> be wrong"), then — after they confirm their rails — the REAL verdict. That choreography is the
+> honesty contract (the landing-page centerpiece) expressed as product flow. A version that just
+> imports and shows a form is functional but off-brand and worthless as the differentiator. If you
+> rebuild anything from this doc, rebuild the arc.
 
 ## Why it exists
 The cold-start fix. A pro lands on Electrace, won't rebuild their board to evaluate it, and bounces.
