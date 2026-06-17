@@ -15,7 +15,8 @@
   "scripts": {
     "build:js": "tsup",
     "build:css": "tailwindcss -i styles/ds-entry.css -o dist/electrace-ui.css --minify && node scripts/append-vendor-css.mjs",
-    "build": "npm run build:js && npm run build:css"
+    "build": "npm run build:js && npm run build:css",
+    "ds:build": "node scripts/build-all.mjs"
   },
   "peerDependencies": {
     "react": "^19",

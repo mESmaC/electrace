@@ -1,0 +1,39 @@
+name: Design system
+
+# Drift guard for the claude.ai/design design system. @electrace/ui re-exports the product's real
+# components from web/app, so a breaking change there (renamed/removed export, broken types) would
+# silently fail the next sync. This rebuilds @electrace/core + @electrace/ui on any PR that touches
+# the re-exported sources or the package, so the breakage surfaces on the PR instead of at sync time.
+
+on:
+  pull_request:
+    paths:
+      - 'web/packages/ui/**'
+      - 'web/app/Logo.tsx'
+      - 'web/app/ThemeToggle.tsx'
+      - 'web/app/calculators/**'
+      - 'web/app/docs/checks/ui.tsx'
+      - 'web/app/editor/symbols.tsx'
+      - 'web/app/editor/NetlistView.tsx'
+      - 'electrace/**'
+      - '.design-sync/**'
+  workflow_dispatch:
+
+jobs:
+  build-design-system:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install web deps (provides react + the @electrace/core copy to mirror into)
+        working-directory: web
+        run: npm ci
+      - name: Build design system (core + @electrace/ui — fails on re-export/type drift)
+        run: node web/packages/ui/scripts/build-all.mjs
+      - name: Verify the bundle entry + types exist
+        run: |
+          test -f web/packages/ui/dist/index.js
+          test -f web/packages/ui/dist/index.d.ts
+          test -f web/packages/ui/dist/electrace-ui.css

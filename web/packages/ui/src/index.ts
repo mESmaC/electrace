@@ -5,6 +5,9 @@
 // existing SYMBOLS library. Keeping it re-export-only means the design system never drifts from
 // the app. See web/packages/ui/README sync notes in .design-sync/.
 
+// ── Foundations (reference cards: tokens, type, themes — render the real design language) ──
+export { ColorTokens, TypeScale, ThemeSpecimen } from "./foundations";
+
 // ── Brand ──────────────────────────────────────────────────────────────────
 export { Logo, LogoMark } from "@/app/Logo";
 

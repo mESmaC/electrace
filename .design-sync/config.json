@@ -3,8 +3,9 @@
   "globalName": "ElectraceUI",
   "projectId": "c33b715d-251d-43d6-a4ed-c642940e502c",
   "shape": "package",
-  "buildCmd": "(cd electrace && npm run build && cp -r dist/* ../web/node_modules/@electrace/core/dist/) && (cd web/packages/ui && npm run build)",
+  "buildCmd": "node web/packages/ui/scripts/build-all.mjs",
   "cssEntry": "dist/electrace-ui.css",
+  "docsDir": "docs",
   "extraFonts": ["styles/fonts/fonts.css"],
   "readmeHeader": ".design-sync/conventions.md",
   "overrides": {

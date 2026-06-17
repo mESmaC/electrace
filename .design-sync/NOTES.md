@@ -46,9 +46,35 @@ isolated package; the design-sync upload targets claude.ai/design only (not git)
   `styles/fonts/`) and wired via `cfg.extraFonts`. The app loads them via next/font; the design env has
   no next/font, so the bundle ships them. The committed woff2 make re-sync offline-safe.
 
+## Build automation (anti-drift)
+- **One-command build**: `node web/packages/ui/scripts/build-all.mjs` (also `npm run ds:build` in the
+  package) builds @electrace/core + mirrors its dist + builds @electrace/ui. This IS `cfg.buildCmd`.
+- **CI drift guard**: `.github/workflows/design-system.yml` rebuilds the DS on PRs touching the
+  re-exported sources (web/app/Logo, ThemeToggle, calculators, docs/checks/ui, editor/symbols,
+  editor/NetlistView), the package, electrace/, or .design-sync/. A breaking re-export change (renamed
+  export, type drift) fails the PR instead of the next sync.
+- **Deliberately NOT a web npm workspace**: making @electrace/ui a workspace of web/ would pull the DS
+  build tools (tsup, tailwind CLI) into the app's production install and bloat every deploy. Standalone
+  package + build script keeps the live deploy lean.
+
+## Docs & grouping
+- `cfg.docsDir = "docs"` → `web/packages/ui/docs/<Name>.md`, one per component. The `category:`
+  frontmatter sets the design-pane group (Foundations / Brand / Calculators / Form primitives /
+  Schematic & Symbols / Status). Edit these to regroup or improve a component's doc; they're committed.
+
+## Foundations
+- `ColorTokens`, `TypeScale`, `ThemeSpecimen` (web/packages/ui/src/foundations.tsx) are DS-meta
+  reference cards (group Foundations) — they render the REAL tokens/fonts/themes, not invented UI.
+
+## CSS scoping (evaluated, deliberately minimal)
+- The shipped CSS keeps Tailwind preflight (components depend on normalized box-sizing/resets) and the
+  `:root`/`[data-theme]` token palettes. The one global rule (`:where(body){background;color;font}`) is
+  zero-specificity, so the design host overrides it. No scope-prefix applied — revisit only if real
+  host collisions are observed in claude.ai/design.
+
 ## Overrides / known warns
 - `cfg.overrides.SchematicSymbol = {cardMode: "column"}` — its AnsiVsIec cell is wider than a grid cell.
-- Known render warns: none (all 26 render clean).
+- Known render warns: none (all components render clean).
 
 ## Re-sync risks (what can silently go stale)
 - **Re-export drift**: components are re-exported from the live `web/app`. If those app components'
