@@ -1,0 +1,30 @@
+{
+  "name": "@electrace/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Electrace design-system surface for claude.ai/design — re-exports the product's real shipped components (no forks) plus thin symbol-library wrappers.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./styles.css": "./dist/electrace-ui.css"
+  },
+  "files": ["dist", "src", "styles"],
+  "scripts": {
+    "build:js": "tsup",
+    "build:css": "tailwindcss -i styles/ds-entry.css -o dist/electrace-ui.css --minify && node scripts/append-vendor-css.mjs",
+    "build": "npm run build:js && npm run build:css"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4",
+    "tailwindcss": "^4",
+    "tsup": "^8",
+    "typescript": "^5"
+  }
+}

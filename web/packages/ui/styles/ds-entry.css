@@ -1,0 +1,79 @@
+/* Tailwind v4 entry for the @electrace/ui design-system bundle.
+ *
+ * Compiled by `npm run build:css` (@tailwindcss/cli) into a flat, self-contained dist/electrace-ui.css:
+ * the @theme tokens + the three data-theme palettes + exactly the utilities the scoped components use.
+ * The @xyflow/react base CSS is appended afterward (NetlistView needs it; its JS css import is dropped
+ * at bundle time). This file is the CSS source of truth — never hand-edit the compiled output. */
+
+@import "tailwindcss";
+
+/* Scan exactly the components that ship in the bundle so v4 emits only the utilities they use,
+   including arbitrary values (text-[12px], border-[#fbbf2455]) which are only emitted if literally
+   present in scanned source. Paths are relative to this file (web/packages/ui/styles/). */
+@source "../src/**/*.{ts,tsx}";
+@source "../../../app/calculators/**/*.{ts,tsx}";
+@source "../../../app/Logo.tsx";
+@source "../../../app/ThemeToggle.tsx";
+@source "../../../app/docs/checks/ui.tsx";
+@source "../../../app/editor/NetlistView.tsx";
+@source "../../../app/editor/symbols.tsx";
+
+/* Tokens — copied verbatim from web/app/globals.css (@theme block). The --color-* utility tokens
+   indirect to the switchable --c-* raw vars set per theme below, so bg-surface / text-dim re-theme
+   live. accent / amber / green / gray are theme-constant. Fonts are added here with real fallbacks
+   because next/font (which defines them in the app) does not exist in the design environment. */
+@theme {
+  --color-bg: var(--c-bg);
+  --color-bg2: var(--c-bg2);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-text: var(--c-text);
+  --color-dim: var(--c-dim);
+  --color-faint: var(--c-faint);
+  --color-accent: #4c8dff;
+  --color-accent-hi: #6ea3ff;
+  --color-link: var(--c-link);
+  --color-amber: #f7b13c;
+  --color-green: #46dca6;
+  --color-gray: #9aa6b6;
+
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Three themes (web/app/globals.css). MID is the default — a slate-dusk middle ground. */
+:root, [data-theme="mid"] {
+  --c-bg: #3c4658; --c-bg2: #36404f; --c-surface: #454e62; --c-surface-2: #4e586f; --c-surface-3: #59647d;
+  --c-border: #54607a; --c-border-strong: #677494; --c-text: #ffffff; --c-dim: #d4dae6; --c-faint: #9aa3b5; --c-link: #9ec5ff;
+}
+[data-theme="dark"] {
+  --c-bg: #161b22; --c-bg2: #11151b; --c-surface: #1e242d; --c-surface-2: #283039; --c-surface-3: #353f4b;
+  --c-border: #303a46; --c-border-strong: #46515f; --c-text: #f3f6fb; --c-dim: #c2cad6; --c-faint: #828c9c; --c-link: #9ec5ff;
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  --c-bg: #f1ede4; --c-bg2: #e7e2d6; --c-surface: #ffffff; --c-surface-2: #f6f3ec; --c-surface-3: #ece7db;
+  --c-border: #ded8c9; --c-border-strong: #b6ae9c; --c-text: #1e242e; --c-dim: #3c4350; --c-faint: #6a7180; --c-link: #2f6fd0;
+  color-scheme: light;
+}
+
+/* Bundle root inherits the page background, brand text color and sans font (mirrors the app body). */
+:where(body) {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ReactFlow viewport controls follow the OS color-scheme by default; pin them to our tokens so the
+   NetlistView controls stay legible on every theme (web/app/globals.css). */
+.react-flow {
+  --xy-controls-button-background-color: var(--color-surface);
+  --xy-controls-button-background-color-hover: var(--color-surface-2);
+  --xy-controls-button-color: var(--color-text);
+  --xy-controls-button-color-hover: var(--color-accent);
+  --xy-controls-button-border-color: var(--color-border);
+}

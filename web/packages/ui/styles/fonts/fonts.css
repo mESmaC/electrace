@@ -1,0 +1,18 @@
+/* Self-hosted brand fonts (Inter + JetBrains Mono, variable woff2 from fontsource).
+ * The app loads these via next/font/google; the design environment has no next/font, so the
+ * design-system bundle ships them itself. Wired via cfg.extraFonts → copied into ds-bundle/fonts/
+ * and @imported by styles.css (a proper top-of-file @import, unlike appending to _ds_bundle.css). */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./inter-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("./jetbrains-mono-latin.woff2") format("woff2");
+}
