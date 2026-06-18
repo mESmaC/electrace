@@ -28,6 +28,17 @@ export const CommonSymbols = () => (
   </Frame>
 );
 
+/** Active devices & sources — transistors, IC/op-amp/regulator, battery, transformer, relay, motor. */
+export const ActiveAndSources = () => (
+  <Frame>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+      {["npn", "pnp", "nmos", "ic", "opamp", "regulator", "battery", "transformer", "relay", "motor"].map((t) => (
+        <Box key={t} type={t} />
+      ))}
+    </div>
+  </Frame>
+);
+
 /** The same parts drawn in both supported standards — ANSI/IEEE (US) vs IEC 60617 (international). */
 export const AnsiVsIec = () => (
   <Frame>

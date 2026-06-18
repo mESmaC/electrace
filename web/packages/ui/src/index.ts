@@ -11,6 +11,11 @@ export { ColorTokens, TypeScale, ThemeSpecimen } from "./foundations";
 // ── Brand ──────────────────────────────────────────────────────────────────
 export { Logo, LogoMark } from "@/app/Logo";
 
+// ── Layout (page frame + chrome) ─────────────────────────────────────────────
+export { AppShell } from "./app-shell";
+export { default as Footer } from "@/app/Footer";
+export { default as SiteBackdrop } from "@/app/SiteBackdrop";
+
 // ── Theme ──────────────────────────────────────────────────────────────────
 export { default as ThemeToggle } from "@/app/ThemeToggle";
 

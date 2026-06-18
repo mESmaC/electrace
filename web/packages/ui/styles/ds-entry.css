@@ -24,6 +24,9 @@
 @source "../../../app/editor/FootprintLibrary.tsx";
 @source "../../../app/AuthForm.tsx";
 @source "../../../app/blocks/BlocksBrowser.tsx";
+@source "../../../app/Footer.tsx";
+@source "../../../app/SiteBackdrop.tsx";
+@source "../../../app/NavAccount.tsx";
 
 /* Tokens — copied verbatim from web/app/globals.css (@theme block). The --color-* utility tokens
    indirect to the switchable --c-* raw vars set per theme below, so bg-surface / text-dim re-theme

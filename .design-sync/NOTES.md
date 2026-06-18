@@ -89,6 +89,22 @@ boundary (no app source changed):
   zero-specificity, so the design host overrides it. No scope-prefix applied — revisit only if real
   host collisions are observed in claude.ai/design.
 
+## Dogfooding the design agent (validate the demand side)
+The supply side (components/tokens/docs/conventions/guidelines) is strong. The real test is whether
+the claude.ai/design *agent* builds well with it — which only a human can drive in claude.ai/design.
+Proxy-dogfooded here by composing `AppShell` + a calculator into a full Electrace page from only the
+published components (it worked → the surface composes into real screens).
+
+**Test prompts to run in the Electrace project on claude.ai/design** (then check the result):
+- "Build an Electrace calculator page for an LED resistor calculator." → expect AppShell frame +
+  LedResistorCalculator + on-brand tokens/fonts.
+- "Build the Electrace three-pane editor screen." → expect the screen-templates.md recipe (palette /
+  canvas + Sparky / context panel with SchematicPreview + BomPanel).
+- "Build a projects dashboard." → expect AppShell + a grid of surface cards with SevChip statuses.
+Checklist: does it reach for our components (not generic ones)? Mid theme + Inter/JetBrains? status
+as SevChip (color+icon+text)? values in font-mono? If it invents a component we don't ship or
+mis-styles, feed that back into the conventions header / a new component / a guideline.
+
 ## Build footgun (important)
 - **Never run `npm run build:js` (tsup) alone after the CSS exists** — tsup historically wiped all of
   `dist/` (clean) including `dist/electrace-ui.css`, leaving the converter nothing to append → every
