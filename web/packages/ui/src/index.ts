@@ -32,9 +32,16 @@ export {
 } from "./SchematicSymbol";
 export { default as SchematicPreview } from "@/app/editor/SchematicPreview";
 
+export { FootprintPreview } from "@/app/editor/FootprintLibrary";
+
 // ── Editor surfaces (real product panels) ───────────────────────────────────
 export { default as BomPanel } from "@/app/editor/BomPanel";
 export { default as AssistantBubble } from "@/app/editor/AssistantBubble";
+export { default as DiscreteModal } from "@/app/editor/DiscreteModal";
+
+// ── Pages (full-page compositions) ───────────────────────────────────────────
+export { default as AuthForm } from "@/app/AuthForm";
+export { default as BlocksBrowser } from "@/app/blocks/BlocksBrowser";
 
 // ── Calculators (16 self-contained interactive widgets) ──────────────────────
 export { default as OhmsLawCalculator } from "@/app/calculators/ohms-law/Calc";

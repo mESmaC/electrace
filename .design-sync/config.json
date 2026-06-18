@@ -9,6 +9,9 @@
   "extraFonts": ["styles/fonts/fonts.css"],
   "readmeHeader": ".design-sync/conventions.md",
   "overrides": {
-    "SchematicSymbol": { "cardMode": "column" }
+    "SchematicSymbol": { "cardMode": "column" },
+    "AuthForm": { "cardMode": "single", "viewport": "1140x760" },
+    "BlocksBrowser": { "cardMode": "single", "viewport": "1000x680" },
+    "DiscreteModal": { "cardMode": "single", "viewport": "900x680" }
   }
 }

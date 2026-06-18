@@ -10,7 +10,10 @@ export default defineConfig({
   format: ["esm"],
   target: "es2020",
   dts: true,
-  clean: true,
+  // NOT clean:true — tsup's clean wipes ALL of dist/, including dist/electrace-ui.css (produced by the
+  // separate build:css step). With a single stable entry, outputs overwrite in place, so cleaning isn't
+  // needed — and skipping it means `build:js` alone can't strip the stylesheet out from under the converter.
+  clean: false,
   treeshake: true,
   // Bundle ONLY the local Electrace component code (web/app/* via the @/ alias, plus src/*); keep
   // EVERY node_modules package external as clean ESM imports. The design-sync converter bundles the
@@ -20,14 +23,20 @@ export default defineConfig({
   // (any CJS dep that `require("react")` — e.g. use-sync-external-store) which the converter can't
   // intercept. Externalizing them keeps the dist a thin layer the converter can finish cleanly.
   skipNodeModulesBundle: true,
-  // `marked` (used by AssistantBubble) references the Node `process` global at module-eval, which
-  // throws in the design IIFE. Alias it to a browser-safe passthrough stub so the bubble renders.
-  noExternal: [/^marked$/],
+  // Force-bundle (vs externalize) the packages we alias to local browser-safe stubs:
+  // - marked references the Node `process` global at module-eval.
+  // - next/link, next/navigation pull the Next router runtime (absent in the design IIFE).
+  noExternal: [/^marked$/, /^next\//],
   esbuildOptions(options) {
     options.alias = {
       ...(options.alias ?? {}),
       "@": webRoot,
       marked: path.resolve(webRoot, "packages/ui/src/_stubs/marked.ts"),
+      // Decouple app-page components (AuthForm, BlocksBrowser) from Next + Supabase at the bundle
+      // boundary — these are only exercised on navigation/submit, which a static preview never does.
+      "next/link": path.resolve(webRoot, "packages/ui/src/_stubs/next-link.tsx"),
+      "next/navigation": path.resolve(webRoot, "packages/ui/src/_stubs/next-navigation.ts"),
+      "@/lib/auth": path.resolve(webRoot, "packages/ui/src/_stubs/lib-auth.ts"),
     };
     options.jsx = "automatic";
     // The app reads runtime config from `process.env.*` (e.g. the affiliate-link template in

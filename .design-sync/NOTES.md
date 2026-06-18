@@ -89,9 +89,26 @@ boundary (no app source changed):
   zero-specificity, so the design host overrides it. No scope-prefix applied — revisit only if real
   host collisions are observed in claude.ai/design.
 
+## Build footgun (important)
+- **Never run `npm run build:js` (tsup) alone after the CSS exists** — tsup historically wiped all of
+  `dist/` (clean) including `dist/electrace-ui.css`, leaving the converter nothing to append → every
+  preview renders UNSTYLED (links resolve, but the stylesheet has no tokens/utilities, only the xyflow
+  base). Mitigated by `clean: false` in tsup.config.ts (stable single entry overwrites in place), and
+  always use `npm run build` / `build-all.mjs` (build:js → build:css in order). If previews ever render
+  unstyled: check `ds-bundle/_ds_bundle.css` size — if it's ~17 KB (xyflow only), rebuild CSS.
+
+## Stage 3 app-coupled components (AuthForm, BlocksBrowser)
+- `next/link` → `_stubs/next-link.tsx` (plain `<a>`), `next/navigation` → `_stubs/next-navigation.ts`
+  (no-op router/empty params), `@/lib/auth` → `_stubs/lib-auth.ts` (keeps Supabase out of the bundle).
+  All aliased in tsup; only exercised on navigation/submit, which a static preview never does.
+- AuthForm/BlocksBrowser/DiscreteModal use `cfg.overrides.*` with `cardMode:"single"` + a wide
+  `viewport` (full-page / modal layouts need the room).
+
 ## Overrides / known warns
 - `cfg.overrides.SchematicSymbol = {cardMode: "column"}` — its AnsiVsIec cell is wider than a grid cell.
-- Known render warns: none (all components render clean).
+- **Known render warn (benign):** `[RENDER_THIN] DiscreteModal — rendered height is 0px`. It's a
+  `position:fixed` modal (fixed elements don't contribute to measured flow height); it renders fully
+  (confirmed by screenshot). Not a regression.
 
 ## Re-sync risks (what can silently go stale)
 - **Re-export drift**: components are re-exported from the live `web/app`. If those app components'
