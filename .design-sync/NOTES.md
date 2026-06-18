@@ -106,9 +106,19 @@ boundary (no app source changed):
 
 ## Overrides / known warns
 - `cfg.overrides.SchematicSymbol = {cardMode: "column"}` — its AnsiVsIec cell is wider than a grid cell.
-- **Known render warn (benign):** `[RENDER_THIN] DiscreteModal — rendered height is 0px`. It's a
-  `position:fixed` modal (fixed elements don't contribute to measured flow height); it renders fully
-  (confirmed by screenshot). Not a regression.
+- **Known render warns (benign):** `[RENDER_THIN] … rendered height is 0px` on the three
+  `position:fixed` modals — **DiscreteModal, AcDialog, FootprintLibrary**. Fixed elements don't
+  contribute to measured flow height; all render fully (confirmed by screenshots). FootprintLibrary's
+  modal header can crop in the static capture (centered fixed modal) — renders fully in the pane.
+  Not regressions.
+- **@source must list every app component pulled into the bundle.** `styles/ds-entry.css` @source now
+  covers calculators, Logo, ThemeToggle, docs/checks/ui, and editor/{NetlistView, symbols,
+  SchematicPreview, BomPanel, AssistantBubble, AcDialog, FootprintLibrary} + AuthForm + blocks/BlocksBrowser.
+  Omitting one means its unique Tailwind classes silently don't compile (renders via overlap only).
+- **Stage 4 stub:** `@/lib/footprints` → `_stubs/lib-footprints.ts` (seeds a few land patterns so
+  FootprintLibrary shows its populated grid; the real one is API/localStorage-backed).
+- **AcDialog fixture is REAL, not a mock:** its preview builds an inline RC low-pass and runs it
+  through `@electrace/core`'s actual `resolve()` + `frequencyResponse()` — the Bode curve is genuine.
 
 ## Re-sync risks (what can silently go stale)
 - **Re-export drift**: components are re-exported from the live `web/app`. If those app components'

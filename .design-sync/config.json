@@ -12,6 +12,8 @@
     "SchematicSymbol": { "cardMode": "column" },
     "AuthForm": { "cardMode": "single", "viewport": "1140x760" },
     "BlocksBrowser": { "cardMode": "single", "viewport": "1000x680" },
-    "DiscreteModal": { "cardMode": "single", "viewport": "900x680" }
+    "DiscreteModal": { "cardMode": "single", "viewport": "900x680" },
+    "AcDialog": { "cardMode": "single", "viewport": "780x620" },
+    "FootprintLibrary": { "cardMode": "single", "viewport": "880x820" }
   }
 }

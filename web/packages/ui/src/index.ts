@@ -32,12 +32,13 @@ export {
 } from "./SchematicSymbol";
 export { default as SchematicPreview } from "@/app/editor/SchematicPreview";
 
-export { FootprintPreview } from "@/app/editor/FootprintLibrary";
+export { FootprintPreview, default as FootprintLibrary } from "@/app/editor/FootprintLibrary";
 
 // ── Editor surfaces (real product panels) ───────────────────────────────────
 export { default as BomPanel } from "@/app/editor/BomPanel";
 export { default as AssistantBubble } from "@/app/editor/AssistantBubble";
 export { default as DiscreteModal } from "@/app/editor/DiscreteModal";
+export { default as AcDialog } from "@/app/editor/AcDialog";
 
 // ── Pages (full-page compositions) ───────────────────────────────────────────
 export { default as AuthForm } from "@/app/AuthForm";

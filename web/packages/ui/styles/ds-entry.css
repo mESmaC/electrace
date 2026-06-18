@@ -20,6 +20,10 @@
 @source "../../../app/editor/SchematicPreview.tsx";
 @source "../../../app/editor/BomPanel.tsx";
 @source "../../../app/editor/AssistantBubble.tsx";
+@source "../../../app/editor/AcDialog.tsx";
+@source "../../../app/editor/FootprintLibrary.tsx";
+@source "../../../app/AuthForm.tsx";
+@source "../../../app/blocks/BlocksBrowser.tsx";
 
 /* Tokens — copied verbatim from web/app/globals.css (@theme block). The --color-* utility tokens
    indirect to the switchable --c-* raw vars set per theme below, so bg-surface / text-dim re-theme

@@ -37,6 +37,8 @@ export default defineConfig({
       "next/link": path.resolve(webRoot, "packages/ui/src/_stubs/next-link.tsx"),
       "next/navigation": path.resolve(webRoot, "packages/ui/src/_stubs/next-navigation.ts"),
       "@/lib/auth": path.resolve(webRoot, "packages/ui/src/_stubs/lib-auth.ts"),
+      // FootprintLibrary fetches /api/footprints (empty in a preview) — seed a few via the stub.
+      "@/lib/footprints": path.resolve(webRoot, "packages/ui/src/_stubs/lib-footprints.ts"),
     };
     options.jsx = "automatic";
     // The app reads runtime config from `process.env.*` (e.g. the affiliate-link template in
