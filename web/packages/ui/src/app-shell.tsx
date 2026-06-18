@@ -21,7 +21,9 @@ const NAV: [string, string][] = [
  *  body in it to get the real chrome. Set `data-theme` on an ancestor to switch Mid/Dark/Light. */
 export function AppShell({ children }: { children?: ReactNode }) {
   return (
-    <div className="flex min-h-full flex-col">
+    // bg-bg + text-text on the root so content sits on the real page surface (the app's <body> sets
+    // these); without it, content renders on transparent and only the faint backdrop shows through.
+    <div className="flex min-h-full flex-col bg-bg text-text">
       <SiteBackdrop />
       <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur">
         <div className="flex h-14 items-center gap-4 px-4 sm:gap-6 sm:px-7 lg:px-9">

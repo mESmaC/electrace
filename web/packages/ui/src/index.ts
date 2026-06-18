@@ -16,6 +16,9 @@ export { AppShell } from "./app-shell";
 export { default as Footer } from "@/app/Footer";
 export { default as SiteBackdrop } from "@/app/SiteBackdrop";
 
+// ── Templates (full assembled Electrace screens) ─────────────────────────────
+export { EditorScreen, Dashboard } from "./screens";
+
 // ── Theme ──────────────────────────────────────────────────────────────────
 export { default as ThemeToggle } from "@/app/ThemeToggle";
 
