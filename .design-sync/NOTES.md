@@ -32,6 +32,23 @@ isolated package; the design-sync upload targets claude.ai/design only (not git)
 - NetlistView's `import "@xyflow/react/dist/style.css"`: a tsup esbuild plugin drops `.css` imports
   from the JS; the xyflow base CSS is shipped via append-vendor-css.mjs into the stylesheet instead.
 
+## Bundling app-coupled components (Stage 2: SchematicPreview, BomPanel, AssistantBubble)
+Pulling editor components in surfaced two `process is not defined` failures in the design IIFE
+(the whole bundle throws at eval → every component shows root-empty). Both fixed at the DS-package
+boundary (no app source changed):
+- **`marked`** (AssistantBubble) references the Node `process` global at module-eval. Aliased to a
+  browser-safe passthrough stub (`src/_stubs/marked.ts`) via tsup `alias` + `noExternal`. Trade-off:
+  the bundled bubble renders live markdown messages as plain text (greeting/UI unaffected).
+- **`process.env.*`** reads in local libs (e.g. `partLinks` → `NEXT_PUBLIC_AFFILIATE_LINK_TEMPLATE`).
+  Polyfilled via esbuild `inject` of `src/_stubs/process-shim.ts` (empty env → reads are undefined).
+  NB: esbuild `define: {"process.env":"({})"}` is REJECTED ("must be an entity name or JS literal") —
+  use `inject`, not `define`.
+- New editor components' Tailwind classes must be added to `styles/ds-entry.css` `@source` or they
+  won't compile (Sparky's gradient, arbitrary sizes were missing until added). When verifying a class
+  is in the compiled CSS, grep by VALUE (`8b6cff`), not the selector — Tailwind escapes `.`/`#`.
+- Any further app-coupled adds (AuthForm, BlocksBrowser, NavAccount) will need `next/link` +
+  `next/navigation` stubs (not yet added) — those are the deferred Stage 3 candidates.
+
 ## Deploy safety
 - `web/tsconfig.json` excludes `packages` so `next build` (no `ignoreBuildErrors`) doesn't type-check
   the DS package. Verified `npx tsc --noEmit` in web passes (exit 0) with the package present.
