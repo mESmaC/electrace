@@ -30,6 +30,11 @@ export {
   type SymbolType,
   type SymbolStandard,
 } from "./SchematicSymbol";
+export { default as SchematicPreview } from "@/app/editor/SchematicPreview";
+
+// ── Editor surfaces (real product panels) ───────────────────────────────────
+export { default as BomPanel } from "@/app/editor/BomPanel";
+export { default as AssistantBubble } from "@/app/editor/AssistantBubble";
 
 // ── Calculators (16 self-contained interactive widgets) ──────────────────────
 export { default as OhmsLawCalculator } from "@/app/calculators/ohms-law/Calc";

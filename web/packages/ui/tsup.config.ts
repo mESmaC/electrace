@@ -20,9 +20,21 @@ export default defineConfig({
   // (any CJS dep that `require("react")` — e.g. use-sync-external-store) which the converter can't
   // intercept. Externalizing them keeps the dist a thin layer the converter can finish cleanly.
   skipNodeModulesBundle: true,
+  // `marked` (used by AssistantBubble) references the Node `process` global at module-eval, which
+  // throws in the design IIFE. Alias it to a browser-safe passthrough stub so the bubble renders.
+  noExternal: [/^marked$/],
   esbuildOptions(options) {
-    options.alias = { ...(options.alias ?? {}), "@": webRoot };
+    options.alias = {
+      ...(options.alias ?? {}),
+      "@": webRoot,
+      marked: path.resolve(webRoot, "packages/ui/src/_stubs/marked.ts"),
+    };
     options.jsx = "automatic";
+    // The app reads runtime config from `process.env.*` (e.g. the affiliate-link template in
+    // partLinks). There's no `process` in the design IIFE, so inject an empty-env shim wherever the
+    // bundled local code references the `process` global — these are runtime/server concerns,
+    // irrelevant to a preview, so every read resolves to undefined.
+    options.inject = [...(options.inject ?? []), path.resolve(webRoot, "packages/ui/src/_stubs/process-shim.ts")];
   },
   // NetlistView does `import "@xyflow/react/dist/style.css"`; drop all CSS imports from the JS — the
   // xyflow base CSS is concatenated into the compiled stylesheet by build:css instead.

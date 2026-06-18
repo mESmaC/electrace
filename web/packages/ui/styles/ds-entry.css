@@ -17,6 +17,9 @@
 @source "../../../app/docs/checks/ui.tsx";
 @source "../../../app/editor/NetlistView.tsx";
 @source "../../../app/editor/symbols.tsx";
+@source "../../../app/editor/SchematicPreview.tsx";
+@source "../../../app/editor/BomPanel.tsx";
+@source "../../../app/editor/AssistantBubble.tsx";
 
 /* Tokens — copied verbatim from web/app/globals.css (@theme block). The --color-* utility tokens
    indirect to the switchable --c-* raw vars set per theme below, so bg-surface / text-dim re-theme
