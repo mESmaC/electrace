@@ -113,9 +113,9 @@ KiCad export, footprints, value parsing.
 - **F13 (FIXED 2026-06-15):** `si/termination-missing` silently no-fired for an RS-485 class declared
   on **connector-pin** pairs — `netOf` matched `net.members` only, but unspec'd connector pins live in
   `net.connectorPins`. Fixed (also match connectorPins); 3-case adversarially verified + regression test.
-- **F14 (open, P2):** `i2cRiseTime` has the same connector-pin blindness AND derives device count from
-  `net.members.length` — needs the lookup + the count fixed together (a naive lookup-only fix would
-  undercount → wrong rise-time math). The remaining known engine no-fire.
+- **F14 (FIXED 2026-06-19):** `i2cRiseTime` had the same connector-pin blindness AND derived device
+  count from `net.members.length`. Fixed both together — `netOf` now also matches `net.connectorPins`
+  and the count is `members.length + connectorPins.length`; regression test added (propagation.test.ts).
 
 ---
 
@@ -297,8 +297,8 @@ using the app → edited into a short** (not the schematic-stage format).
 **Engine/trust:**
 - **F13 (FIXED 2026-06-15):** SI termination rule silent no-fire on connector-pin-anchored RS-485 —
   `netOf` now also matches `net.connectorPins`. Adversarially verified + regression test.
-- **F14 (P2, open):** `i2cRiseTime` has the same connector-pin blindness (+ a coupled device-count
-  issue) — the remaining known engine no-fire.
+- **F14 (FIXED 2026-06-19):** `i2cRiseTime` had the same connector-pin blindness + a coupled device-
+  count undercount; both fixed together with a regression test. No known engine no-fire remains.
 - DC solver leaves all nonlinear parts open (by design) — bias networks solve, active devices don't.
 
 **Editor/PCB:**
@@ -323,5 +323,5 @@ using the app → edited into a short** (not the schematic-stage format).
 
 ## 11. Beta exit (from ROADMAP/VERIFICATION)
 
-Every VERIFICATION area dated as passed · all P1+P2 findings closed (F7, F14 are the open P2s; F13 fixed) ·
+Every VERIFICATION area dated as passed · all P1+P2 findings closed (F7 is the only open P2; F13/F14 fixed) ·
 P3s triaged with explicit defer/fix calls · automation added for any check that regressed twice.
