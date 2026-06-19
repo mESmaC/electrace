@@ -1168,6 +1168,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const LS_KEY = `electrace:design:${design.id}`;
   const fileRef = useRef<HTMLInputElement>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null); // server REJECTED a cloud save (cap/denied) — "Saved ✓" must not lie
   const loadedRef = useRef(false);
   const [restored, setRestored] = useState(false); // gates autosave until the saved design is loaded
 
@@ -1331,10 +1332,27 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         localStorage.setItem(LS_KEY, JSON.stringify(designLive));
         if (projectId) touchProject(projectId, designName, probCount); // keep the dashboard's edited stamp + name + lint status current
         setSavedAt(Date.now());
+        setSaveError(null); // optimistic — a fresh local write; a failed cloud push (below) re-flags within ~1s
       } catch { /* ignore */ }
     }, 800);
     return () => clearTimeout(id);
   }, [restored, LS_KEY, designLive, projectId, designName]);
+
+  // The cloud push is async (via the localStorage mirror) and dispatches electrace:designsync ONLY on
+  // a server REJECTION (cap/denied/RLS) — so "Saved ✓" off the localStorage write alone can lie about
+  // the durable account copy (e.g. editing past the design cap). Listen, and tell the truth.
+  useEffect(() => {
+    const onSync = (e: Event) => {
+      const d = (e as CustomEvent<{ id?: string; code?: string; error?: string }>).detail ?? {};
+      if (projectId && d.id && d.id !== projectId) return; // a different design's failure
+      const capLike = d.code === "cap" || /cap|limit|too many|upgrade/i.test(d.error ?? "");
+      setSaveError(capLike
+        ? "design limit reached — upgrade to keep this in your account"
+        : (d.error || "couldn't save to your account"));
+    };
+    window.addEventListener("electrace:designsync", onSync as EventListener);
+    return () => window.removeEventListener("electrace:designsync", onSync as EventListener);
+  }, [projectId]);
 
   // the debounce above drops the last <800ms of edits if the tab closes or the editor
   // unmounts first — flush the latest design straight to localStorage on both
@@ -1510,7 +1528,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
               { label: "Reset block schematics", icon: "↺", danger: true, onSelect: resetSchematics },
             ])}
             className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">⋯</button>
-          {savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
+          {saveError
+            ? <span className="ml-1 text-[10px] font-medium text-[#fbbf24]" title={saveError}>⚠ Not saved to your account</span>
+            : savedAt && <span className="ml-1 text-[10px] text-[var(--color-faint)]">Saved ✓</span>}
           <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
           <SymbolStyleToggle />
           <ReportBug getDesign={() => designForAnalysis.current} />

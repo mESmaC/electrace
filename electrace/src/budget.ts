@@ -22,8 +22,9 @@ export function railBudgets(rd: ResolvedDesign): RailBudget[] {
   return rd.nets
     .filter((n) => n.type === "power" || n.type === "rail")
     .map((n) => {
-      const src = n.sources.find((s) => rmax(s.def.i) != null);
-      const capacityA = src ? rmax(src.def.i) : undefined;
+      // capacity = Σ every source that declares a rating (paralleled supplies add up), not just the first
+      const rated = n.sources.map((s) => rmax(s.def.i)).filter((c): c is number => c != null);
+      const capacityA = rated.length ? rated.reduce((a, c) => a + c, 0) : undefined;
       const drawA = round(n.sinks.reduce((a, s) => a + (rmax(s.current) ?? 0), 0));
       const voltage = rmax(n.voltage);
       return {

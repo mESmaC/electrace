@@ -57,6 +57,39 @@ test("load current charges back through the chip to the supply rail", () => {
   assert.ok(rail.drawA >= 0.03 - 1e-9, `rail draw ${rail.drawA} A, expected >= 0.03`);
 });
 
+test("rail capacity SUMS paralleled sources — no phantom over-budget (budget audit fix)", () => {
+  // two 2A supplies feeding one 5V rail = 4A capacity; a 3A load is FINE. Taking only the first
+  // source rated the rail at 2A and fired a confident over-budget ERROR on a legitimate topology.
+  const PSU: Block = {
+    id: "@t/psu", name: "PSU", version: "1", category: "power",
+    terminals: [
+      { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 2, unit: "A" } },
+      { id: "gnd", role: "out", type: "gnd" },
+    ], schematic: { parts: [], nets: [] },
+  };
+  const HOG: Block = {
+    id: "@t/hog", name: "Hog", version: "1", category: "signal",
+    terminals: [
+      { id: "vin", role: "in", type: "power", v: { min: 4.5, max: 5.5, unit: "V" }, i: { max: 3, unit: "A" } },
+      { id: "gnd", role: "in", type: "gnd" },
+    ], schematic: { parts: [], nets: [] },
+  };
+  const bl = new Map<string, Block>([["@t/psu@1", PSU], ["@t/hog@1", HOG]]);
+  const d: Design = {
+    id: "par", name: "par",
+    blocks: [{ ref: "P1", block: "@t/psu@1" }, { ref: "P2", block: "@t/psu@1" }, { ref: "H1", block: "@t/hog@1" }],
+    connections: [
+      { from: "P1.vout", to: "H1.vin" }, { from: "P2.vout", to: "H1.vin" },
+      { from: "P1.gnd", to: "H1.gnd" }, { from: "P2.gnd", to: "H1.gnd" },
+    ],
+  };
+  const a = analyze(d, bl);
+  assert.ok(!a.findings.some((f) => f.rule === "current/over-budget" && f.severity === "error"),
+    "two 2A sources (4A) feeding a 3A load must NOT over-budget; got " + a.findings.filter((f) => f.rule === "current/over-budget").map((f) => f.message).join("|"));
+  const rail = railBudgets(a.resolved).find((x) => x.voltage === 5)!;
+  assert.equal(rail.capacityA, 4, "capacity must sum both paralleled sources");
+});
+
 // ---- lint wave on top of propagation ----
 test("signal-source over-current: 3 heavy loads on a 20mA-rated output", () => {
   const GPIO: Block = {

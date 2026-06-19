@@ -2,7 +2,7 @@
 // never reaches the browser. When the client sends a `design` + `blocks`, the assistant becomes
 // agentic: it can call tools that mutate a COPY of the design (add/connect/remove blocks, check it)
 // and we return the new design for the client to apply. Without a design, it's informative only.
-import { analyze, canonicalTerminal, solveDc, theveninAt, standbyDraw, frequencyResponse, logSweep, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, type Design, type Block, type Part, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
+import { analyze, canonicalTerminal, solveDc, theveninAt, standbyDraw, frequencyResponse, logSweep, railBudgets, authorChipLayout, buildBlockLayout, exposeChipPins, deriveBlockSchematic, parseSpecQuery, findBlocks, CONNECTOR_CATALOG, connectorPart, effectivePinSpec, rmax, NET_CLASSES, SYMBOL_CATALOG, type Design, type Block, type Part, type SchematicLayout, type PartSpec, type NetSpec, type ConnectorPinSpec, type NetType } from "@electrace/core";
 import { electraceHelpText } from "@/lib/electrace-info";
 import type { ChatMessage, ContextItem } from "@/lib/assistant";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -294,7 +294,7 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
       const rec = reconcileAuthoredTerminals(b!, terminals, key, design);
       const nb: Block = { ...b!, terminals: rec.terminals, layout, schematic };
       blocks[key] = nb; eff.upserts.set(key, nb); eff.schematics.set(key, layout);
-      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals.${rec.message}`, changed: true };
+      return { text: `Authored ${ref} (${chip.mpn ?? chip.profile}, ${Object.keys(names).length} pins) into ${b!.name} — it's now a real part (${schematic.parts.length} on BOM + footprint); exposed ${terminals.length} pin(s) as terminals. ⚠ The pin map is exactly as provided — tell the user to verify the pin numbers against the part's datasheet before ordering or fabbing (a wrong pinout reaches the BOM + footprint).${rec.message}`, changed: true };
     }
     case "author_schematic": {
       const key = String(input.block ?? ""), b = blocks[key], err = userOnly(key, b);
@@ -314,6 +314,9 @@ function runTool(name: string, input: Record<string, unknown>, design: Design, b
         } else {
           const type = String(r.type ?? "").trim();
           if (!type) return { text: `part ${ref} needs either a type (e.g. "capacitor", "resistor", "regulator") or a chip { names }.`, changed: false };
+          // reject an unknown symbol type instead of silently building it as "ic" — a wrong type wires
+          // the part with the wrong role (a transistor as a passive load) and mis-fires the checks.
+          if (!(type in SYMBOL_CATALOG)) return { text: `part ${ref}: unknown symbol type "${type}". Use one of: ${Object.keys(SYMBOL_CATALOG).join(", ")} — or give chip { names } for an IC.`, changed: false };
           const mpnRaw = r.mpn ? String(r.mpn) : "";
           const mpnOk = !!mpnRaw && mpnRaw.length <= 32 && !/[\s,;≥≤()]/.test(mpnRaw);
           if (mpnRaw && !mpnOk) mpnWarnings.push(`${ref}: dropped mpn "${mpnRaw.slice(0, 48)}" — an mpn is a bare part number (BC547, SS8050); selection criteria belong in why`);

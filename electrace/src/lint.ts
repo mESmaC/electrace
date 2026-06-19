@@ -28,9 +28,11 @@ const overCurrent: Rule = (rd) =>
   rd.nets
     .filter((net) => net.type === "rail" || net.type === "power")
     .flatMap((net): Finding[] => {
-      const src = net.sources.find((s) => rmax(s.def.i) != null);
-      if (!src) return [];
-      const cap = rmax(src.def.i)!;
+      // sum every source that declares a rating — paralleled supplies/regulators feeding one rail add
+      // their capability. Taking only the FIRST source fabricated a phantom over-budget error (audit).
+      const rated = net.sources.map((s) => rmax(s.def.i)).filter((c): c is number => c != null);
+      if (!rated.length) return [];
+      const cap = rated.reduce((a, c) => a + c, 0);
       const draw = net.sinks.reduce((a, s) => a + (rmax(s.current) ?? 0), 0);
       if (draw > cap)
         return [{
@@ -421,9 +423,11 @@ const underUtilized: Rule = (rd) =>
   rd.nets
     .filter((net) => net.type === "rail" || net.type === "power")
     .flatMap((net): Finding[] => {
-      const src = net.sources.find((s) => rmax(s.def.i) != null);
-      if (!src) return [];
-      const cap = rmax(src.def.i)!;
+      // sum every source that declares a rating — paralleled supplies/regulators feeding one rail add
+      // their capability. Taking only the FIRST source fabricated a phantom over-budget error (audit).
+      const rated = net.sources.map((s) => rmax(s.def.i)).filter((c): c is number => c != null);
+      if (!rated.length) return [];
+      const cap = rated.reduce((a, c) => a + c, 0);
       const draw = net.sinks.reduce((a, s) => a + (rmax(s.current) ?? 0), 0);
       if (cap > 0 && draw > 0 && draw < 0.4 * cap)
         return [{
