@@ -46,6 +46,15 @@ export default function AssistantBubble() {
   const canChat = access === "free" || access === "pro";
   // milestone: the assistant pane was opened (high-signal feature reach — tagged with access tier)
   useEffect(() => { if (open) logUsage("sparky.open", { access }); }, [open, access]);
+  // First-run coachmark: Sparky is the differentiator but a silent, unlabeled bubble — almost no one
+  // discovers it. Show a one-time, dismissable nudge a moment after load. Persists like EditorHints.
+  const [coach, setCoach] = useState(false);
+  useEffect(() => {
+    try { if (localStorage.getItem("electrace:sparky-coach")) return; } catch { return; }
+    const t = setTimeout(() => setCoach(true), 1600);
+    return () => clearTimeout(t);
+  }, []);
+  const dismissCoach = () => { setCoach(false); try { localStorage.setItem("electrace:sparky-coach", "1"); } catch { /* ignore */ } };
   const { messages, conversations, activeId, progress } = useAssistant();
   // a run in flight anywhere (module-level — survives bubble remounts, unlike local state)
   const running = !!progress;
@@ -216,8 +225,17 @@ Hi, I&apos;m Sparky ✨ — I&apos;ll help wire a chip from its part number, add
         )}
       </div>
 
+      {/* First-run coachmark, anchored above the bubble — the one nudge that makes Sparky discoverable */}
+      {!open && coach && (
+        <div className="absolute bottom-[80px] right-4 z-20 w-[248px] rounded-xl border border-[#a98bff66] bg-[var(--color-surface)] p-3 shadow-2xl">
+          <button onClick={dismissCoach} title="Dismiss" className="absolute right-2 top-1 text-[15px] leading-none text-[var(--color-faint)] hover:text-[var(--color-text)]">×</button>
+          <div className="text-[12px] font-semibold text-[var(--color-text)]">✨ Meet Sparky</div>
+          <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-dim)]">Your AI engineer. Ask it to add a part, check a net, or build a block — it runs the same checks you do, on your actual design.</p>
+          <button onClick={() => { dismissCoach(); setOpen(true); }} className="mt-2 rounded-md bg-gradient-to-br from-[#8b6cff] to-[#4c8dff] px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110">Try it →</button>
+        </div>
+      )}
       {/* Collapsed bubble — hidden while the pane is open */}
-      <button onClick={() => setOpen(true)} title="Sparky — your design assistant"
+      <button onClick={() => { setOpen(true); dismissCoach(); }} title="Sparky — your design assistant"
         className={`absolute bottom-4 right-4 z-20 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#8b6cff] to-[#4c8dff] text-[22px] ring-2 ring-[#a98bff55] transition-all duration-200 hover:brightness-110 ${open ? "pointer-events-none scale-0 opacity-0" : "scale-100 opacity-100"}`}
         style={{ boxShadow: "0 6px 22px rgba(124,108,255,.55)" }}>
         ✨

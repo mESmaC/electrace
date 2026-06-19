@@ -103,6 +103,7 @@ function ShareMenu({ designId }: { designId: string }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [privUpsell, setPrivUpsell] = useState(false); // a free user clicked the locked "Private" row
 
   const openMenu = async () => {
     setOpen((o) => !o);
@@ -149,8 +150,8 @@ function ShareMenu({ designId }: { designId: string }) {
               {(Object.keys(VIS_COPY) as Vis[]).map((v) => {
                 const locked = v === "private" && !pro;
                 return (
-                  <button key={v} onClick={() => !locked && choose(v)} disabled={busy || locked}
-                    className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left ${vis === v ? "bg-[#4c8dff1f]" : "hover:bg-[var(--color-surface-2)]"} ${locked ? "opacity-55" : ""}`}>
+                  <button key={v} onClick={() => { if (locked) { logUsage("paywall.hit", { feature: "private" }); setPrivUpsell(true); } else void choose(v); }} disabled={busy}
+                    className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left ${vis === v ? "bg-[#4c8dff1f]" : "hover:bg-[var(--color-surface-2)]"} ${locked ? "opacity-70" : ""}`}>
                     <span className={`mt-0.5 text-[10px] ${vis === v ? "text-[#4c8dff]" : "text-[var(--color-faint)]"}`}>{vis === v ? "●" : "○"}</span>
                     <span className="flex-1">
                       <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-text)]">
@@ -163,6 +164,11 @@ function ShareMenu({ designId }: { designId: string }) {
                 );
               })}
               {note && <p className="px-2 pt-1 text-[10.5px] text-[#fbbf24]">{note}</p>}
+              {privUpsell && (
+                <div className="mt-1 rounded-lg border border-[#8b6cff44] bg-[#8b6cff14] px-2 py-1.5">
+                  <p className="text-[10.5px] leading-relaxed text-[var(--color-dim)]">Private designs are part of Pro — keep client and commercial work off the public web. <a href="/pricing" className="font-semibold text-[#a98bff] hover:underline">See Pro ↗</a></p>
+                </div>
+              )}
               {vis !== "private" && (
                 <button onClick={copy}
                   className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 font-mono text-[10.5px] text-[var(--color-link)] hover:border-[#4c8dff]">
@@ -1478,6 +1484,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={() => setNetlistOpen(true)} title="The stitched netlist — graph + nets here, exportable as KiCad .net" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
           <button onClick={() => setHistoryOpen(true)} title="Version history — checkpoints, named snapshots, loss-proof restore" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">History</button>
           <button onClick={() => setAcOpen(true)} title="Frequency response — H(jω) between any two points of this design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">AC</button>
+          {/* Discovery affordance: SI + isolation are the headline Pro analyses but otherwise live only
+              in right-click menus, so a free user never bumps into them. Surface a visible, seen-but-
+              locked entry that opens the what-it-does upsell (logs paywall.hit). Free plan only. */}
+          {proPlan === false && (
+            <button onClick={() => openUpsell("si")} title="Signal-integrity & isolation analysis — see what Pro verifies on your nets"
+              className="rounded-md border border-[#8b6cff66] bg-[#8b6cff1f] px-2.5 py-1 text-[11.5px] text-[#a98bff] hover:border-[#8b6cff]">∿ Analyses</button>
+          )}
           {projectId && <ShareMenu designId={design.id} />}
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
           <button title="More — import/export, schematic sheet, reset"

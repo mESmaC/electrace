@@ -12,6 +12,7 @@ export const CHANGELOG: ChangeEntry[] = [
     items: [
       "**Every finding is now reachable — and Sparky can explain any of them.** A warning you can't click to find reads like a phantom bug, so findings that point at a board edge (a signal-integrity or isolation rule declared on a connector pin) now locate the connector itself instead of greying out the button. And every error and warning grew a one-click '✨ ask' — it hands Sparky the exact finding, its reasoning, and the block it points at, so 'why is this flagged and how do I fix it' is one click from the problem.",
       "**Signal-integrity check sharpened on real off-board buses.** The I2C rise-time check now fires when the bus is declared on a connector pin (a header running I2C off the board), and counts those connector pins toward the bus capacitance — so the rise-time it prints is the number you'd get by hand, on the bus you actually drew. Companion to the RS-485 termination fix; both close the gap where a check went quiet exactly when the signal left the board.",
+      "**Sparky and the Pro analyses are easier to find.** A one-time intro now points new users at Sparky — ask it to add a part, check a net, or build a block, and watch it reason about your actual design. And signal-integrity & isolation analysis now have a home in the editor toolbar, not just a right-click away.",
     ],
   },
   {
