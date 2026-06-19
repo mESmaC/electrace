@@ -9,6 +9,7 @@ import { analyze, type Block, type Design } from "@electrace/core";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/supabase/config";
 import { blockLibrary, fmtSpec } from "@/lib/blocks";
+import { SITE } from "@/lib/site";
 import SchematicPreview from "@/app/editor/SchematicPreview";
 import ShareActions from "./ShareActions";
 
@@ -22,12 +23,15 @@ async function fetchDesign(id: string): Promise<Row | null> {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const d = await fetchDesign((await params).id);
+  const { id } = await params;
+  const d = await fetchDesign(id);
   if (!d) return { title: "Design — Electrace" };
   const n = d.graph.blocks?.length ?? 0;
   return {
     // public designs are SEO surface; unlisted means "anyone with the LINK" — keep those out of the index
     robots: d.visibility === "public" ? undefined : { index: false, follow: true },
+    // canonical protects the UGC surface from duplicate/self-competing URLs (the other public templates set one)
+    alternates: { canonical: `${SITE}/share/${id}` },
     title: `${d.name} — Electrace`,
     description: `A ${n}-block circuit design on Electrace — every block explains itself, every number is checked deterministically.`,
   };
