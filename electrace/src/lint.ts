@@ -688,10 +688,67 @@ const i2cRiseTime: Rule = (rd) =>
     } satisfies Finding];
   });
 
+/** Reliability: an IC's supply pin wants a local decoupling capacitor to ground. Flags a chip whose
+ *  power/rail supply net carries NO capacitor-to-ground ANYWHERE in the flattened netlist — the most
+ *  common real-world omission (flaky, hard-to-reproduce behavior). Recommendation tier on purpose:
+ *  lenient on LOCALITY (any cap on the net to gnd counts as bypassed) so it never false-fires on a
+ *  rail that's bulk-decoupled elsewhere; it speaks only when there is genuinely none. */
+const decoupling: Rule = (rd) => {
+  // map a part pin ("U1.1") to the design net ids it reaches via its block's @terminal exposures
+  const reaches = (inst: (typeof rd.instances)[number], partPin: string): Set<string> => {
+    const out = new Set<string>();
+    for (const inet of inst.def.schematic?.nets ?? []) {
+      if (!inet.connect.includes(partPin)) continue;
+      for (const c of inet.connect) {
+        if (!c.startsWith("@")) continue;
+        const dn = rd.nets.find((n) => n.members.some((m) => m.node === `${inst.ref}.${c.slice(1)}`));
+        if (dn) out.add(dn.id);
+      }
+    }
+    return out;
+  };
+  const isGnd = (ids: Set<string>) => rd.nets.some((n) => n.type === "gnd" && ids.has(n.id));
+  // every design net a capacitor bridges to ground = a bypassed/decoupled net
+  const bypassed = new Set<string>();
+  for (const inst of rd.instances) {
+    for (const part of inst.def.schematic?.parts ?? []) {
+      if (part.type !== "cap" && part.type !== "cap-pol") continue;
+      const r1 = reaches(inst, `${part.ref}.1`), r2 = reaches(inst, `${part.ref}.2`);
+      if (isGnd(r2)) r1.forEach((id) => bypassed.add(id));
+      if (isGnd(r1)) r2.forEach((id) => bypassed.add(id));
+    }
+  }
+  const SUPPLY = /^[+]?(a?v(cc|dd)|v(bat|sys|in|ddio|dda|ref)|\d*v\d+|\d+v\d*)\w*$/i;
+  const out: Finding[] = [];
+  const seen = new Set<string>();
+  for (const inst of rd.instances) {
+    for (const part of inst.def.schematic?.parts ?? []) {
+      if (!part.chip?.names) continue; // real ICs only — passives don't get a decoupling check
+      for (const [pinNum, fn] of Object.entries(part.chip.names)) {
+        if (!fn || !SUPPLY.test(fn)) continue;
+        for (const id of reaches(inst, `${part.ref}.${pinNum}`)) {
+          const net = rd.nets.find((n) => n.id === id);
+          if (!net || (net.type !== "power" && net.type !== "rail")) continue;
+          if (bypassed.has(id) || seen.has(`${inst.ref}:${id}`)) continue;
+          seen.add(`${inst.ref}:${id}`);
+          out.push({
+            rule: "reliability/decoupling-missing", severity: "recommendation", category: "connectivity",
+            at: [net.id, `${inst.ref}.${part.ref}`],
+            message: `${inst.ref}'s ${fn} (${net.id}) has no decoupling capacitor to ground — add a 0.1 µF close to the pin. Missing decoupling is the classic cause of flaky, hard-to-reproduce IC behavior.`,
+            derivation: `IC supply net ${net.id} carries no cap-to-ground in the flattened netlist`,
+            fix: { label: "Add a 0.1 µF (plus bulk if needed) from the supply pin to GND" },
+          } satisfies Finding);
+        }
+      }
+    }
+  }
+  return out;
+};
+
 export const RULES: Rule[] = [
   danglingWire,
   openNet, overCurrent, connectorPinCurrent, usbInrush, dcOperatingPoint, overVoltage, underVoltage, signalOverCurrent, shortCircuit, polarityConflict, multipleDrivers, undrivenRail, internalShort, regulatorDissipation, isolationBridged, busTermination, i2cRiseTime, // faults + SI
-  lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
+  decoupling, lowEfficiency, underUtilized, testPoints, emptyBlock, connectorFull,  // recommendations + completeness
 ];
 
 const SEVERITY_ORDER = { error: 0, warn: 1, recommendation: 2, info: 3, unknown: 4 } as const;

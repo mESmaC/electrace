@@ -90,6 +90,57 @@ test("rail capacity SUMS paralleled sources — no phantom over-budget (budget a
   assert.equal(rail.capacityA, 4, "capacity must sum both paralleled sources");
 });
 
+test("decoupling-missing: an IC on a bare supply net is flagged; a 0.1µF clears it", () => {
+  const SRC5: Block = {
+    id: "@t/src5", name: "5V", version: "1", category: "power",
+    terminals: [
+      { id: "vout", role: "out", type: "power", v: { value: 5, unit: "V" }, i: { max: 1, unit: "A" } },
+      { id: "gnd", role: "out", type: "gnd" },
+    ], schematic: { parts: [], nets: [] },
+  };
+  const bareMcu: Block = {
+    id: "@t/mcu", name: "MCU", version: "1", category: "signal",
+    terminals: [
+      { id: "vcc", role: "in", type: "power", v: { min: 3, max: 5.5, unit: "V" } },
+      { id: "gnd", role: "in", type: "gnd" },
+      { id: "io", role: "out", type: "signal" },
+    ],
+    schematic: {
+      parts: [{ ref: "U1", type: "ic", chip: { profile: "dip", pins: 8, names: { "1": "VCC", "4": "GND", "5": "PB0" } } }],
+      nets: [
+        { name: "VCC", connect: ["U1.1", "@vcc"] },
+        { name: "GND", connect: ["U1.4", "@gnd"] },
+        { name: "IO", connect: ["U1.5", "@io"] },
+      ],
+    },
+  };
+  const decoupledMcu: Block = {
+    ...bareMcu,
+    schematic: {
+      parts: [
+        { ref: "U1", type: "ic", chip: { profile: "dip", pins: 8, names: { "1": "VCC", "4": "GND", "5": "PB0" } } },
+        { ref: "C1", type: "cap", value: "100nF" },
+      ],
+      nets: [
+        { name: "VCC", connect: ["U1.1", "C1.1", "@vcc"] },
+        { name: "GND", connect: ["U1.4", "C1.2", "@gnd"] },
+        { name: "IO", connect: ["U1.5", "@io"] },
+      ],
+    },
+  };
+  const design: Design = {
+    id: "dc", name: "dc",
+    blocks: [{ ref: "S1", block: "@t/src5@1" }, { ref: "M1", block: "@t/mcu@1" }],
+    connections: [{ from: "S1.vout", to: "M1.vcc" }, { from: "S1.gnd", to: "M1.gnd" }],
+  };
+  const bare = analyze(design, new Map<string, Block>([["@t/src5@1", SRC5], ["@t/mcu@1", bareMcu]]));
+  assert.ok(bare.findings.some((f) => f.rule === "reliability/decoupling-missing"),
+    "an IC on a supply net with no cap-to-gnd must be flagged; got " + bare.findings.map((f) => f.rule).join(","));
+  const ok = analyze(design, new Map<string, Block>([["@t/src5@1", SRC5], ["@t/mcu@1", decoupledMcu]]));
+  assert.ok(!ok.findings.some((f) => f.rule === "reliability/decoupling-missing"),
+    "a 0.1µF from the supply to gnd must clear it; got " + ok.findings.filter((f) => f.rule.startsWith("reliability")).map((f) => f.message).join("|"));
+});
+
 // ---- lint wave on top of propagation ----
 test("signal-source over-current: 3 heavy loads on a 20mA-rated output", () => {
   const GPIO: Block = {
