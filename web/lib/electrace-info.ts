@@ -18,6 +18,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "**Sparky is honest about AI-authored pinouts.** When Sparky wires up a chip from its part number, it now flags that the pin map is exactly as it provided and to verify it against the datasheet before ordering or fabbing — and it refuses an unknown part type outright instead of quietly guessing one, so a part can't be wired with the wrong role.",
       "**The Problems panel stays focused on what matters.** Optional suggestions (add a test point, a source rated bigger than its load, a connector with room to spare) are now tucked behind a 'show suggestions' toggle, so real errors and warnings never get buried in take-it-or-leave-it advice. Version history moved into the ⋯ menu to keep the toolbar tidy.",
       "**New check: missing decoupling capacitor.** Electrace now flags an IC whose supply pin has no decoupling capacitor to ground anywhere on its rail — the single most common real-world hardware mistake, and the classic cause of flaky, can't-reproduce-it behavior. You'll find it under 'show suggestions' in the Problems panel, and it stays quiet whenever a bypass cap is already present, so it never nags a board that's properly decoupled.",
+      "**Cleaner KiCad netlist export.** A design with a connector (USB, a barrel jack, a header) now exports a `.net` that KiCad imports without phantom-component warnings — every connector gets a real component entry instead of dangling as a reference with nothing behind it. The 'no lock-in, leave any time' export just got more honest.",
     ],
   },
   {

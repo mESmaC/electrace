@@ -5,9 +5,9 @@
 //   · pro: the flagship model with the full monthly budget.
 // Allowlisted emails (founder/dev) are pro and exempt from the budget gate.
 //
-// There's no billing/subscription system yet, so "who is pro" is an explicit email allowlist via the
-// SPARKY_PRO_EMAILS env var (comma-separated, case-insensitive). When billing lands, planForEmail
-// reads the user's plan from the database — the call sites (assistant route + /api/me) stay the same.
+// "Who is pro" is the user's plan in the database, set by the LIVE Stripe billing webhook — plus an
+// explicit founder/dev comp allowlist via SPARKY_PRO_EMAILS (comma-separated, case-insensitive) that
+// resolves to pro without a subscription. The call sites (assistant route + /api/me) honour both.
 //
 // NOTE: server-only. Do not import from client components — it reads env that isn't exposed to the browser.
 

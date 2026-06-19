@@ -33,6 +33,23 @@ export function toKicadNetlist(flat: FlatSchematic, opts: KicadOptions = {}): st
     return { ref, p };
   });
 
+  // connectors appear in the netlist as pins (J1.VBUS) but are NOT flat parts — without a matching
+  // (comp J1) KiCad reports a phantom component on import (the "dirty .net" that made the free export
+  // look broken). Synthesize a comp for each connector ref referenced by the nets.
+  const partRefs = new Set(comps.map((c) => c.p.ref));
+  const connectorRefs = new Set<string>();
+  for (const net of flat.nets) for (const pin of net.pins) {
+    const r = pin.slice(0, pin.lastIndexOf("."));
+    if (r && !partRefs.has(r)) connectorRefs.add(r);
+  }
+  const connComps = [...connectorRefs].sort().map((orig) => {
+    const n = (counters.get("J") ?? 0) + 1;
+    counters.set("J", n);
+    const ref = `J${n}`;
+    refMap.set(orig, ref);
+    return { ref, orig };
+  });
+
   const out: string[] = [];
   out.push(`(export (version "E")`);
   out.push(`  (design`);
@@ -51,6 +68,12 @@ export function toKicadNetlist(flat: FlatSchematic, opts: KicadOptions = {}): st
     if (p.why) out.push(`        (field (name "Why") ${q(p.why)}))`);
     else out.push(`      )`);
     out.push(`      (sheetpath (names ${q(`/${p.instance}/`)}) (tstamps "/")))`);
+  }
+  for (const { ref, orig } of connComps) {
+    out.push(`    (comp (ref ${q(ref)})`);
+    out.push(`      (value ${q("Connector")})`);
+    out.push(`      (fields (field (name "Block") ${q(orig)}))`);
+    out.push(`      (sheetpath (names ${q(`/${orig}/`)}) (tstamps "/")))`);
   }
   out.push(`  )`);
 

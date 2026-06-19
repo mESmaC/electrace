@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolve, analyze, railBudgets } from "../src/index.js";
+import { resolve, analyze, railBudgets, flatten, toKicadNetlist } from "../src/index.js";
 import type { Block, Design } from "../src/index.js";
 
 // Minimal blocks reproducing walkthrough #1's P1 gaps: an 18V source, a chip whose OUT
@@ -139,6 +139,18 @@ test("decoupling-missing: an IC on a bare supply net is flagged; a 0.1µF clears
   const ok = analyze(design, new Map<string, Block>([["@t/src5@1", SRC5], ["@t/mcu@1", decoupledMcu]]));
   assert.ok(!ok.findings.some((f) => f.rule === "reliability/decoupling-missing"),
     "a 0.1µF from the supply to gnd must clear it; got " + ok.findings.filter((f) => f.rule.startsWith("reliability")).map((f) => f.message).join("|"));
+});
+
+test("KiCad netlist emits a (comp) for a connector — no phantom component (export audit fix)", () => {
+  const d: Design = {
+    id: "kn", name: "kn",
+    blocks: [{ ref: "S1", block: "@t/src@1" }],
+    connectors: [{ ref: "J1", connector: "hdr-2" }],
+    connections: [{ from: "S1.vout", to: "J1.1" }, { from: "S1.gnd", to: "J1.2" }],
+  };
+  const net = toKicadNetlist(flatten(resolve(d, blocks)), { source: "test" });
+  assert.match(net, /\(node \(ref "J1"\)/, "the connector should appear as a net node");
+  assert.match(net, /\(comp \(ref "J1"\)/, "the connector must have a matching (comp) — else KiCad reports a phantom component on import");
 });
 
 // ---- lint wave on top of propagation ----

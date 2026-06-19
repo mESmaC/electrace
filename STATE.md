@@ -162,7 +162,7 @@ real rework (pins must stay grid-aligned or wires detach).
 
 **Editor gaps:** desktop-first (touch untested); USB connector PCB lands are header stand-ins
 (F7, P2 open); "New" gives a demo template, no blank-sheet option (F1, P3); a couple of net-name/
-copy leaks (F3/F4, P3); `AcDialog` AC analysis is scaffolded; `DiscreteModal` swap-in-place is "coming."
+copy leaks (F3/F4, P3); `DiscreteModal` swap-in-place is still "coming" (a read-only teaser today — the AC frequency-response dialog, by contrast, is a fully shipped complex-MNA solver).
 
 ---
 
@@ -195,9 +195,9 @@ schematic**, then verifies the change landed.
   `canUseSparky()` Pro check (interim `SPARKY_PRO_EMAILS` allowlist → DB plan when billing matures);
   anonymous → 401, free → 403.
 
-**Sparky gaps:** **no free tier** (Pro-only, shipped or planned — confirmed); per-tier budget caps
-not yet built (one global env today); diagnoses over-budget but won't auto-fix; the wrong-chat-on-
-drill-out bug is **fixed** (F6).
+**Sparky gaps:** a metered FREE hobby tier (Haiku, capped monthly budget) and per-account budgets
+have shipped (entitlements.ts) — the old "Pro-only / one global env" note is stale. Remaining: Sparky
+diagnoses an over-budget design but won't auto-fix it; the wrong-chat-on-drill-out bug is **fixed** (F6).
 
 ---
 
@@ -309,14 +309,14 @@ using the app → edited into a short** (not the schematic-stage format).
 
 **Product/commerce:**
 - No native Gerber / pick-and-place (export .kicad_pcb, plot in KiCad).
-- Sparky has no free tier; per-tier budget caps not built; billing is allowlist-interim.
+- Sparky's free Haiku tier + per-account budget caps shipped; billing is live (Stripe, F8) with a founder/dev comp allowlist on top.
 - Self-serve account deletion + Team plan are stubbed.
-- Google Ads signup conversion fires a generic event — needs the conversion-action label wired.
+- Google Ads signup conversion label is wired + verified live in the prod bundle (2026-06-19).
 - Cross-device is pull-on-startup + last-write-wins, not live merge.
 
 **Process:**
 - The **VERIFICATION pass is the beta gate** and is still in progress — most areas untested-in-
-  product (the 117 engine tests + headless scripts cover the math/happy-paths, not the product walk).
+  product (the 148 engine tests + headless scripts cover the math/happy-paths, not the product walk).
 - Block license (CC-BY-4.0) is "pending decision."
 
 ---
