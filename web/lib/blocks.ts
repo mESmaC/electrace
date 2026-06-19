@@ -12,9 +12,10 @@ export function loadDesign(name: string): Design {
   return JSON.parse(readFileSync(join(EXAMPLES_DIR, `${name}.design.json`), "utf8")) as Design;
 }
 
-/** All seed blocks keyed by "id@version" — ready for analyze(). */
+/** All seed blocks keyed by "id@version" — ready for analyze(). Includes hidden/staging blocks so a
+ *  design or Short that references one still RESOLVES; only the PUBLIC listing (listBlocks) hides them. */
 export function blockLibrary(): Record<string, Block> {
-  return Object.fromEntries(listBlocks().map((b) => [`${b.block.id}@${b.block.version}`, b.block]));
+  return Object.fromEntries(allLoadedBlocks().map((b) => [`${b.block.id}@${b.block.version}`, b.block]));
 }
 
 export interface LoadedBlock {
@@ -23,11 +24,18 @@ export interface LoadedBlock {
   explain: string;
 }
 
-export function listBlocks(): LoadedBlock[] {
+function allLoadedBlocks(): LoadedBlock[] {
   return readdirSync(BLOCKS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => loadBlock(d.name))
     .sort((a, b) => a.block.name.localeCompare(b.block.name));
+}
+
+/** The PUBLIC block list — the /blocks grid, sitemap, and SEO surface. Excludes any block marked
+ *  `hidden: true` in its block.yaml (staging/demo blocks built for a Short, not a library part), so
+ *  they don't read as half-finished or get indexed as thin content. */
+export function listBlocks(): LoadedBlock[] {
+  return allLoadedBlocks().filter((b) => !(b.block as { hidden?: boolean }).hidden);
 }
 
 export function loadBlock(slug: string): LoadedBlock {

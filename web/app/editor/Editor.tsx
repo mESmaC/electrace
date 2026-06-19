@@ -878,6 +878,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   const [isoFor, setIsoFor] = useState<string | null>(null); // block whose isolation constraints are being edited
   const [sigFor, setSigFor] = useState<string | null>(null); // a pin "REF.term" whose net's signal class is being edited
   const [bottomOpen, setBottomOpen] = useState(true);
+  // recommendation-tier findings (test points, under-utilized, connector-full) fire on ~every design;
+  // hidden by default so the Problems panel stays the trustworthy place for real errors/warnings.
+  const [showAdvisory, setShowAdvisory] = useState(false);
+  const advisoryFindings = analysis.findings.filter((f) => f.severity === "recommendation");
+  const problemsList = showAdvisory ? analysis.findings : analysis.findings.filter((f) => f.severity !== "recommendation");
   type FormTerm = { id: string; role: TerminalRole; type: NetType; v?: string; i?: string };
   const [newBlock, setNewBlock] = useState<{ name: string; glyph: string; color: string; category: string; terminals: FormTerm[]; editKey?: string } | null>(null);
   const rfRef = useRef<ReactFlowInstance | null>(null);
@@ -1508,7 +1513,6 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={resetSample} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">New</button>
           <button onClick={() => setReportOpen(true)} title="The design report — readable here, exportable as Markdown" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
           <button onClick={() => setNetlistOpen(true)} title="The stitched netlist — graph + nets here, exportable as KiCad .net" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
-          <button onClick={() => setHistoryOpen(true)} title="Version history — checkpoints, named snapshots, loss-proof restore" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">History</button>
           <button onClick={() => setAcOpen(true)} title="Frequency response — H(jω) between any two points of this design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">AC</button>
           {/* Discovery affordance: SI + isolation are the headline Pro analyses but otherwise live only
               in right-click menus, so a free user never bumps into them. Surface a visible, seen-but-
@@ -1521,6 +1525,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
           <button title="More — import/export, schematic sheet, reset"
             onClick={(e) => openContextMenu(e, [
+              { label: "Version history…", icon: "🕑", onSelect: () => setHistoryOpen(true) },
               { label: "Import design JSON…", icon: "⤓", onSelect: () => fileRef.current?.click() },
               { label: "Export design JSON", icon: "⤒", onSelect: exportDesign },
               { label: "Schematic sheet (SVG)", icon: "▤", onSelect: () => setSchemView(true) },
@@ -1867,11 +1872,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         </div>
         {bottomOpen && (
           <div className="h-40 overflow-y-auto border-t border-[var(--color-border)] bg-[var(--color-bg2)] px-2 py-1.5 text-[12px]">
-            {analysis.findings.length === 0 ? (
+            {problemsList.length === 0 ? (
               <div className="flex items-center gap-2 px-1.5 py-1 text-[#46dca6]">● All clear — no lint findings.</div>
             ) : (
               <ul className="space-y-0.5">
-                {analysis.findings.map((f, i) => {
+                {problemsList.map((f, i) => {
                   const blk = findingBlock(f);
                   const ackd = !!f.acknowledged;
                   const canAck = f.severity === "error" || f.severity === "warn";
@@ -1905,6 +1910,11 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                   );
                 })}
               </ul>
+            )}
+            {advisoryFindings.length > 0 && (
+              <button onClick={() => setShowAdvisory((v) => !v)} className="mt-1.5 px-1.5 text-[10px] text-[var(--color-link)] hover:underline">
+                {showAdvisory ? "hide" : "show"} {advisoryFindings.length} suggestion{advisoryFindings.length > 1 ? "s" : ""}
+              </button>
             )}
             <div className="mt-1.5 border-t border-[var(--color-border)] px-1.5 pt-1.5 text-[10px] leading-snug text-[var(--color-faint)]">
               Structural checks (typed nets · budgets), not a simulation — a clean result means sane, not validated. <a href="/help?from=editor" className="text-[var(--color-link)] hover:underline">what this catches →</a>
