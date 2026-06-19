@@ -664,10 +664,14 @@ const i2cRiseTime: Rule = (rd) =>
   (rd.design.signals ?? []).flatMap((a) => {
     const cls = NET_CLASSES[a.cls];
     if (!cls?.riseNsMax) return [];
-    const net = rd.nets.find((n) => n.members.some((m) => m.node === a.pin));
+    // F14: like the bus-pair rule (F13), an I2C class can be declared on a bare connector pin, which
+    // lives in net.connectorPins — NOT net.members. Matching members alone silently no-fired on a
+    // real off-board bus; and counting devices from members alone undercounted C_bus (→ a WRONG
+    // rise-time number) whenever connector pins were part of the net. Match + count both.
+    const net = rd.nets.find((n) => n.members.some((m) => m.node === a.pin) || (n.connectorPins?.includes(a.pin) ?? false));
     if (!net) return [];
     const r = a.pullupOhms ?? 4700;
-    const devices = net.members.length;
+    const devices = net.members.length + (net.connectorPins?.length ?? 0);
     const c = a.busCapPf ?? 20 + devices * 10;
     const rise = 0.847 * r * c / 1000; // ns
     if (rise <= cls.riseNsMax) return [];

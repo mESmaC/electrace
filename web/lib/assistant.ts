@@ -6,6 +6,7 @@
 // An agent call sends the context window + the chat history; if the context window is empty,
 // it sends just the history. (A token cap on the context window is a TODO.)
 import { useEffect, useState } from "react";
+import { logUsage } from "./telemetry";
 
 // Friendly, user-facing labels for what the assistant is doing — so the progress UI never surfaces the
 // internal tool/API names.
@@ -174,6 +175,7 @@ export function askSparky(text: string): void {
 export async function sendMessage(text: string): Promise<void> {
   const t = text.trim();
   if (!t) return;
+  logUsage("sparky.send", { chars: t.length }); // the AI differentiator was actually USED, not just opened
   // Context compaction: send only the recent window verbatim; turns older than that are folded into
   // a rolling per-conversation summary (generated server-side the first time they fall out of the
   // window, then reused — the summary only changes on overflow, so it stays prompt-cache-friendly).

@@ -15,10 +15,24 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
     description: "Block-based electrical design IDE: schematics that explain themselves, live deterministic checks, BOM, PCB, and KiCad export.",
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD", description: "Free Hobby plan — the full understand-your-circuit loop" },
   };
+  // Honest FAQ — value-framed public copy only (no pricing internals, no aggregateRating). The same
+  // Q&A renders visibly below so the FAQPage rich snippet is Google-eligible. Mirrors /vs + /calculators.
+  const FAQ: { q: string; a: string }[] = [
+    { q: "Does Electrace simulate my circuit?", a: "No. Electrace runs deterministic structural checks — typed nets, power budgets, and signal-integrity and isolation rules — not a SPICE simulation. A clean result means the design is structurally sane, not lab-validated." },
+    { q: "Is Electrace free?", a: "Yes. The full understand-your-circuit loop is free on the Hobby plan: blocks, live checks, BOM, PCB, and KiCad export. Signal-integrity and isolation analysis are part of Pro." },
+    { q: "Can I export to KiCad?", a: "Yes. Electrace exports the netlist and the PCB to KiCad, so it drops into a standard hardware workflow." },
+    { q: "How is it different from a normal schematic editor?", a: "Every block explains what it does and why, and the checker shows where and why a problem exists on your actual design — not just that something is wrong." },
+    { q: "Do I need to install anything?", a: "No. Electrace runs entirely in your browser." },
+  ];
+  const faqLd = {
+    "@context": "https://schema.org", "@type": "FAQPage",
+    mainEntity: FAQ.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+  };
 export default function Home() {
   return (
     <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(appLd) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
     {/* overflow-x-CLIP, not hidden: `overflow-x:hidden` with the default `overflow-y:visible`
         forces the y-axis to compute to `auto`, making <main> a second scroll container (double
         scrollbar). `clip` clips the wide hero blur on the x-axis without scrolling either axis. */}
@@ -304,6 +318,21 @@ export default function Home() {
             <span className="rounded-xl border border-border bg-surface px-5 py-3.5 font-semibold">Lay out the PCB</span>
             <span className="text-[20px] text-accent">→</span>
             <span className="rounded-xl border border-border bg-surface px-5 py-3.5 font-semibold">Build it or get it made</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FAQ ===== (visible Q&A backing the FAQPage JSON-LD above) */}
+      <section className="ec-reveal px-7 pb-2 pt-1">
+        <div className="mx-auto max-w-[820px]">
+          <div className="text-center"><Eyebrow>Questions</Eyebrow></div>
+          <div className="mt-6 divide-y divide-border rounded-2xl border border-border bg-surface">
+            {FAQ.map((f, i) => (
+              <details key={i} className="group px-5 py-4" {...(i === 0 ? { open: true } : {})}>
+                <summary className="cursor-pointer list-none text-[15px] font-semibold marker:hidden">{f.q}</summary>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-dim">{f.a}</p>
+              </details>
+            ))}
           </div>
         </div>
       </section>

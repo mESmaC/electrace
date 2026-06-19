@@ -33,13 +33,14 @@ export default function BomPanel({ rows, designName, pro }: { rows: BomRow[]; de
   const downloadCsv = () => {
     // CSV is the manufacturing handoff → Pro. Viewing the BOM and the Digi-Key cart stay free
     // (the cart earns its keep). Unknown plan (null) passes — never block on a slow fetch.
-    if (pro === false) { setUpgrade(true); return; }
+    if (pro === false) { setUpgrade(true); logUsage("paywall.hit", { feature: "bom_csv" }); return; }
     const blob = new Blob([bomCsv(rows)], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${(designName || "design").replace(/\s+/g, "-").toLowerCase()}-bom.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
+    logUsage("export.bom", { rows: rows.length }); // Pro manufacturing handoff completed
   };
 
   const sendToCart = async () => {

@@ -13,7 +13,7 @@ import { onHydrated } from "@/lib/serverSync";
 import { pushDesignNow } from "@/lib/designsSync";
 import BomPanel from "./BomPanel";
 import FlatSchematic from "./FlatSchematic";
-import { setContextItem, registerAgentSession } from "@/lib/assistant";
+import { setContextItem, registerAgentSession, askSparky } from "@/lib/assistant";
 import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
 import { modelToLayout, layoutToModel } from "./schematic-model";
@@ -126,7 +126,7 @@ function ShareMenu({ designId }: { designId: string }) {
     }).catch(() => null);
     setBusy(false);
     if (r?.ok) setVis(v);
-    else if (r?.status === 403) setNote("Private designs are part of Pro.");
+    else if (r?.status === 403) { setNote("Private designs are part of Pro."); logUsage("paywall.hit", { feature: "private" }); }
     else setNote("Couldn't update — try again in a moment.");
   };
 
@@ -685,9 +685,16 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   }, [semanticKey, blockMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // capture the deterministic lint outcome (codes only) whenever it changes
+  const lastLintSig = useRef<string>("");
   useEffect(() => {
     const f = analysis.findings;
-    track({ kind: "design.lint", codes: f.map((x) => x.rule), errors: f.filter((x) => x.severity === "error").length, warns: f.filter((x) => x.severity === "warn").length });
+    const errors = f.filter((x) => x.severity === "error").length;
+    const warns = f.filter((x) => x.severity === "warn").length;
+    track({ kind: "design.lint", codes: f.map((x) => x.rule), errors, warns });
+    // product-usage: the correctness engine ran with a NEW outcome — proves free users reach the
+    // checker (the moat). Deduped on the error/warn signature so a drag or no-op edit can't spam it.
+    const sig = `${errors}|${warns}`;
+    if (sig !== lastLintSig.current) { lastLintSig.current = sig; logUsage("lint.run", { errors, warns }); }
   }, [analysis]);
 
   // Per-instance override of a terminal's voltage or current — how you declare a source (V + max A on
@@ -846,6 +853,8 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // plan (fetch pending/failed) passes through: never block a paying user on a slow request.
   const [proPlan, setProPlan] = useState<boolean | null>(null);
   const [upsell, setUpsell] = useState<"isolation" | "si" | null>(null);
+  // a free user reached a Pro analysis gate — log the impression (the exact conversion moment), then show it
+  const openUpsell = (k: "isolation" | "si") => { logUsage("paywall.hit", { feature: k }); setUpsell(k); };
   useEffect(() => {
     if (!mounted) return;
     let alive = true;
@@ -869,7 +878,17 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // which block a finding points at: a direct block ref, else the source block of the net it names
   const findingBlock = (f: Finding): string | undefined => {
     for (const a of f.at) { const ref = a.split(".")[0]; if (nodes.some((n) => n.id === ref)) return ref; }
-    for (const a of f.at) { const net = analysis.resolved.nets.find((n) => n.id === a); const pin = net?.sources[0] ?? net?.members[0]; if (pin) return pin.instance; }
+    for (const a of f.at) {
+      const net = analysis.resolved.nets.find((n) => n.id === a);
+      if (!net) continue;
+      const pin = net.sources[0] ?? net.members[0];
+      if (pin) return pin.instance;
+      // a board-edge net (SI/isolation declared on a connector) has no block member — but its
+      // connector pin still pins it to a placed node. Locate THAT so the finding is never a dead,
+      // un-clickable warning: a correct-but-unlocatable finding reads as a phantom bug and burns trust.
+      const cp = net.connectorPins?.find((p) => nodes.some((n) => n.id === p.split(".")[0]));
+      if (cp) return cp.split(".")[0];
+    }
     return undefined;
   };
   // unacknowledged findings per block → the coloured ring + the card's status chip (error wins over warn)
@@ -887,6 +906,18 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     return m;
   // findingBlock closes over nodes + analysis; both are in the dep set already
   }, [analysis, nodes]); // eslint-disable-line react-hooks/exhaustive-deps
+  // production tripwire: an error/warn finding the user CAN'T click to locate is the trust-burn
+  // failure mode (a correct-but-unlocatable finding reads as a phantom bug). Beacon it once per rule
+  // per session so a regression here surfaces in the funnel store before a paying user quits.
+  const unlocatableSeen = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const f of analysis.findings) {
+      if (f.severity !== "error" && f.severity !== "warn") continue;
+      if (findingBlock(f) || unlocatableSeen.current.has(f.rule)) continue;
+      unlocatableSeen.current.add(f.rule);
+      logUsage("finding.unlocatable", { rule: f.rule });
+    }
+  }, [analysis]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pcbOpen, setPcbOpen] = useState(false);
   const [schemView, setSchemView] = useState(false); // the flat whole-design schematic sheet
   const passportNet = selectedNet ? analysis.resolved.nets.find((n) => n.members.some((m) => m.node === selectedNet)) : undefined;
@@ -963,6 +994,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       return [...nds, { id: `J${n}`, type: "connector", position: pos ?? { x: 80 + (nds.length % 6) * 40, y: 70 + (nds.length % 6) * 40 }, data: { connectorId: connId, ref: `J${n}` } }];
     });
     track({ kind: "block.add", block: `connector:${connId}` });
+    logUsage("block.add", { block: `connector:${connId}` });
   }, [setNodes]);
 
   // undock a terminal (from a block chip): drop the hidden dock edge for that block.terminal
@@ -1002,6 +1034,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
         ];
       });
       track({ kind: "block.add", block: key });
+      logUsage("block.add", { key }); // funnel activation marker: a real block landed on the canvas
     },
     [blockMap, setNodes],
   );
@@ -1026,7 +1059,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       ? [
           { label: "Open block", icon: "⌖", onSelect: () => setDrillRef(n.id) },
           { label: "Duplicate", icon: "⧉", onSelect: () => duplicateNode(n.id) },
-          { label: "Isolation…", icon: "⊘", onSelect: () => (proPlan === false ? setUpsell("isolation") : setIsoFor(n.id)) },
+          { label: "Isolation…", icon: "⊘", onSelect: () => (proPlan === false ? openUpsell("isolation") : setIsoFor(n.id)) },
           { separator: true },
           { label: "Delete", icon: "✕", danger: true, hint: "Del", onSelect: () => deleteNode(n.id) },
         ]
@@ -1040,7 +1073,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     const pin = `${edge.source}.${edge.sourceHandle ?? ""}`;
     setSelectedNet(pin); setSelectedId(null);
     openContextMenu(e, [
-      { label: "Signal class…", icon: "∿", onSelect: () => (proPlan === false ? setUpsell("si") : setSigFor(pin)) },
+      { label: "Signal class…", icon: "∿", onSelect: () => (proPlan === false ? openUpsell("si") : setSigFor(pin)) },
       { label: "Delete wire", icon: "✕", danger: true, hint: "Del", onSelect: () => rfRef.current?.deleteElements({ edges: [{ id: edge.id }] }) },
     ]);
   }, [proPlan]);
@@ -1803,7 +1836,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                   const canAck = f.severity === "error" || f.severity === "warn";
                   return (
                     <li key={i} className="group flex items-start gap-1">
-                      <button onClick={() => blk && locateBlock(blk)} disabled={!blk}
+                      <button onClick={() => { if (blk) { logUsage("finding.locate", { rule: f.rule }); locateBlock(blk); } }} disabled={!blk}
                         className={`flex min-w-0 flex-1 items-start gap-2 rounded px-1.5 py-1 text-left enabled:hover:bg-[var(--color-surface)] disabled:cursor-default ${ackd ? "opacity-50" : ""}`}>
                         <span style={{ color: ackd ? "#9aa3b5" : SEV_COLOR[f.severity] }}>{ackd ? "✓" : SEV_ICON[f.severity]}</span>
                         <span className="min-w-0 flex-1">
@@ -1813,6 +1846,14 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
                         </span>
                         {blk && <span className="ml-auto shrink-0 font-mono text-[10px] text-[var(--color-border-strong)]">{blk} ↗</span>}
                       </button>
+                      {!ackd && canAck && (
+                        <button
+                          onClick={() => { logUsage("sparky.ask_finding", { rule: f.rule }); askSparky(`Explain this finding on my design and how to fix it: "${f.message}"${f.derivation ? ` (${f.derivation})` : ""}${blk ? ` It points at ${blk}.` : ""}`); }}
+                          title="Ask Sparky to explain this finding and how to fix it"
+                          className="shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] text-[#a98bff] opacity-0 hover:text-[#c4b3ff] group-hover:opacity-100">
+                          ✨ ask
+                        </button>
+                      )}
                       {(canAck || ackd) && (
                         <button onClick={() => toggleAck(f)} title={ackd ? "Flag this again" : "Mark this finding as intended — mutes it"}
                           className="shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] text-[var(--color-border-strong)] opacity-0 hover:text-[var(--color-text)] group-hover:opacity-100">

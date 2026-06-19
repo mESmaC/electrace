@@ -8,6 +8,13 @@ export interface ChangeEntry { date: string; title?: string; items: string[] }
  *  `date` is the ISO day (or "Foundations" for the original core). Keep current as features ship. */
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-06-19",
+    items: [
+      "**Every finding is now reachable — and Sparky can explain any of them.** A warning you can't click to find reads like a phantom bug, so findings that point at a board edge (a signal-integrity or isolation rule declared on a connector pin) now locate the connector itself instead of greying out the button. And every error and warning grew a one-click '✨ ask' — it hands Sparky the exact finding, its reasoning, and the block it points at, so 'why is this flagged and how do I fix it' is one click from the problem.",
+      "**Signal-integrity check sharpened on real off-board buses.** The I2C rise-time check now fires when the bus is declared on a connector pin (a header running I2C off the board), and counts those connector pins toward the bus capacitance — so the rise-time it prints is the number you'd get by hand, on the bus you actually drew. Companion to the RS-485 termination fix; both close the gap where a check went quiet exactly when the signal left the board.",
+    ],
+  },
+  {
     date: "2026-06-15",
     items: [
       "**Try Sparky free.** The AI engineer is no longer Pro-only — every signed-in account now gets a monthly free preview of Sparky. Ask it to read your design, run the checks, explain a net, or rough out a block, and watch it reason about your actual circuit (not a guess) before you decide to upgrade. Pro unlocks the full assistant; the preview is there so you can feel what it does first. Your designs and the whole checking engine stay free, as always.",

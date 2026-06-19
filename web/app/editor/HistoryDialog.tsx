@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { Design } from "@electrace/core";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { pushDesignNow } from "@/lib/designsSync";
+import { logUsage } from "@/lib/telemetry";
 
 interface Version { id: number; parent_id: number | null; kind: "auto" | "manual" | "restore"; label: string | null; summary: { blocks?: number; connections?: number; name?: string } | null; created_at: string }
 
@@ -49,7 +50,7 @@ export default function HistoryDialog({ designId, signedIn, onClose, onRestore }
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ label }),
     }).catch(() => null);
     setBusy(false);
-    if (r?.ok) void load(); else setNote("err");
+    if (r?.ok) { logUsage("save.manual", { labeled: !!label }); void load(); } else setNote("err");
   };
 
   const restore = async (v: Version) => {
@@ -61,6 +62,7 @@ export default function HistoryDialog({ designId, signedIn, onClose, onRestore }
     }).catch(() => null);
     setBusy(false);
     if (!r?.ok) { setNote("err"); return; }
+    logUsage("version.restore", { kind: v.kind });
     const d = await r.json();
     onRestore(d.graph as Design);
     void load();

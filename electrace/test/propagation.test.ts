@@ -279,6 +279,26 @@ test("SI: I2C 400k with weak pull-ups warns with the fix in the message", () => 
   assert.match(hit!.message, /Drop the pull-ups/);
 });
 
+test("SI: I2C rise-time declared on a CONNECTOR pin still fires + counts connector pins (F14)", () => {
+  // F14 regression (parallels F13): an I2C class anchored on a bare connector pin lives only in
+  // net.connectorPins, not net.members — so the rule's net lookup missed it (silent no-fire) and the
+  // device count (→ C_bus → the rise number) ignored connector pins (a WRONG, hand-checkable number).
+  const blocks8 = new Map<string, Block>([["@t/chip@1", CHIP]]);
+  const d: Design = {
+    id: "f14", name: "f14",
+    blocks: [{ ref: "C1", block: "@t/chip@1" }],
+    connectors: [{ ref: "J1", connector: "hdr-2" }],
+    connections: [{ from: "J1.1", to: "C1.out" }],
+    signals: [{ pin: "J1.1", cls: "i2c-400k", pullupOhms: 10000 }], // class anchored ON the connector pin
+  };
+  const a = analyze(d, blocks8);
+  const hit = a.findings.find((f) => f.rule === "si/i2c-rise-time");
+  assert.ok(hit, "connector-anchored I2C must resolve its net and fire (F14 silent no-fire)");
+  assert.match(hit!.message, /Drop the pull-ups/);
+  // the connector pin must be counted as a device — the net spans J1.1 (connector) + C1.out (member)
+  assert.match(hit!.derivation ?? "", /40 pF/, "C_bus must include the connector pin: " + hit!.derivation);
+});
+
 test("SI: DRC flags electrically-long traces and pair skew", () => {
   const edge = NET_CLASSES["fast-edge"].edgeNs!;
   const lim = criticalLengthMm(edge); // 2ns -> 50mm
