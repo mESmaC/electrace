@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Design } from "@electrace/core";
 import { createProject } from "@/lib/projects";
+import { logUsage } from "@/lib/telemetry";
 
 export default function ShareActions({ id, name, graph }: { id: string; name: string; graph: Design }) {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function ShareActions({ id, name, graph }: { id: string; name: st
     try { await navigator.clipboard.writeText(`${location.origin}/share/${id}`); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* ignore */ }
   };
   const openCopy = () => {
+    logUsage("share.fork", {}); // the viral-entry event: a visitor forks someone's public design
     const meta = createProject(`${name} (copy)`, graph);
     router.push(`/editor?p=${meta.id}`);
   };

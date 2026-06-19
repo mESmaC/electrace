@@ -4,6 +4,7 @@
 import { listBlocks } from "@/lib/blocks";
 import { COMPARISONS } from "@/lib/comparisons";
 import { SITE } from "@/lib/site";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const KEY = "b660c34debc34c088f58efee3a15032d";
 
@@ -13,10 +14,20 @@ export async function GET() {
     return Response.json({ ok: false, error: "cooldown — try again later" }, { status: 429 });
   }
   lastSubmit = Date.now();
+  // public user designs — push them to Bing/DuckDuckGo so each becomes discoverable on deploy
+  let shareUrls: string[] = [];
+  try {
+    const admin = supabaseAdmin();
+    if (admin) {
+      const { data } = await admin.from("designs").select("id").eq("visibility", "public").limit(5000);
+      shareUrls = (data ?? []).map((d: { id: string }) => `${SITE}/share/${d.id}`);
+    }
+  } catch { /* skip share URLs if the lookup fails — never block the static submit */ }
   const urls = [
     `${SITE}/`, `${SITE}/blocks`, `${SITE}/pricing`, `${SITE}/help`, `${SITE}/vs`,
     ...listBlocks().map((b) => `${SITE}/blocks/${b.slug}`),
     ...COMPARISONS.map((c) => `${SITE}/vs/${c.slug}`),
+    ...shareUrls,
   ];
   try {
     const r = await fetch("https://api.indexnow.org/indexnow", {

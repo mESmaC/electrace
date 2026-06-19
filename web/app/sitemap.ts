@@ -4,13 +4,35 @@ import { blockImage } from "@/lib/blockImages";
 import { COMPARISONS } from "@/lib/comparisons";
 import { CHECK_DOCS } from "@/lib/checkDocs";
 import { GLOSSARY } from "@/lib/glossary";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+// User-published designs are the only UGC SEO surface: each is a long-tail landing page that ends
+// in "Start your own design →". PUBLIC only (unlisted = "anyone with the link", kept out of the
+// index, same as the share page's robots rule). Service-role read, filtered to public; never throws
+// the sitemap.
+async function publicDesignPages(): Promise<MetadataRoute.Sitemap> {
+  try {
+    const admin = supabaseAdmin();
+    if (!admin) return [];
+    const { data } = await admin
+      .from("designs").select("id, updated_at").eq("visibility", "public")
+      .order("updated_at", { ascending: false }).limit(5000);
+    return (data ?? []).map((d: { id: string; updated_at: string }) => ({
+      url: `${BASE}/share/${d.id}`,
+      lastModified: new Date(d.updated_at),
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    }));
+  } catch { return []; }
+}
 
 const CALC_SLUGS = ["led-resistor", "voltage-divider", "crystal-load-capacitor", "ntc-thermistor", "op-amp-gain", "motor-winding", "current-divider", "delta-wye", "lc-resonance", "ac-power", "ac-motor", "filter-designer", "parallel-resistor", "555-timer", "rc-filter", "ohms-law"];
 
 const BASE = "https://www.electrace.net";
 const NOW = new Date();
+export const revalidate = 3600; // refresh the public-design list hourly without needing a redeploy
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${BASE}/`, lastModified: NOW, changeFrequency: "weekly", priority: 1 },
     { url: `${BASE}/blocks`, changeFrequency: "weekly", priority: 0.8 },
@@ -44,5 +66,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 const glossaryPages: MetadataRoute.Sitemap = GLOSSARY.map((t) => ({
     url: `${BASE}/glossary/${t.slug}`, changeFrequency: "monthly" as const, priority: 0.5,
   }));
-  return [...staticPages, ...blockPages, ...vsPages, ...calcPages, ...checkPages, ...glossaryPages];
+  const sharePages = await publicDesignPages();
+  return [...staticPages, ...blockPages, ...vsPages, ...calcPages, ...checkPages, ...glossaryPages, ...sharePages];
 }

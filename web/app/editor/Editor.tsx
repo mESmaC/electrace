@@ -96,7 +96,7 @@ const VIS_COPY: Record<Vis, { label: string; hint: string }> = {
 /** The Share control: pick who can see this design (PATCHes the server — autosaves never touch
  *  visibility) and copy the /share link. Only rendered for saved projects, which are the ones
  *  that live in the account. */
-function ShareMenu({ designId }: { designId: string }) {
+function ShareMenu({ designId, publishReady }: { designId: string; publishReady?: boolean }) {
   const [open, setOpen] = useState(false);
   const [vis, setVis] = useState<Vis | null>(null); // null = cloud copy not reachable (signed out / offline)
   const [pro, setPro] = useState(false);
@@ -126,7 +126,7 @@ function ShareMenu({ designId }: { designId: string }) {
       method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ visibility: v }),
     }).catch(() => null);
     setBusy(false);
-    if (r?.ok) setVis(v);
+    if (r?.ok) { setVis(v); if (v === "public") logUsage("design.publish", {}); }
     else if (r?.status === 403) { setNote("Private designs are part of Pro."); logUsage("paywall.hit", { feature: "private" }); }
     else setNote("Couldn't update — try again in a moment.");
   };
@@ -147,6 +147,14 @@ function ShareMenu({ designId }: { designId: string }) {
             </p>
           ) : (
             <>
+              {/* low-pressure publish nudge — only on a clean, real design; the seed for the public
+                  gallery / SEO loop (all designs are unlisted today). Strictly opt-in, learning-framed. */}
+              {vis === "unlisted" && publishReady && (
+                <button onClick={() => choose("public")} disabled={busy}
+                  className="mb-1.5 flex w-full items-center gap-2 rounded-lg border border-[#34d39955] bg-[#34d39912] px-2 py-1.5 text-left text-[11px] text-[var(--color-dim)] hover:border-[#34d399] disabled:opacity-60">
+                  <span className="text-[#34d399]">●</span><span>Checks pass — <b className="font-semibold text-[var(--color-text)]">publish it</b> so others can learn from it.</span>
+                </button>
+              )}
               {(Object.keys(VIS_COPY) as Vis[]).map((v) => {
                 const locked = v === "private" && !pro;
                 return (
@@ -1491,7 +1499,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             <button onClick={() => openUpsell("si")} title="Signal-integrity & isolation analysis — see what Pro verifies on your nets"
               className="rounded-md border border-[#8b6cff66] bg-[#8b6cff1f] px-2.5 py-1 text-[11.5px] text-[#a98bff] hover:border-[#8b6cff]">∿ Analyses</button>
           )}
-          {projectId && <ShareMenu designId={design.id} />}
+          {projectId && <ShareMenu designId={design.id} publishReady={analysis.findings.filter((f) => f.severity === "error" && !f.acknowledged).length === 0 && nodes.filter((n) => n.type === "block").length >= 3} />}
           <button onClick={() => setPcbOpen(true)} title="Open the PCB layout" className="rounded-md border border-[#4c8dff66] bg-[#4c8dff26] px-2.5 py-1 text-[11.5px] text-[#4c8dff] hover:border-[#4c8dff]">PCB ↗</button>
           <button title="More — import/export, schematic sheet, reset"
             onClick={(e) => openContextMenu(e, [
