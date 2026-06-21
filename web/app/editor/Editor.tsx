@@ -1,4 +1,5 @@
 "use client";
+import dynamic from "next/dynamic";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent as RDragEvent, type MouseEvent as ReactMouseEvent } from "react";
 import {
   ReactFlow, Background, Controls, Handle, Position, addEdge, ConnectionMode, useNodes, useEdges,
@@ -12,24 +13,33 @@ import { touchProject } from "@/lib/projects";
 import { onHydrated } from "@/lib/serverSync";
 import { pushDesignNow } from "@/lib/designsSync";
 import BomPanel from "./BomPanel";
-import FlatSchematic from "./FlatSchematic";
 import { setContextItem, registerAgentSession, askSparky } from "@/lib/assistant";
-import BlockSchematic from "./BlockSchematic";
 import SchematicPreview from "./SchematicPreview";
 import { modelToLayout, layoutToModel } from "./schematic-model";
 import { track, logUsage } from "@/lib/telemetry";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
 import ReportBug from "./ReportBug";
-import NetlistView from "./NetlistView";
 import { marked } from "marked";
 import SymbolStyleToggle from "./SymbolStyleToggle";
-import AssistantBubble from "./AssistantBubble";
-import PcbEditor from "./PcbEditor";
 import { CHECK_DOC_BY_RULE } from "@/lib/checkDocs";
-import HistoryDialog from "./HistoryDialog";
 import EditorHints from "./EditorHints";
-import AcDialog from "./AcDialog";
+
+// Heavy, non-first-paint editor surfaces — each renders only behind a client-state flag (a dialog,
+// the PCB view, drill-in, the flat sheet, the assistant bubble). Split into their own client chunks
+// via next/dynamic so they stay OUT of /editor's First Load JS. ssr:false is safe AND correct here:
+// their gating state defaults to closed, so they never rendered during SSR anyway, and several reach
+// for browser-only APIs. The full-screen surfaces show a light placeholder while their chunk loads.
+const PanelLoading = () => (
+  <div className="grid h-full w-full place-items-center text-[13px] text-[var(--color-faint)]">Loading…</div>
+);
+const FlatSchematic = dynamic(() => import("./FlatSchematic"), { ssr: false, loading: PanelLoading });
+const BlockSchematic = dynamic(() => import("./BlockSchematic"), { ssr: false, loading: PanelLoading });
+const PcbEditor = dynamic(() => import("./PcbEditor"), { ssr: false, loading: PanelLoading });
+const NetlistView = dynamic(() => import("./NetlistView"), { ssr: false });
+const AssistantBubble = dynamic(() => import("./AssistantBubble"), { ssr: false });
+const HistoryDialog = dynamic(() => import("./HistoryDialog"), { ssr: false });
+const AcDialog = dynamic(() => import("./AcDialog"), { ssr: false });
 
 const NET_COLOR: Record<string, string> = {
   power: "#f7b13c", rail: "#46dca6", gnd: "#9aa6b6", signal: "#4c8dff",
