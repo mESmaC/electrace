@@ -74,6 +74,21 @@ export function logUsage(event: string, meta?: unknown): void {
   if (!flushTimer) flushTimer = setTimeout(flushUsage, 5000);
 }
 
+const USAGE_ONCE_KEY = "electrace:usage-once";
+
+/** Record a product-usage milestone once per browser. Useful for activation events:
+ *  first block, first wire, first fix, first export. */
+export function logUsageOnce(event: string, meta?: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    const seen = new Set<string>(JSON.parse(localStorage.getItem(USAGE_ONCE_KEY) ?? "[]"));
+    if (seen.has(event)) return;
+    seen.add(event);
+    localStorage.setItem(USAGE_ONCE_KEY, JSON.stringify([...seen].slice(-200)));
+  } catch { /* if storage is unavailable, still log the milestone for this page */ }
+  logUsage(event, meta);
+}
+
 if (typeof window !== "undefined") {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushUsage(); });
   window.addEventListener("pagehide", flushUsage);

@@ -16,7 +16,7 @@ import BomPanel from "./BomPanel";
 import { setContextItem, registerAgentSession, askSparky } from "@/lib/assistant";
 import SchematicPreview from "./SchematicPreview";
 import { modelToLayout, layoutToModel } from "./schematic-model";
-import { track, logUsage } from "@/lib/telemetry";
+import { track, logUsage, logUsageOnce } from "@/lib/telemetry";
 import { confirmDialog, promptDialog } from "@/app/ui/dialog";
 import { openContextMenu } from "@/app/ui/contextMenu";
 import ReportBug from "./ReportBug";
@@ -675,6 +675,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   // still wears its template name gets ONE gentle prompt — never again after, answered or not.
   const TEMPLATE_NAMES = useRef(new Set(["Untitled project", "Power supply", "Buck converter", "MCU board", "Sensor front-end", "Blank canvas", "Buck Supply"]));
   const editTicks = useRef(0);
+  const userEdited = useRef(false);
   const lastSemantic = useRef<string | null>(null);
   useEffect(() => {
     if (!mounted) return;
@@ -719,6 +720,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     // checker (the moat). Deduped on the error/warn signature so a drag or no-op edit can't spam it.
     const sig = `${errors}|${warns}`;
     if (sig !== lastLintSig.current) { lastLintSig.current = sig; logUsage("lint.run", { errors, warns }); }
+    const live = designForAnalysis.current;
+    if (userEdited.current && errors + warns > 0) logUsageOnce("activation.first_finding", { errors, warns, rules: f.filter((x) => x.severity === "error" || x.severity === "warn").slice(0, 5).map((x) => x.rule) });
+    if (userEdited.current && errors + warns === 0 && live.blocks.length >= 2 && live.connections.length >= 1) logUsageOnce("activation.first_clean_check", { blocks: live.blocks.length, wires: live.connections.length });
   }, [analysis]);
 
   // Per-instance override of a terminal's voltage or current — how you declare a source (V + max A on
@@ -727,6 +731,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     (ref: string, term: string, field: "v" | "i", val: string) => {
       const num = parseFloat(val);
       const cell = !Number.isFinite(num) ? undefined : field === "i" ? { max: num, unit: "A" as const } : { value: num, unit: "V" as const };
+      userEdited.current = true;
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id !== ref) return n;
@@ -1010,20 +1015,24 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       // a connection touching a connector node is a "dock": the terminal lives on the connector,
       // so the edge is hidden (no visible wire) and the block collapses that terminal to a chip.
       const dock = nodes.some((n) => n.type === "connector" && (n.id === params.target || n.id === params.source));
+      userEdited.current = true;
       setEdges((eds) => addEdge({ ...params, hidden: dock, style: { stroke: NET_COLOR[type] ?? "#4c8dff", strokeWidth: 2 } }, eds));
       track({ kind: "connect", from: `${params.source}.${params.sourceHandle}`, to: `${params.target}.${params.targetHandle}`, netType: type as NetType });
+      logUsageOnce("activation.first_wire", { netType: type });
     },
     [termType, setEdges, nodes],
   );
 
   // place a connector on the canvas
   const addConnector = useCallback((connId: string, pos?: { x: number; y: number }) => {
+    userEdited.current = true;
     setNodes((nds) => {
       let n = 1; while (nds.some((x) => x.id === `J${n}`)) n++;
       return [...nds, { id: `J${n}`, type: "connector", position: pos ?? { x: 80 + (nds.length % 6) * 40, y: 70 + (nds.length % 6) * 40 }, data: { connectorId: connId, ref: `J${n}` } }];
     });
     track({ kind: "block.add", block: `connector:${connId}` });
     logUsage("block.add", { block: `connector:${connId}` });
+    logUsageOnce("activation.first_block", { kind: "connector", block: connId });
   }, [setNodes]);
 
   // undock a terminal (from a block chip): drop the hidden dock edge for that block.terminal
@@ -1048,6 +1057,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     (key: string, pos?: { x: number; y: number }) => {
       const block = blockMap.get(key);
       if (!block) return;
+      userEdited.current = true;
       setNodes((nds) => {
         const prefix = abbrev(key);
         let n = 1;
@@ -1064,11 +1074,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       });
       track({ kind: "block.add", block: key });
       logUsage("block.add", { key }); // funnel activation marker: a real block landed on the canvas
+      logUsageOnce("activation.first_block", { kind: "block", key });
     },
     [blockMap, setNodes],
   );
 
   const duplicateNode = useCallback((id: string) => {
+    userEdited.current = true;
     setNodes((nds) => {
       const src = nds.find((x) => x.id === id);
       if (!src || src.type !== "block") return nds;
@@ -1079,7 +1091,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       return [...nds.map((x) => ({ ...x, selected: false })), { ...src, id: ref, selected: true, position: { x: src.position.x + 40, y: src.position.y + 40 }, data: { ...src.data, instanceRef: ref } }];
     });
   }, [setNodes]);
-  const deleteNode = useCallback((id: string) => { rfRef.current?.deleteElements({ nodes: [{ id }] }); }, []);
+  const deleteNode = useCallback((id: string) => { userEdited.current = true; rfRef.current?.deleteElements({ nodes: [{ id }] }); }, []);
 
   // themed right-click menus: on a node (open / duplicate / delete) and on empty canvas (fit / clear)
   const onNodeContextMenu = useCallback((e: ReactMouseEvent, n: Node) => {
@@ -1218,6 +1230,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       });
       if (name === null) return;
       const nm = name.trim().slice(0, 24);
+      userEdited.current = true;
       setLabels((prev) => {
         const rest = prev.filter((l) => l.node !== node);
         return nm ? [...rest, { node, name: nm }] : rest;
@@ -1383,6 +1396,8 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   }, [flushSave]);
 
   const exportDesign = useCallback(() => {
+    logUsage("export.design_json", { blocks: designLive.blocks.length, wires: designLive.connections.length });
+    logUsageOnce("activation.first_export", { kind: "design_json" });
     const blob = new Blob([JSON.stringify(designLive, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1393,6 +1408,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
   }, [designLive, designName]);
 
   const downloadReport = useCallback(() => {
+    logUsage("export.report_md", { blocks: designLive.blocks.length, findings: analysis.findings.length });
+    logUsageOnce("activation.first_report", { source: "export" });
+    logUsageOnce("activation.first_export", { kind: "report_md" });
     const md = designReport(designLive, blockMap);
     const blob = new Blob([md], { type: "text/markdown" });
     const a = document.createElement("a");
@@ -1400,11 +1418,13 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     a.download = `${(designName || "design").replace(/\s+/g, "-").toLowerCase()}-report.md`;
     a.click();
     URL.revokeObjectURL(a.href);
-  }, [designLive, blockMap, designName]);
+  }, [designLive, blockMap, designName, analysis]);
 
   // KiCad netlist export (the schematic-side fab handoff): flatten the whole design's stitched netlist
   // and emit a KiCad .net so the design can leave Electrace for a traditional EDA flow.
   const downloadNetlist = useCallback(() => {
+    logUsage("export.kicad_netlist", { blocks: designLive.blocks.length, nets: analysis.resolved.nets.length });
+    logUsageOnce("activation.first_export", { kind: "kicad_netlist" });
     const net = toKicadNetlist(flatten(analysis.resolved), { source: `${designName || "design"} (Electrace)` });
     const blob = new Blob([net], { type: "text/plain" });
     const a = document.createElement("a");
@@ -1412,7 +1432,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
     a.download = `${(designName || "design").replace(/\s+/g, "-").toLowerCase()}.net`;
     a.click();
     URL.revokeObjectURL(a.href);
-  }, [analysis, designName]);
+  }, [analysis, designName, designLive]);
 
   const onImportFile = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1422,6 +1442,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
       try {
         const d = { connections: [], ...JSON.parse(txt) } as Design;
         if (!Array.isArray(d.blocks) || !Array.isArray(d.connections)) throw new Error("not a design");
+        userEdited.current = true;
         loadDesign(d);
       } catch {
         void confirmDialog({ title: "Import failed", message: "That file isn't a valid Electrace design export (.design.json).", confirmText: "OK" });
@@ -1521,9 +1542,9 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
             {designName} <span className="font-normal text-[var(--color-faint)]">✎</span>
           </button>
           <button onClick={resetSample} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">New</button>
-          <button onClick={() => setReportOpen(true)} title="The design report — readable here, exportable as Markdown" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
-          <button onClick={() => setNetlistOpen(true)} title="The stitched netlist — graph + nets here, exportable as KiCad .net" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
-          <button onClick={() => setAcOpen(true)} title="Frequency response — H(jω) between any two points of this design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">AC</button>
+          <button onClick={() => { logUsage("report.open", { blocks: designLive.blocks.length, findings: analysis.findings.length }); logUsageOnce("activation.first_report", { source: "open" }); setReportOpen(true); }} title="The design report — readable here, exportable as Markdown" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Report</button>
+          <button onClick={() => { logUsage("netlist.open", { nets: analysis.resolved.nets.length }); setNetlistOpen(true); }} title="The stitched netlist — graph + nets here, exportable as KiCad .net" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">Netlist</button>
+          <button onClick={() => { logUsage("analysis.ac.open", { nets: analysis.resolved.nets.length }); setAcOpen(true); }} title="Frequency response — H(jω) between any two points of this design" className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[11.5px] text-[var(--color-text)] hover:border-[#4c8dff]">AC</button>
           {/* Discovery affordance: SI + isolation are the headline Pro analyses but otherwise live only
               in right-click menus, so a free user never bumps into them. Surface a visible, seen-but-
               locked entry that opens the what-it-does upsell (logs paywall.hit). Free plan only. */}
@@ -1853,7 +1874,7 @@ export default function Editor({ design, blocks, projectId }: { design: Design; 
           onEdgeContextMenu={onEdgeContextMenu}
           onPaneClick={() => { setSelectedId(null); setSelectedNet(null); }}
           onInit={(inst) => { rfRef.current = inst; }}
-          onNodeDoubleClick={(_, n) => { if (n.type === "connector") { setPinsFor(n.id); return; } if (n.type !== "block") return; setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}
+          onNodeDoubleClick={(_, n) => { if (n.type === "connector") { setPinsFor(n.id); return; } if (n.type !== "block") return; setDrillRef(n.id); track({ kind: "drill.in", block: (n.data as unknown as BlockNodeData).blockKey }); logUsageOnce("activation.first_drill_in", { key: (n.data as unknown as BlockNodeData).blockKey }); }} zoomOnDoubleClick={false}
           onNodeContextMenu={onNodeContextMenu} onPaneContextMenu={onPaneContextMenu}
           deleteKeyCode={drillRef ? null : ["Backspace", "Delete"]}
           fitView proOptions={{ hideAttribution: true }}
