@@ -1,9 +1,0 @@
-Declare the barrel jack as a 12 V 2 A wall supply, set the RS-485 pair as a terminated bus class, and tell me every finding that changed as a result.
-
-Good! Now for RS-485: I need to know which two pins or net names form your RS-485 pair. RS-485 uses an A (or CAN_H, CANH) and B (or CAN_L, CANL) differential pair. Could you tell me:
-
-    Where are your RS-485 A and B pins? (e.g., "J1.1 and J1.2" or "a header, pin names "A" and "B"" or "nets named RS485_A and RS485_B")
-    What termination resistor value? (standard RS-485 is 120 Ω across A–B)
-
-Once you tell me, I'll declare the signal class and run analyze_design to show you all findings.
-
